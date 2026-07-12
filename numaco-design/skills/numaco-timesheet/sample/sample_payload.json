@@ -1,0 +1,28 @@
+{
+  "client_legal_name": "Acme Labs AG",
+  "client_address": ["Industriestrasse 12", "CH-8600 Duebendorf"],
+  "project_title": "Chromatogram report archival service",
+  "period_label": "Q2 2026",
+  "period_start": "2026-04-01",
+  "period_end": "2026-06-30",
+  "reference": "TS-261912-Q2",
+  "consultant": "Alex Muster",
+  "entries": [
+    {"date": "2026-04-03", "description": "Kick-off and scoping: reviewed the export archive and agreed the capture points.", "hours": 3.5},
+    {"date": "2026-04-07", "description": "Analysed representative CDS export files and catalogued the active report templates.", "hours": 6.0},
+    {"date": "2026-04-09", "description": "Set up the rendering service skeleton and the development environment.", "hours": 4.0},
+    {"date": "2026-04-14", "description": "Implemented the report layout engine for the two most common templates.", "hours": 7.5},
+    {"date": "2026-04-17", "description": "Review call with the client team; walked through the first rendered samples.", "hours": 2.0},
+    {"date": "2026-04-23", "description": "Extended the layout engine to the remaining templates and fixed pagination issues.", "hours": 6.5},
+    {"date": "2026-05-05", "description": "Implemented the archive integration: rendered PDFs written next to the source export.", "hours": 7.0},
+    {"date": "2026-05-08", "description": "Job keying and duplicate handling; reprocessing path for failed capture jobs.", "hours": 5.5},
+    {"date": "2026-05-12", "description": "End to end test run against the staging archive; logged and triaged findings.", "hours": 6.0},
+    {"date": "2026-05-19", "description": "Resolved the findings from the staging run and hardened the error handling.", "hours": 4.5},
+    {"date": "2026-05-27", "description": "Client review of the staging results; agreed the acceptance criteria.", "hours": 2.5},
+    {"date": "2026-06-04", "description": "Acceptance test support and defect fixes during the client test window.", "hours": 5.0},
+    {"date": "2026-06-10", "description": "Drafted the operator runbook: deployment, health checks, batch reprocessing.", "hours": 4.0},
+    {"date": "2026-06-16", "description": "Handover session with the operations team, including a runbook walkthrough.", "hours": 3.0},
+    {"date": "2026-06-24", "description": "Final cleanup, versioned release build, and project closure notes.", "hours": 3.5}
+  ],
+  "notes": "All hours were recorded against SOW 261912. Travel time is not included."
+}

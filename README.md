@@ -12,12 +12,13 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
 
 - **numaco-design** (branded output engine). Turns Markdown or a JSON payload
   into Numaco branded, print ready PDFs through one shared renderer and one brand
-  core. It carries three model invoked skills: `numaco-report` (reports, memos,
+  core. It carries four model invoked skills: `numaco-report` (reports, memos,
   one-pagers, handovers, solution designs, letters, with a line-items table that
-  computes totals), `numaco-sow` (an interactive Statement of Work drafter), and
-  `numaco-slide-deck` (branded 1920x1080 presentations). Every PDF is verified
-  through CoreGraphics, the engine macOS Preview uses, rather than a Chromium
-  preview.
+  computes totals), `numaco-sow` (an interactive Statement of Work drafter),
+  `numaco-timesheet` (branded timesheets and hours reports, grouped by month,
+  hours-only or with computed amounts), and `numaco-slide-deck` (branded
+  1920x1080 presentations). Every PDF is verified through CoreGraphics, the
+  engine macOS Preview uses, rather than a Chromium preview.
 - **review-kit** (markdown co-authoring plus release QA, with mobile sync). Ships
   `obsidian-versioned-review` (the green-mark versioned review loop for
   co-authoring a doc over rounds), `qa-audit` (the release QA log workflow), and a

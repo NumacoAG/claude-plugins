@@ -3,3 +3,9 @@ __pycache__/
 *.pyc
 .DS_Store
 design-exploration/
+
+# generated sample artifacts (run the sample builders to recreate them)
+skills/numaco-timesheet/sample/sample_timesheet.pdf
+skills/numaco-timesheet/sample/sample_timesheet.html
+skills/numaco-sow/sample/sample_sow.pdf
+skills/numaco-sow/sample/sample_sow.html
