@@ -1,0 +1,319 @@
+/* ============================================================================
+   Numaco Signature - locked presentation stylesheet (shared module).
+   Cover + interior + @page watermark + running header/footer. Self-contained
+   ready: __JBM__ (JetBrains Mono woff2 base64) and __WM__ (light corner
+   watermark data URI) are filled by signature.assemble(); Manrope is prepended
+   from brand-core. The category font sizes are the LOCKED type scale (the
+   var(--fs-*, DEFAULT) fallbacks are the final sizes; nothing sets the vars,
+   so they render at those defaults). The three tuned colours are baked literal:
+   cover eyebrow/labels #bcc3d1, section sub-labels #777f8d, running header
+   #656b77.
+   ============================================================================ */
+
+@font-face{
+  font-family:'JetBrains Mono'; font-style:normal; font-weight:100 800;
+  src:url(data:font/woff2;base64,__JBM__) format('woff2'); font-display:block;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+:root{
+  --navy:#183060; --navy-deep:#0f1f3d; --ink:#14181f; --body:#2a3346;
+  --grey:#5c6474; --grey2:#8a93a3; --hair:#e3e7ee; --hair2:#eef1f5;
+  --amber:#c98a14; --paper:#ffffff; --zebra:#fafbfc; --tint-total:#e8edf7;
+  --font-sans:'Manrope','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+
+html{ -webkit-font-smoothing:antialiased; text-rendering:geometricPrecision; }
+body{
+  font-family:var(--font-sans); color:var(--body); background:var(--paper);
+  font-size:9.6pt; line-height:1.56; font-weight:400;
+  font-feature-settings:"tnum" 1,"lnum" 1;
+}
+
+/* ===================================================================
+   Paged sheet: clean simple footer + whisper header, hairline rules and
+   the faint corner N drawn as definite-mm @page backgrounds. No frame,
+   no register marks. The cover is page one, margin 0, no chrome.
+   =================================================================== */
+@page{
+  size:A4;
+  margin:26mm 20mm 22mm 20mm;
+  background:
+    url(__WM__) right top / 101mm auto no-repeat,
+    linear-gradient(#dbe0e9,#dbe0e9) 20mm 18.4mm / 170mm 0.25mm no-repeat,
+    linear-gradient(#dbe0e9,#dbe0e9) 20mm 281mm / 170mm 0.3mm no-repeat;
+  @top-left{ content:element(rhL); }
+  @top-right{ content:element(rhR); }
+  @bottom-left{ content:element(rfL); }
+  @bottom-right{
+    content:"Page " counter(page) " of " counter(pages);
+    font-family:'JetBrains Mono',monospace; font-size:6.2pt; letter-spacing:.04em; color:#8a93a3;
+  }
+}
+@page:first{
+  margin:0; background:none;
+  @top-left{content:none} @top-right{content:none}
+  @bottom-left{content:none} @bottom-right{content:none}
+}
+
+.rhL{ position:running(rhL); font-family:var(--font-mono); font-size:7pt;
+  letter-spacing:.08em; text-transform:uppercase; color:#656b77; }
+.rhL b{ color:var(--navy); font-weight:500; }
+.rhR{ position:running(rhR); font-family:var(--font-mono); font-size:7pt;
+  letter-spacing:.08em; text-transform:uppercase; color:#656b77; text-align:right; }
+.rhR em{ color:var(--amber); font-style:normal; }
+.rfL{ position:running(rfL); font-family:var(--font-mono); font-size:6.2pt;
+  letter-spacing:.06em; color:#8a93a3; }
+.rfL b{ color:var(--navy); font-weight:500; letter-spacing:.02em; }
+
+/* ===================================================================
+   Cover: special navy full-bleed
+   =================================================================== */
+.cover{ position:relative; width:210mm; height:297mm; overflow:hidden;
+  background:var(--navy); color:#fff; break-after:page; }
+.cv-glow{ position:absolute; inset:0;
+  background:
+    radial-gradient(135% 95% at 85% 18%, rgba(122,152,208,0.24), rgba(24,48,96,0) 56%),
+    radial-gradient(120% 80% at 6% 104%, rgba(7,16,36,0.60), rgba(24,48,96,0) 52%); }
+.cv-n{ position:absolute; right:-7mm; top:127mm; width:180mm; height:180mm; opacity:.11; }
+.cv-wordmark{ position:absolute; left:20mm; top:23mm; width:49mm; height:auto; }
+.cv-tag{ position:absolute; right:20mm; top:24mm; text-align:right;
+  font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.11em; text-transform:uppercase;
+  color:rgba(255,255,255,.48); line-height:1.7; }
+.cv-rule{ position:absolute; left:20mm; right:20mm; top:40mm; height:0.25mm;
+  background:rgba(255,255,255,.16); }
+.cv-lockup{ position:absolute; left:20mm; right:20mm; top:100mm; }
+.cv-eyebrow{ display:flex; align-items:center; gap:4mm;
+  font-family:var(--font-mono); font-size:7.4pt; letter-spacing:.12em; text-transform:uppercase;
+  color:#bcc3d1; margin-bottom:7mm; }
+.cv-eyebrow .dot{ width:2.4mm; height:2.4mm; border-radius:50%; background:var(--amber); flex:none; }
+.cv-eyebrow .sep{ color:rgba(255,255,255,.28); }
+.cv-eyebrow .doc{ color:#bcc3d1; font-weight:600; letter-spacing:.08em; }
+.cv-title{ font-family:var(--font-sans); font-weight:800; font-size:41pt; line-height:1.0;
+  letter-spacing:-0.022em; color:#fff; max-width:158mm; margin-bottom:8mm; }
+.cv-sub{ font-size:11.5pt; line-height:1.52; color:rgba(255,255,255,.74);
+  max-width:122mm; font-weight:400; }
+.cv-meta{ position:absolute; left:20mm; right:20mm; bottom:37mm;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:8mm;
+  padding-top:5.5mm; border-top:0.25mm solid rgba(255,255,255,.18); }
+.cv-meta .mk{ font-family:var(--font-mono); font-size:5.9pt; letter-spacing:.1em;
+  text-transform:uppercase; color:#bcc3d1; margin-bottom:2.2mm; }
+.cv-meta .mv{ font-size:10.5pt; color:#fff; font-weight:600; line-height:1.22; letter-spacing:-.01em; }
+.cv-meta .mv .u{ display:block; font-family:var(--font-mono); font-size:6.8pt; font-weight:400;
+  color:rgba(255,255,255,.58); margin-top:1mm; letter-spacing:.02em; }
+.cv-foot{ position:absolute; left:20mm; right:20mm; bottom:19mm;
+  display:flex; justify-content:space-between; align-items:center;
+  font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.09em; text-transform:uppercase;
+  color:rgba(255,255,255,.44); }
+
+/* ===================================================================
+   Section system (interior). 01 / 02 mono amber numbers beside a
+   Manrope heading, thin navy rule over each section. Sober.
+   =================================================================== */
+main{ counter-reset:none; }
+.block-eyebrow{ display:flex; align-items:center; gap:3mm;
+  font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.1em; text-transform:uppercase;
+  color:#777f8d; margin:0 0 3.5mm; }
+.block-eyebrow .dot{ width:2mm; height:2mm; border-radius:50%; background:var(--amber); flex:none; }
+
+/* Plain block flow (never grid) so a section fragments cleanly across pages;
+   the number rides in the gutter as an absolute mark that shows once, at the
+   section start. Grid on .sec collapses its content column when it breaks. */
+.sec{ position:relative; border-top:0.4mm solid var(--navy);
+  padding-top:4.5mm; margin-top:9mm; }
+.sec.first{ margin-top:2mm; }
+.sec-no{ position:absolute; left:0; top:5.6mm; font-family:var(--font-mono); font-weight:600;
+  font-size:12pt; color:var(--amber); letter-spacing:.02em; line-height:1; }
+.sec-no.apx{ font-size:7pt; letter-spacing:.09em; top:6.4mm; }
+.sec-main{ padding-left:16mm; }
+.sec-h{ font-family:var(--font-sans); font-weight:700; font-size:16.5pt; letter-spacing:-0.014em;
+  color:var(--ink); line-height:1.05; break-after:avoid; }
+.sec-tag{ display:block; font-family:var(--font-mono); font-size:6pt; letter-spacing:.1em;
+  text-transform:uppercase; color:#777f8d; margin-top:2.2mm; break-after:avoid; }
+.sec-body{ margin-top:3.5mm; }
+.sec-body>p{ margin-top:3mm; max-width:158mm; }
+.sec-body>p:first-child{ margin-top:0; }
+.lead{ font-size:10.3pt; line-height:1.5; color:var(--ink); font-weight:400; }
+
+h3.sub{ font-family:var(--font-mono); font-weight:600; font-size:7pt; letter-spacing:.1em;
+  text-transform:uppercase; color:#777f8d; margin:6.5mm 0 1.5mm;
+  padding-bottom:1.4mm; border-bottom:0.25mm solid var(--hair); }
+
+/* item lists: deliverables / exclusions / assumptions / options / components */
+.items{ margin-top:2.5mm; }
+.item{ display:grid; grid-template-columns:12mm 1fr; column-gap:4mm; padding:3mm 0;
+  border-top:0.25mm solid var(--hair2); break-inside:avoid; }
+.item:first-child{ border-top:none; padding-top:1mm; }
+.item .code{ font-family:var(--font-mono); font-weight:600; font-size:9pt; color:var(--navy);
+  letter-spacing:.01em; }
+.item .code b{ color:var(--amber); font-weight:600; }
+.item.excl .code{ color:var(--grey2); }
+.item.excl .code b{ color:var(--grey); }
+.item .isum{ font-weight:600; font-size:9.8pt; color:var(--ink); letter-spacing:-.006em;
+  margin-bottom:.7mm; }
+.item .isum .otag{ font-family:var(--font-mono); font-size:5.8pt; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--amber); border:0.3mm solid var(--amber);
+  padding:.4mm 1.4mm; margin-left:2.5mm; vertical-align:1.2pt; }
+.item .ibody{ color:var(--grey); font-size:9pt; line-height:1.5; }
+
+/* prose bullets (what we solve / risks) */
+ul.spec{ list-style:none; margin:2.5mm 0 0; }
+ul.spec li{ position:relative; padding-left:7mm; margin-top:2.6mm; color:var(--grey);
+  font-size:9pt; line-height:1.5; break-inside:avoid; }
+ul.spec li::before{ content:""; position:absolute; left:0; top:2.3mm; width:3.5mm; height:0.5mm;
+  background:var(--amber); }
+ul.spec li b{ color:var(--ink); font-weight:700; }
+
+/* ===================================================================
+   Data / effort tables: mono uppercase headers, tabular figures,
+   emphasised total, dashed-separated optional add-on.
+   =================================================================== */
+table.data{ width:100%; border-collapse:collapse; margin-top:4mm;
+  font-variant-numeric:tabular-nums; }
+table.data th{ font-family:var(--font-mono); font-weight:500; font-size:6.2pt; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--grey2); text-align:left; padding:0 3mm 2.2mm 0;
+  border-bottom:0.4mm solid var(--navy); }
+table.data td{ padding:2.6mm 3mm 2.6mm 0; border-bottom:0.25mm solid var(--hair2);
+  font-size:9pt; vertical-align:top; }
+table.data td.num, table.data th.num{ text-align:right; font-family:var(--font-mono);
+  font-weight:500; white-space:nowrap; padding-right:0; }
+table.data td.ref{ font-family:var(--font-mono); font-size:8pt; color:var(--grey2); }
+table.data td.ws{ font-weight:500; color:var(--ink); }
+table.data td.env{ font-family:var(--font-mono); font-size:8.2pt; color:var(--navy); font-weight:500; }
+
+tr.total td{ border-top:0.5mm solid var(--navy); border-bottom:none; padding-top:3mm;
+  font-weight:700; background:var(--tint-total); }
+tr.total td.ws{ font-family:var(--font-mono); font-size:7pt; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--navy); font-weight:600; }
+tr.total td.num{ font-size:11.5pt; color:var(--navy); font-weight:700; }
+tr.total td.amt{ background:linear-gradient(var(--amber),var(--amber)) left bottom / 100% 0.7mm no-repeat, var(--tint-total); }
+
+/* Zebra: a whisper of navy tint on alternating body rows. Total, add-on and the
+   report totals stack are excluded so they keep their own treatment. Print
+   backgrounds are on, so the fills render. */
+table.data tbody tr:nth-child(even):not(.total):not(.addon):not(.subrule):not(.totrow) td{ background:var(--zebra); }
+
+tr.addon td{ border-top:0.4mm dashed var(--grey2); color:var(--grey); font-style:italic; }
+tr.addon td.ref{ color:var(--amber); font-style:normal; }
+tr.addon td.ws{ font-style:italic; color:var(--grey); font-weight:400; }
+tr.addon td.ws .otag{ font-family:var(--font-mono); font-size:5.6pt; letter-spacing:.08em;
+  color:var(--amber); border:0.3mm solid var(--amber); padding:.4mm 1.4mm; margin-left:3mm;
+  text-transform:uppercase; font-style:normal; vertical-align:1pt; }
+
+/* report line-item totals stack */
+.totrow td{ border-bottom:none; padding-top:1.7mm; padding-bottom:0; }
+.totrow td.k{ text-align:right; font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--grey); }
+.totrow.grand td{ background:var(--tint-total); }
+.totrow.grand td.k{ color:var(--navy); font-weight:600; padding-top:3mm; }
+.totrow.grand td.num{ font-size:11.5pt; font-weight:700; color:var(--navy); padding-top:3mm;
+  border-top:0.5mm solid var(--navy);
+  background:linear-gradient(var(--amber),var(--amber)) left bottom / 100% 0.7mm no-repeat, var(--tint-total); }
+.subrule td{ border-top:0.4mm solid var(--navy); padding:0; height:0; }
+
+/* ===================================================================
+   Parties, terms, activation, callouts, clauses
+   =================================================================== */
+.parties{ display:grid; grid-template-columns:1fr 1fr; border:0.25mm solid var(--hair);
+  margin-top:1mm; break-inside:avoid; }
+.party{ padding:6mm; }
+.party+.party{ border-left:0.25mm solid var(--hair); background:#f7f9fc; }
+.party .role{ font-family:var(--font-mono); font-size:5.9pt; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--amber); margin-bottom:3mm; }
+.party .nm{ font-family:var(--font-sans); font-weight:800; font-size:14pt; color:var(--ink);
+  letter-spacing:-.012em; margin-bottom:2.4mm; }
+.party .addr{ font-family:var(--font-mono); font-size:7.7pt; line-height:1.75; color:var(--grey); }
+.party .cx{ margin-top:4mm; padding-top:3mm; border-top:0.25mm solid var(--hair); }
+.party .cl{ font-family:var(--font-mono); font-size:5.7pt; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--grey2); margin-bottom:1.8mm; }
+.party .cn{ font-size:9pt; font-weight:600; color:var(--ink); margin-top:1.6mm; }
+.party .cn:first-of-type{ margin-top:0; }
+.party .cn span{ font-weight:400; color:var(--grey); }
+.party .ce{ font-family:var(--font-mono); font-size:7.4pt; color:var(--navy); }
+
+.terms{ border-top:0.4mm solid var(--navy); margin-top:3mm; }
+.term{ padding:3mm 0; border-bottom:0.25mm solid var(--hair2); display:flex; gap:8mm;
+  align-items:baseline; break-inside:avoid; }
+.term .tk{ font-family:var(--font-mono); font-size:6.2pt; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--grey2); width:42mm; flex:none; padding-top:0.5mm; }
+.term .tv{ font-size:9.6pt; color:var(--ink); font-weight:400; line-height:1.4; }
+.term .tv .big{ font-family:var(--font-mono); font-weight:600; color:var(--navy); }
+
+.callout{ background:var(--navy); color:#fff; padding:4.5mm 5.5mm; margin-top:5mm;
+  border-radius:1mm; break-inside:avoid; }
+.callout .ck{ display:block; font-family:var(--font-mono); font-size:5.8pt; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--amber); margin-bottom:1.8mm; }
+.callout p{ font-size:9pt; line-height:1.55; color:rgba(255,255,255,.92); }
+.callout em{ color:#e6cf98; font-style:normal; font-weight:600; }
+
+.note{ border-left:0.6mm solid var(--amber); background:#fbfaf6; padding:4mm 5mm; margin-top:5mm;
+  font-size:8.8pt; line-height:1.5; color:var(--grey); break-inside:avoid; }
+.note .nk{ display:block; font-family:var(--font-mono); font-size:5.8pt; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--amber); margin-bottom:1.6mm; }
+
+.sign{ display:grid; grid-template-columns:1fr 1fr; gap:14mm; margin-top:8mm; break-inside:avoid; }
+.sigbox{ height:15mm; border-bottom:0.4mm solid var(--ink); }
+.sig .sl{ font-family:var(--font-mono); font-size:5.8pt; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--grey2); margin-top:2.4mm; }
+.sig .sn{ font-size:9pt; color:var(--ink); font-weight:600; margin-top:1mm; }
+
+.clauses{ margin-top:2.5mm; }
+.clause{ display:grid; grid-template-columns:13mm 1fr; column-gap:5mm; padding:3mm 0;
+  border-top:0.25mm solid var(--hair2); break-inside:avoid; }
+.clause:first-child{ border-top:none; padding-top:1mm; }
+.clause .cn{ font-family:var(--font-mono); font-size:7.6pt; font-weight:600; color:var(--navy); }
+.clause .ct b{ display:block; font-weight:700; color:var(--ink); font-size:9pt; margin-bottom:.7mm; }
+.clause .ct{ color:var(--grey); font-size:8.7pt; line-height:1.5; }
+
+.pagebreak{ break-before:page; }
+
+/* ============ category font-size bindings (print + tuner) ============ */
+body{ font-size:var(--fs-body,10pt); }
+.cv-title{ font-size:var(--fs-cover_title,40pt); }
+.cv-sub{ font-size:var(--fs-cover_sub,12pt); }
+.cv-eyebrow{ font-size:calc(var(--fs-cover_label,10pt) * 1.05714); }
+.cv-meta .mk{ font-size:calc(var(--fs-cover_label,10pt) * 0.84286); }
+.cv-meta .mv{ font-size:var(--fs-cover_meta_val,11pt); }
+.cv-meta .mv .u{ font-size:calc(var(--fs-cover_meta_val,11pt) * 0.64762); }
+.cv-tag{ font-size:var(--fs-cover_tag,6pt); }
+.cv-foot{ font-size:var(--fs-cover_foot,7pt); }
+.block-eyebrow{ font-size:calc(var(--fs-sub_label,11pt) * 0.98462); }
+.sec-h{ font-size:var(--fs-sec_h,16.5pt); }
+.sec-no{ font-size:var(--fs-sec_no,13pt); }
+.sec-tag{ font-size:calc(var(--fs-sub_label,11pt) * 0.92308); }
+h3.sub{ font-size:calc(var(--fs-sub_label,11pt) * 1.07692); }
+.lead{ font-size:calc(var(--fs-body,10pt) * 1.07292); }
+.item .ibody{ font-size:calc(var(--fs-body,10pt) * 0.9375); }
+ul.spec li{ font-size:calc(var(--fs-body,10pt) * 0.9375); }
+.callout p{ font-size:calc(var(--fs-body,10pt) * 0.9375); }
+.item .isum{ font-size:var(--fs-item_title,10pt); }
+.clause .ct b{ font-size:calc(var(--fs-item_title,10pt) * 0.91837); }
+.item .code{ font-size:var(--fs-ref_code,12pt); }
+table.data td.ref{ font-size:calc(var(--fs-ref_code,12pt) * 0.88889); }
+.clause .cn{ font-size:calc(var(--fs-ref_code,12pt) * 0.84444); }
+.item .isum .otag{ font-size:calc(var(--fs-ref_code,12pt) * 0.64444); }
+tr.addon td.ws .otag{ font-size:calc(var(--fs-ref_code,12pt) * 0.62222); }
+table.data td{ font-size:var(--fs-table_body,9pt); }
+table.data td.env{ font-size:calc(var(--fs-table_body,9pt) * 0.91111); }
+.term .tv{ font-size:calc(var(--fs-table_body,9pt) * 1.06667); }
+.party .cn{ font-size:var(--fs-table_body,9pt); }
+.sig .sn{ font-size:var(--fs-table_body,9pt); }
+table.data th{ font-size:var(--fs-micro_label,9pt); }
+.totrow td.k{ font-size:calc(var(--fs-micro_label,9pt) * 1.03226); }
+tr.total td.ws{ font-size:calc(var(--fs-micro_label,9pt) * 1.12903); }
+.term .tk{ font-size:var(--fs-micro_label,9pt); }
+.callout .ck{ font-size:calc(var(--fs-micro_label,9pt) * 0.93548); }
+.note .nk{ font-size:calc(var(--fs-micro_label,9pt) * 0.93548); }
+.party .role{ font-size:calc(var(--fs-micro_label,9pt) * 0.95161); }
+.party .cl{ font-size:calc(var(--fs-micro_label,9pt) * 0.91935); }
+.sig .sl{ font-size:calc(var(--fs-micro_label,9pt) * 0.93548); }
+.sec-no.apx{ font-size:calc(var(--fs-micro_label,9pt) * 1.12903); }
+tr.total td.num{ font-size:var(--fs-total_fig,11.5pt); }
+.totrow.grand td.num{ font-size:var(--fs-total_fig,11.5pt); }
+.party .nm{ font-size:var(--fs-party_nm,14pt); }
+.party .addr{ font-size:var(--fs-party_detail,10pt); }
+.party .ce{ font-size:calc(var(--fs-party_detail,10pt) * 0.96104); }
+.note{ font-size:var(--fs-fineprint,8pt); }
+.clause .ct{ font-size:calc(var(--fs-fineprint,8pt) * 0.98864); }

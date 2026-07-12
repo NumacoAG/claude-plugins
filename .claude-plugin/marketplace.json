@@ -1,0 +1,65 @@
+{
+  "name": "numaco",
+  "owner": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "description": "Numaco AG's public Claude Code plugins",
+  "plugins": [
+    {
+      "name": "numaco-design",
+      "source": "./numaco-design",
+      "version": "0.1.0",
+      "description": "Numaco branded output engine: renders slide decks, statements of work, and reports from markdown to branded PDF.",
+      "author": {
+        "name": "Numaco AG",
+        "url": "https://numaco.ch"
+      },
+      "license": "MIT",
+      "category": "productivity"
+    },
+    {
+      "name": "review-kit",
+      "source": "./review-kit",
+      "version": "0.1.0",
+      "description": "Markdown review trio (green-mark co-authoring, release QA) plus a dual-vault-sync engine for laptop and mobile Obsidian.",
+      "author": {
+        "name": "Numaco AG",
+        "url": "https://numaco.ch"
+      },
+      "license": "MIT",
+      "category": "productivity"
+    },
+    {
+      "name": "mcp-mail",
+      "source": "./mcp-mail",
+      "version": "0.1.0",
+      "description": "Self-hosted MCP server giving Claude read and write control over your own email, calendar, and Drive across Microsoft 365, Gmail, and IMAP.",
+      "author": {
+        "name": "Numaco AG",
+        "url": "https://numaco.ch"
+      },
+      "license": "MIT",
+      "category": "productivity"
+    },
+    {
+      "name": "numaco-hub",
+      "source": "./numaco-hub",
+      "version": "0.1.0",
+      "description": "Front door for the Numaco plugins: guided setup skill and an on-demand update command.",
+      "author": {
+        "name": "Numaco AG",
+        "url": "https://numaco.ch"
+      },
+      "license": "MIT",
+      "category": "productivity"
+    },
+    {
+      "name": "clockify-mcp",
+      "source": {
+        "source": "github",
+        "repo": "NumacoAG/clockify-mcp"
+      }
+    }
+  ]
+}

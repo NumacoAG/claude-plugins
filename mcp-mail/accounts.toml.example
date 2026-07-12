@@ -1,0 +1,79 @@
+# mcp-mail — accounts configuration (EXAMPLE)
+#
+# Copy this file to ~/.config/mcp-mail/accounts.toml and edit it to describe
+# YOUR accounts. Delete the providers/accounts you don't use — you can run with
+# any subset (even a single account).
+#
+# The `id` of each account is arbitrary; you choose it. It's the handle you'll
+# use in Claude ("read my work-m365 inbox") and, by default, the name of this
+# account's macOS Keychain entry.
+#
+# >>> SECRETS NEVER GO IN THIS FILE. <<<
+# Client secrets, refresh tokens and app-specific passwords all live in the
+# macOS Keychain. INSTALL.md explains exactly what to store and how.
+
+# --- Microsoft 365 / Outlook (auth-code + PKCE via MSAL) ----------------------
+# Requires an Azure AD (Microsoft Entra) app registration. Paste its
+# Application (client) ID and Directory (tenant) ID below. No client secret is
+# used (public client + PKCE). On first use a browser opens for you to sign in;
+# the refresh token is then cached in the Keychain automatically — for M365 you
+# store nothing by hand.
+[[account]]
+id = "work-m365"
+provider = "m365"
+address = "you@yourcompany.com"
+client_id = "<Application (client) ID from the Azure portal>"
+tenant_id = "<Directory (tenant) ID from the Azure portal>"
+auto_send = false
+
+# --- Gmail / Google Workspace (OAuth) -----------------------------------------
+# All your Google accounts share ONE OAuth client, stored in the Keychain as a
+# JSON blob  {"client_id":"...","client_secret":"..."}  under
+#   (service="mcp-mail", account="google-oauth-config").
+# Each account's own refresh token is cached per-account on first sign-in.
+# Add as many gmail accounts as you like (personal + Workspace).
+[[account]]
+id = "personal-gmail"
+provider = "gmail"
+address = "you@gmail.com"
+auto_send = false
+
+[[account]]
+id = "work-gmail"
+provider = "gmail"
+address = "you@your-workspace-domain.com"
+auto_send = false
+
+# --- IMAP / SMTP (iCloud, Yahoo, Fastmail, generic) ---------------------------
+# Auth is an app-specific password generated at the provider, stored in the
+# Keychain under (service="mcp-mail", account=<this id>). Host/port are
+# provider-specific; the two examples below are iCloud and Yahoo.
+[[account]]
+id = "icloud"
+provider = "imap"
+address = "you@icloud.com"
+imap_host = "imap.mail.me.com"
+imap_port = 993
+smtp_host = "smtp.mail.me.com"
+smtp_port = 587
+auto_send = false
+
+[[account]]
+id = "yahoo"
+provider = "imap"
+address = "you@yahoo.com"
+imap_host = "imap.mail.yahoo.com"
+imap_port = 993
+smtp_host = "smtp.mail.yahoo.com"
+smtp_port = 587
+auto_send = false
+
+# --- Optional per-account overrides (rarely needed) ---------------------------
+# All accounts default to Keychain (service="mcp-mail", account=<id>). Set
+# auto_send = true to skip the per-message send confirmation for an account.
+# You can also override the Keychain names explicitly if you want:
+#   keychain_service = "mcp-mail"
+#   keychain_user    = "some-custom-name"
+# and, for gmail only, where the shared OAuth client blob lives:
+#   oauth_keychain_service = "mcp-mail"
+#   oauth_keychain_user    = "google-oauth-config"

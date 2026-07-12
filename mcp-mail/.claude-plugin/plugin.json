@@ -1,0 +1,23 @@
+{
+  "name": "mcp-mail",
+  "version": "0.1.0",
+  "description": "Self-hosted MCP server giving Claude full read+write control over your email across Microsoft 365, Gmail/Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, ...). See INSTALL.md to set it up.",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "mcpServers": {
+    "mail": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}/server",
+        "run",
+        "python",
+        "-m",
+        "mcp_mail"
+      ]
+    }
+  }
+}
