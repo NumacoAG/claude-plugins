@@ -120,7 +120,7 @@ body).
 Use ordinary Markdown tables. Mark a column's alignment row with `---:` to
 right-align that column, which is what you want for numeric columns (days,
 amounts). Start the first cell of a row with `=` to turn that row into the navy
-bold total row, for example `| =BASE TOTAL | 48.0 | CHF 76'800.- |`.
+bold total row, for example `| =BASE TOTAL | 48.0 | CHF 48'000.- |`.
 
 ### Line-items table (for quotations, POs, invoices)
 
@@ -136,8 +136,8 @@ Swiss-style (`CHF 1'500.00`).
   "tax_rate": 0.081,
   "tax_label": "VAT 8.1%",
   "items": [
-    {"description": "Module license, annual", "qty": 1, "unit_price": 18000},
-    {"description": "Compute, per node per month", "qty": 12, "unit_price": 320}
+    {"description": "Module license, annual", "qty": 1, "unit_price": 12000},
+    {"description": "Compute, per node per month", "qty": 12, "unit_price": 250}
   ]
 }
 :::

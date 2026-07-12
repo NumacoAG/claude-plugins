@@ -108,7 +108,7 @@ Artifact spec:
 - Table with editable rows. Columns: *Workstream / item*, *Days*, (computed) *Amount CHF*. Plus a Delete-row button on each row.
 - Do NOT add a cap / budget-ceiling column. We tried that, and it added more friction than it solved.
 - Rate card at top: editable list rate (CHF/hour), editable customer discount (%), computed effective day rate.
-- Live totals row: total days, total CHF amount (Swiss formatting: apostrophe thousands separator, `.-` for zero cents, e.g. `12'800.-`).
+- Live totals row: total days, total CHF amount (Swiss formatting: apostrophe thousands separator, `.-` for zero cents, e.g. `12'000.-`).
 - A separate "base engagement only" readout so the user can see that number even when the table also includes add-ons.
 - A *Commit to SOW* control that copies a formatted summary the user can paste into chat.
 - Prefill the artifact with a sensible first draft (propose workstreams from the approved scope). Tell the user they can iterate as many times as they want and the chat stays clean until they commit.
@@ -118,13 +118,13 @@ Example committed payload:
   ```
   Commit these budget values to the Acme SOW:
 
-  List rate: CHF 150.00 / hour (CHF 1200.00 / day)
-  Customer discount: 35%
-  Effective rate: CHF 780.00 / day
+  List rate: CHF 125.00 / hour (CHF 1000.00 / day)
+  Customer discount: 10%
+  Effective rate: CHF 900.00 / day
 
   Workstreams:
-  - Base engagement: 1.25 days = CHF 975.00
-  - Add-on #1 CSV validation: 0.25 days = CHF 195.00
+  - Base engagement: 1.25 days = CHF 1125.00
+  - Add-on #1 CSV validation: 0.25 days = CHF 225.00
   ...
   ```
 
@@ -166,7 +166,7 @@ The JSON payload contract (same as the legacy renderer, see the header of `scrip
   "exclusions": [{"summary": "short label", "body": "full sentence."}],
   "assumptions": [{"summary": "short label", "body": "full sentence."}],
   "workstreams": [{"name": "Scope and analysis", "days": 3.0}],
-  "day_rate_chf": 1400,
+  "day_rate_chf": 1000,
   "payment_days": 60,
   "optional_addons": [{"number": 1, "title": "CSV schema validation", "days": 1.0, "body": "business-impact pitch then what is delivered"}],
   "day_rate_narrative": "optional override (e.g. list rate then discount then effective rate)",
@@ -207,7 +207,7 @@ Default target: the customer's project folder, in a `SOW/` subfolder.
 - Third person throughout: *"Numaco will..."* not *"we will..."*. Customer referred to as *"the client"* in definitional contexts and by legal name elsewhere.
 - Future tense for commitments: *"Numaco will deliver..."*, *"The solution will support..."*.
 - Bullets for lists of deliverables, exclusions, assumptions. Prose for context and commercial paragraphs.
-- CHF amounts formatted Swiss-style with apostrophe thousands separator and `.-` for zero cents, e.g. `CHF 12'800.-`.
+- CHF amounts formatted Swiss-style with apostrophe thousands separator and `.-` for zero cents, e.g. `CHF 12'000.-`.
 - No quotes around currency symbols or amounts.
 - Dates in ISO-like form where possible (e.g. `May 2026`), not `05/26`.
 

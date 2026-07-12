@@ -28,7 +28,7 @@ Payload schema (unchanged contract):
   "exclusions":        [{"summary": "short label", "body": "full sentence."}],
   "assumptions":       [{"summary": "short label", "body": "full sentence."}],
   "workstreams":       [{"name": "Scope and analysis", "days": 3.0}, ...],
-  "day_rate_chf":      1400,
+  "day_rate_chf":      1000,
   "payment_days":      60,
   "optional_addons":   [                                  // optional; omit or []
     {"number": 2, "title": "CSV schema validation", "days": 1.0, "body": "..."}

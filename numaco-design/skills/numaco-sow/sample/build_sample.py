@@ -52,7 +52,7 @@ PAYLOAD = {
         {"name": "Archive integration and job keying", "days": 3.5},
         {"name": "Testing, runbook, and handover", "days": 2.5},
     ],
-    "day_rate_chf": 1400,
+    "day_rate_chf": 1000,
     "payment_days": 60,
     "optional_addons": [
         {"number": 1, "title": "Historical archive backfill",

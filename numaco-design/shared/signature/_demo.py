@@ -15,7 +15,7 @@ os.environ["PATH"] = "/opt/homebrew/bin:" + os.environ.get("PATH", "")
 import signature as S  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-RATE = 1200
+RATE = 1000
 
 cov = S.cover(
     "Service Proposal",
