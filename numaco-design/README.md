@@ -62,11 +62,24 @@ Everything the renderer produces is self-contained and offline: all CSS is
 inlined, all images are embedded as data URIs, and the fonts (Manrope, JetBrains
 Mono) are embedded. No network access is needed at render time.
 
+## Personal defaults
+
+Your rate card and your supplier contact block (the two Numaco-side names
+printed in every SOW's Parties table) live in a per-user defaults file, never
+in the plugin. Copy `defaults.toml.example` from the plugin root to
+`~/.config/numaco-design/defaults.toml` and fill in your own values, or set the
+`NUMACO_DESIGN_DEFAULTS` environment variable to point at a custom path. The
+file stays on your machine: it is per-user, machine-local, and never committed
+to any repo. If it is missing, SOW PDFs fall back to placeholder contact names,
+and the SOW skill will ask for your rates and offer to create the file for you
+the first time you draft an SOW.
+
 ## Layout
 
 ```
 numaco-design/
 ├── .claude-plugin/plugin.json     plugin manifest
+├── defaults.toml.example          template for your per-user defaults file
 ├── shared/
 │   ├── brand-core/                design tokens, embedded Manrope, logos, doc CSS
 │   ├── render/                    Paged.js renderer (puppeteer-core), pdfcheck

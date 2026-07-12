@@ -71,7 +71,12 @@ independent; do them in any order and pause after each one.
 - **numaco-design** (branded slide decks, statements of work, and reports): run
   `npm install` in the plugin's `shared/render` directory to install the render
   toolchain, and make sure a Chrome or Chromium browser is installed on the
-  machine (the renderer drives it to produce PDFs).
+  machine (the renderer drives it to produce PDFs). Then create your personal
+  defaults file: copy `defaults.toml.example` from the numaco-design plugin
+  root to `~/.config/numaco-design/defaults.toml` and fill in your rate card
+  and your contact block. The file stays on your machine and is never
+  committed anywhere. If you skip this, the SOW skill will ask for your rates
+  on first use and offer to write the file for you.
 - **clockify-mcp** (time tracking): complete the browser OAuth to your own
   Clockify workspace on first use. The plugin talks to Clockify with your own
   authorization; no one else's workspace is involved.

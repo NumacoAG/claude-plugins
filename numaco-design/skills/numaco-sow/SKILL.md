@@ -38,12 +38,11 @@ Website: `https://www.numaco.ch`
 
 **Ignore** the Moehlin address in any stale template or T&Cs footer. The commercial register may still show Moehlin; SOWs always use Islisberg. Postcode is `8905` (Aargau / Bremgarten district). `9805` is a typo that travelled through older SOWs, do not reproduce it.
 
-Default Numaco contacts in the SOW Parties block:
+Numaco contacts in the SOW Parties block, and your rate card:
 
-- **Financials**: Finance contact, `finance@numaco.ch`
-- **Engineering**: Your Name, `you@numaco.ch`
+The supplier contact block (the two Numaco-side contacts printed in every SOW's Parties table) and your rate card come from YOUR local defaults file at `~/.config/numaco-design/defaults.toml` (template: `defaults.toml.example` in the plugin root; override the path with the `NUMACO_DESIGN_DEFAULTS` environment variable). That file is per-user and machine-local: it is never part of the plugin or any repo. The renderer (`scripts/build_sow.py`) reads the contacts from it directly. If the file is missing, the PDF falls back to placeholder names ("Finance contact", "Your Name"), so configure it before producing a real SOW.
 
-These constants are baked into `scripts/build_sow.py` (address, VAT, and the two contacts). The renderer hardcodes the supplier side of the parties table so it can never drift.
+The address and VAT are baked into `scripts/build_sow.py` as true company constants, identical for every colleague, so the supplier side of the parties table can never drift on those.
 
 ## Conversation protocol
 
@@ -89,15 +88,16 @@ Ask the user to push back on wording. Iterate until they approve.
 
 ### Step 4 — Rate lookup and selection
 
-Before drafting the commercial section, run the rate lookup procedure:
+Before drafting the commercial section, establish the rate in two layers: the user's personal rate card first, then the customer's own history as an override on top.
 
-1. Search the customer's project folder for prior SOWs. Parse each to extract the day rate (or hourly rate x 8). Report to the user: *"For &lt;Customer&gt;, you used CHF X / day in SOW &lt;number&gt; dated &lt;date&gt;."* List all prior SOWs if more than one.
-2. If no prior SOW for this customer, look up 2 to 3 comparable customers, using this definition of *similar*:
+1. **Read the personal defaults file first.** Load `~/.config/numaco-design/defaults.toml` (or the path in the `NUMACO_DESIGN_DEFAULTS` environment variable, if set). If the file exists and `list_rate_chf_per_hour` is greater than 0, use it as the starting rate card for the budget artifact (list rate, standard discount, payment days). If the file is missing or the rate is 0, ask the user for their list rate, their standard discount, and their name plus email for the supplier contact block; then OFFER to write `~/.config/numaco-design/defaults.toml` for them (start from `defaults.toml.example` in the plugin root) so future SOWs start correctly and their name appears in the Parties block instead of the placeholders.
+2. **Search the customer's project folder for prior SOWs**; this is the customer-specific override on top of the personal rate card. Parse each to extract the day rate (or hourly rate x 8). Report to the user: *"For &lt;Customer&gt;, you used CHF X / day in SOW &lt;number&gt; dated &lt;date&gt;."* List all prior SOWs if more than one.
+3. If no prior SOW for this customer, look up 2 to 3 comparable customers, using this definition of *similar*:
    - Same industry (pharma, food, industrial, chemicals, etc.), plus
    - Same engagement type (T&M consulting vs. fixed-price vs. software resale), plus
    - Most recent first (last 12 months preferred).
    - If fewer than two matches fit, relax to "same engagement type only" and flag the match quality as loose.
-3. Present the findings in chat. Then ask the user which rate to use for this SOW. Accept their answer as given.
+4. Present the findings in chat. Then ask the user which rate to use for this SOW. Accept their answer as given.
 
 ### Step 5 — Interactive budget artifact
 
@@ -107,13 +107,15 @@ Artifact spec:
 
 - Table with editable rows. Columns: *Workstream / item*, *Days*, (computed) *Amount CHF*. Plus a Delete-row button on each row.
 - Do NOT add a cap / budget-ceiling column. We tried that, and it added more friction than it solved.
-- Rate card at top: editable list rate (CHF/hour), editable customer discount (%), computed effective day rate.
+- Rate card at top: editable list rate (CHF/hour), editable customer discount (%), computed effective day rate. Prefill it from the personal defaults file established in Step 4, adjusted by any customer-specific override the user chose.
 - Live totals row: total days, total CHF amount (Swiss formatting: apostrophe thousands separator, `.-` for zero cents, e.g. `12'000.-`).
 - A separate "base engagement only" readout so the user can see that number even when the table also includes add-ons.
 - A *Commit to SOW* control that copies a formatted summary the user can paste into chat.
 - Prefill the artifact with a sensible first draft (propose workstreams from the approved scope). Tell the user they can iterate as many times as they want and the chat stays clean until they commit.
 
 Example committed payload:
+
+> **GUARDRAIL: the numbers in the example below are deliberately absurd placeholders** (nobody bills CHF 12.50 per hour). Never carry an example number from this file into a real SOW. Real rates come only from the user's defaults file, from prior SOWs for that customer, or from the user directly.
 
   ```
   Commit these budget values to the Acme SOW:
@@ -152,6 +154,8 @@ Only after the user says yes:
 6. Present the PDF to the user and ask them to review. When the user asks for edits, update the payload, re-render, re-check, present again. Loop until the user says *approve*.
 
 The JSON payload contract (same as the legacy renderer, see the header of `scripts/build_sow.py` for the authoritative copy):
+
+> **GUARDRAIL: `day_rate_chf: 100` below is a deliberately absurd placeholder**, as are all example amounts in this file. Never carry an example number into a real SOW payload. Real rates come only from the user's defaults file, from prior SOWs for that customer, or from the user directly.
 
 ```json
 {

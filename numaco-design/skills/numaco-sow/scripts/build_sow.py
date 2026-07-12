@@ -37,6 +37,13 @@ Payload schema (unchanged contract):
   "total_amount_narrative": "...",   // optional override
   "output_path":            "/absolute/path/to/final.pdf"  // optional; else argv[2]
 }
+
+The supplier side of the Parties block (the two Numaco contacts) is not part of
+the payload: it is read from the per-user defaults file at
+$NUMACO_DESIGN_DEFAULTS or ~/.config/numaco-design/defaults.toml (template:
+defaults.toml.example in the plugin root). If no defaults file exists, the
+placeholder contacts below are used. Rates are never read from that file at
+render time; the payload stays fully explicit.
 """
 import html
 import json
@@ -56,14 +63,64 @@ import signature as S      # noqa: E402  (the LOCKED Numaco Signature design)
 REFERENCES = SKILL_DIR / "references"
 
 # ---- Numaco company constants (do not change without the user's explicit approval) ----
+# Address and VAT are true company constants, identical for every colleague, so
+# they stay hardcoded here.
 NUMACO_ADDRESS = ["Haldenstrasse 3c", "CH-8905 Islisberg", "Switzerland"]
 NUMACO_VAT = "CHE-107.980.861 MWST"
-NUMACO_CONTACTS = [
+
+# Placeholder supplier contacts, used only when no per-user defaults file
+# exists. Real contacts come from the user's local defaults.toml (see below).
+PLACEHOLDER_CONTACTS = [
     {"name": "Finance contact", "role": "Engagement lead",
      "email": "finance@numaco.ch"},
     {"name": "Your Name", "role": "Solution architect",
      "email": "you@numaco.ch"},
 ]
+
+
+def _load_defaults():
+    """Read the per-user defaults TOML, or return {} when unavailable.
+
+    The path is $NUMACO_DESIGN_DEFAULTS if set, else
+    ~/.config/numaco-design/defaults.toml. The file is personal machine-local
+    config (the user's rate card and contact block); it is never part of the
+    plugin or any repo. A missing file, an unreadable or invalid file, or a
+    Python without tomllib all silently fall back to {}.
+    """
+    try:
+        import tomllib
+        path = os.environ.get("NUMACO_DESIGN_DEFAULTS") or os.path.join(
+            os.path.expanduser("~"), ".config", "numaco-design", "defaults.toml")
+        with open(path, "rb") as fh:
+            return tomllib.load(fh)
+    except Exception:
+        return {}
+
+
+def _supplier_contacts():
+    """Contacts for the SOW Parties block: user defaults, else placeholders.
+
+    Only entries carrying both a name and an email are accepted. Note this is
+    contacts only: rates are never injected from the defaults file at render
+    time (the payload stays fully explicit; the rate flows through the skill
+    conversation).
+    """
+    contacts = []
+    try:
+        raw = _load_defaults().get("sow", {}).get("contacts", [])
+        for c in raw:
+            if isinstance(c, dict) and c.get("name") and c.get("email"):
+                contacts.append({
+                    "name": html.escape(str(c["name"]), quote=False),
+                    "role": html.escape(str(c.get("role", "") or ""), quote=False),
+                    "email": html.escape(str(c["email"]), quote=False),
+                })
+    except Exception:
+        contacts = []
+    return contacts or PLACEHOLDER_CONTACTS
+
+
+NUMACO_CONTACTS = _supplier_contacts()
 
 # ---- Verbatim boilerplate (preserve exactly; commercial + activation + separator) ----
 ADDON_SEP_LABEL = ("Optional add-ons (priced separately, not included in the "

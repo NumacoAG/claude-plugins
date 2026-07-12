@@ -1,0 +1,28 @@
+# Per-user defaults for the numaco-design plugin.
+#
+# Copy this file to ~/.config/numaco-design/defaults.toml (or set the
+# NUMACO_DESIGN_DEFAULTS environment variable to a custom path). The copy
+# stays on your machine: it is never part of the plugin, never part of any
+# repo, and never leaves your computer. It holds YOUR rate card and YOUR
+# contact block, so every SOW you produce carries your own name and your
+# real rates without either ever being committed anywhere.
+#
+# The values below are placeholders. Fill in your own before producing a
+# real SOW. A rate of 0 means "not configured" and the SOW skill will ask.
+
+[sow]
+# Your company list rate. 0 means "not configured": the SOW skill will ask.
+list_rate_chf_per_hour = 0
+standard_discount_pct = 0
+payment_days = 60
+
+# The two supplier-side contacts printed in every SOW's Parties block.
+[[sow.contacts]]
+name = "Finance contact"
+role = "Engagement lead"
+email = "finance@numaco.ch"
+
+[[sow.contacts]]
+name = "Your Name"
+role = "Solution architect"
+email = "you@numaco.ch"
