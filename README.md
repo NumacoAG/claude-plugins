@@ -73,9 +73,9 @@ This packet is built so that your data stays yours.
   and skills run on your machine, or talk straight to your own provider's API from
   your machine. There is no shared Numaco server sitting between you and your
   email, calendar, files, or time entries.
-- **No one else can see your mail or your data.** Not Numaco, not any other user
-  of these plugins. Your email, calendar, documents, and time entries are visible
-  only to you.
+- **No one else can see your mail or your data.** Not the author, not Numaco, not
+  any other user of these plugins. Your email, calendar, documents, and time
+  entries are visible only to you.
 - **Secrets live in your OS keychain.** OAuth tokens, app passwords, and API keys
   go to your operating system's credential store (macOS Keychain, Windows
   Credential Manager, Linux Secret Service), never in plaintext in the repository
