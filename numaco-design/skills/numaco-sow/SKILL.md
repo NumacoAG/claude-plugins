@@ -118,13 +118,13 @@ Example committed payload:
   ```
   Commit these budget values to the Acme SOW:
 
-  List rate: CHF 125.00 / hour (CHF 1000.00 / day)
+  List rate: CHF 12.50 / hour (CHF 100.00 / day)
   Customer discount: 10%
-  Effective rate: CHF 900.00 / day
+  Effective rate: CHF 90.00 / day
 
   Workstreams:
-  - Base engagement: 1.25 days = CHF 1125.00
-  - Add-on #1 CSV validation: 0.25 days = CHF 225.00
+  - Base engagement: 1.25 days = CHF 112.50
+  - Add-on #1 CSV validation: 0.25 days = CHF 22.50
   ...
   ```
 
@@ -157,7 +157,7 @@ The JSON payload contract (same as the legacy renderer, see the header of `scrip
 {
   "sow_number": "261912",
   "issue_date": "July 2026",
-  "project_title": "ZPL to PDF label archival service",
+  "project_title": "Chromatogram report archival service",
   "client_legal_name": "Acme Labs AG",
   "client_address": ["Industriestrasse 12", "CH-8600 Duebendorf", "Switzerland"],
   "client_contacts": [{"name": "Petra Meier", "email": "petra.meier@acmelabs.ch", "role": "Head of IT"}],
@@ -166,7 +166,7 @@ The JSON payload contract (same as the legacy renderer, see the header of `scrip
   "exclusions": [{"summary": "short label", "body": "full sentence."}],
   "assumptions": [{"summary": "short label", "body": "full sentence."}],
   "workstreams": [{"name": "Scope and analysis", "days": 3.0}],
-  "day_rate_chf": 1000,
+  "day_rate_chf": 100,
   "payment_days": 60,
   "optional_addons": [{"number": 1, "title": "CSV schema validation", "days": 1.0, "body": "business-impact pitch then what is delivered"}],
   "day_rate_narrative": "optional override (e.g. list rate then discount then effective rate)",

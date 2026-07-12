@@ -43,8 +43,9 @@ machine; nothing is ever sent back to the author or anyone else.
 
 ## Re-sharing this package
 
-If you pass mcp-mail on to someone else, send **this package** (this folder, or
-the zip it came in) exactly as you received it. Do not substitute a local
+If you pass mcp-mail on to someone else, point them at the public repository
+(`NumacoAG/claude-plugins` on GitHub) or send this folder exactly as you
+received it. Do not substitute a local
 working copy or a development checkout: those can contain machine-specific file
 paths and the previous user's own account details. This packaged build is the
 one that has been vetted as clean.

@@ -84,7 +84,7 @@ the user to that plugin's own documentation:
 - **mcp-mail**: its `README.md` and `INSTALL.md` (provider by provider
   walkthrough, troubleshooting, security notes).
 - **review-kit**: its `README.md` and the `review-kit` orientation skill.
-- **numaco-design**: its `README.md` and `HANDOFF.md`.
+- **numaco-design**: its `README.md`.
 - **clockify-mcp**: its `README.md`.
 
 When a step fails, hand the exact error text back to Claude together with the

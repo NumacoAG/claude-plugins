@@ -82,12 +82,12 @@ once the pilot has proven the contract in production.
 
 | Workstream | Days | Amount |
 |---|---:|---:|
-| Discovery and contract design | 8.0 | CHF 8'000.- |
-| Template store and migration tooling | 12.0 | CHF 12'000.- |
-| Render service and printer dialect | 15.0 | CHF 15'000.- |
-| Event bus and operations board | 7.0 | CHF 7'000.- |
-| Pilot cutover and hypercare | 6.0 | CHF 6'000.- |
-| =BASE ENGAGEMENT TOTAL | 48.0 | CHF 48'000.- |
+| Discovery and contract design | 8.0 | CHF 800.- |
+| Template store and migration tooling | 12.0 | CHF 1'200.- |
+| Render service and printer dialect | 15.0 | CHF 1'500.- |
+| Event bus and operations board | 7.0 | CHF 700.- |
+| Pilot cutover and hypercare | 6.0 | CHF 600.- |
+| =BASE ENGAGEMENT TOTAL | 48.0 | CHF 4'800.- |
 
 > Billing is for time actually worked. The amounts above are a planning estimate;
 > any scope added during delivery joins through a purchase-order amendment rather
@@ -105,10 +105,10 @@ part of the fixed estimate above.
   "tax_rate": 0.081,
   "tax_label": "VAT 8.1%",
   "items": [
-    {"description": "Central print module license, annual", "qty": 1, "unit_price": 12000},
-    {"description": "Render service compute, per node per month", "qty": 12, "unit_price": 250},
-    {"description": "Onboarding and template migration, per site", "qty": 3, "unit_price": 3000},
-    {"description": "Standard support, per month", "qty": 12, "unit_price": 500}
+    {"description": "Central print module license, annual", "qty": 1, "unit_price": 1200},
+    {"description": "Render service compute, per node per month", "qty": 12, "unit_price": 25},
+    {"description": "Onboarding and template migration, per site", "qty": 3, "unit_price": 300},
+    {"description": "Standard support, per month", "qty": 12, "unit_price": 50}
   ]
 }
 :::

@@ -225,25 +225,27 @@ It asks for the account id (must match `accounts.toml` exactly) and the password
 
 ## 6. Install the plugin in Claude Code
 
-In a Claude Code session, register this folder as a plugin marketplace and install
-from it. Use the **absolute path** to the repo.
+In a Claude Code session, install from the public Numaco marketplace:
 
-**macOS / Linux:**
+```
+/plugin marketplace add NumacoAG/claude-plugins
+/plugin install mcp-mail@numaco
+```
+
+If you are instead working from a local copy of this folder, register that folder
+as a marketplace with its **absolute path**:
+
 ```
 /plugin marketplace add /absolute/path/to/mcp-mail
-/plugin install mcp-mail@mcp-mail-marketplace
+/plugin install mcp-mail@numaco
 ```
 
-**Windows** (either slash style works):
-```
-/plugin marketplace add C:\Users\you\path\to\mcp-mail
-/plugin install mcp-mail@mcp-mail-marketplace
-```
+(Windows: either slash style works in the path.)
 
 Then **restart your Claude Code session**.
 
-> CLI equivalents: `claude plugin marketplace add <path>` then
-> `claude plugin install mcp-mail@mcp-mail-marketplace`.
+> CLI equivalents: `claude plugin marketplace add NumacoAG/claude-plugins` then
+> `claude plugin install mcp-mail@numaco`.
 
 The manifest registers the MCP server automatically using
 `${CLAUDE_PLUGIN_ROOT}/server` (resolved to wherever the plugin is installed) —

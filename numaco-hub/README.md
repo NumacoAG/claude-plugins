@@ -44,5 +44,5 @@ numaco-hub/
 
 The hub is deliberately thin. For anything beyond first setup, read the target
 plugin's own documentation: mcp-mail's `README.md` and `INSTALL.md`,
-review-kit's `README.md`, numaco-design's `README.md` and `HANDOFF.md`, and
+review-kit's `README.md`, numaco-design's `README.md`, and
 clockify-mcp's `README.md`.

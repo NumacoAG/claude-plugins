@@ -128,8 +128,7 @@ New plugin versions arrive on their own once you enable auto update for the
   orchestrates everything below.
 - **numaco-design**: run `npm install --prefix shared/render` inside the plugin to
   install the render toolchain, and make sure a Chrome or Chromium browser is
-  installed (the renderer drives it to produce PDFs). See the plugin's `README.md`
-  and `HANDOFF.md`.
+  installed (the renderer drives it to produce PDFs). See the plugin's `README.md`.
 - **review-kit**: works out of the box. Mobile sync stays dormant until you opt in:
   track a doc with `/dvsync-track` to mirror it between your laptop and your phone
   vault. See the plugin's `README.md` and its orientation skill.
