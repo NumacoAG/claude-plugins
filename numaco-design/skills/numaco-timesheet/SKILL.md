@@ -1,6 +1,6 @@
 ---
 name: numaco-timesheet
-description: Produce a Numaco AG branded timesheet (hours report) as a PDF in the locked Signature document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, "bill the hours for <project>", "timesheet for <customer> <period>", "prepare the Q2 hours for <customer>", or wants to turn tracked time (for example Clockify entries) into a customer facing hours document. Covers both hours-only sheets and sheets with a computed amount column. The skill runs as a short conversation: it establishes client, project, and period, collects and cleans the entries, confirms hours-only versus with-amounts, renders the branded PDF, and verifies it through CoreGraphics.
+description: Produce a Numaco AG branded timesheet (hours report) as a PDF in the locked Signature document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, "bill the hours for <project>", "timesheet for <customer> <period>", "prepare the Q2 hours for <customer>", or wants to turn tracked time (for example Clockify entries) into a customer facing hours document. Covers hours-only sheets, sheets with a computed amount column, and sheets that track utilisation against an hours budget with a chart. The skill runs as a short conversation: it establishes client, project, and period, collects and cleans the entries, confirms budget and hours-only versus with-amounts, renders the branded PDF, and verifies it through CoreGraphics.
 status: beta
 version: 0.1.0
 ---
@@ -11,12 +11,23 @@ version: 0.1.0
 
 Produces a Numaco branded timesheet as a print ready A4 PDF in the locked
 Numaco Signature document style, the same visual system as the SOW and report
-skills. A timesheet is a working document, so there is no navy cover page:
-page one opens directly in the interior style with the standard running header
-and footer, a compact document header, a meta grid (client, project, period,
-reference, consultant), one entries table (grouped by month with subtotals when
-the period spans several months, closed by the navy total row), a two column
-approval block, and the Numaco address and VAT foot line.
+skills. Version 2 of the layout:
+
+- **Page one is the navy Signature cover**: project title, a "Timesheet for
+  <period>" subtitle, and the meta band with Client, Engagement, Period,
+  Report date, Prepared by, Contact, and Reference (when present).
+- **Page two opens the content** with the standard running header and footer:
+  an Overview section with an optional **budget utilisation stat band** (budget,
+  logged to date, utilisation, remaining, plus a slim progress bar) and an
+  always present **hours chart** (navy bars per bucket, an ink cumulative line,
+  and a dashed amber budget line when a budget is set). The chart is pure
+  inline SVG generated in Python; no chart library.
+- **The activity log** is one compact zebra striped table: Date, an optional By
+  column for multi consultant sheets, Description, Hours, and an optional
+  Amount column. When the period spans several months the table carries month
+  band subheader rows and month subtotal rows; the navy total row closes it.
+- **The approval block** (text plus the two signature lines and the Numaco
+  address and VAT foot line) always stays together on one page.
 
 The engine is `scripts/build_timesheet.py`: it takes a JSON payload, validates
 it strictly, composes the document from the shared Signature module
@@ -29,6 +40,8 @@ footer) and the CoreGraphics fidelity check.
 - "Timesheet for <customer> <period>", "hours report", "Stundenrapport".
 - "Monthly hours", "quarterly hours", "bill the hours for <project>".
 - "Turn my Clockify hours for <customer> into a timesheet."
+- "Where do we stand against the support budget", when the answer should be a
+  customer facing document.
 - Any request to produce a customer facing record of hours worked, unless the
   user explicitly wants an unbranded document.
 
@@ -45,7 +58,11 @@ Extract from the user's message: the client legal name, the project title, and
 the period (a label such as "Q2 2026" or "April 2026", plus the exact start and
 end dates). Ask only for what is genuinely missing. For repeat customers,
 pre-fill the legal name and address from prior documents for the same customer
-and ask the user to confirm.
+and ask the user to confirm. Two optional labels refine the cover: an
+`engagement` line (a short description of the engagement, shown in the cover
+meta band; the project title serves when absent) and the `report_date` (pass
+today's date; the engine never calls the clock itself, so the payload stays
+reproducible).
 
 ### Step 2: obtain the entries
 
@@ -65,7 +82,23 @@ Two paths, in order of preference:
    (date, description, hours per row), or for a CSV file to parse. Present the
    parsed rows for review exactly as above.
 
-### Step 3: confirm hours-only versus with-amounts
+For sheets covering more than one consultant, set `by` on every entry (short
+names like "Petra M."); the By column renders as soon as any entry carries one.
+
+### Step 3: establish the budget (when there is one)
+
+Ask whether the engagement runs against an hours budget. The budget figure
+comes **from the SOW for that engagement or from the user**; never invent one
+and never take one from the examples in this skill. When a budget is given,
+the overview page gains the utilisation stat band and the chart gains the
+dashed budget line. When the budget spans longer than the reported period (an
+annual budget reported quarterly, for example), also supply `prior_hours`: the
+hours already logged under the same budget before the period start, taken from
+the earlier timesheets or the finance overview. Without it the utilisation
+figures would mislead. Without a budget the chart still renders, hours and
+cumulative only.
+
+### Step 4: confirm hours-only versus with-amounts
 
 Ask whether the sheet should show hours only (the default, and the usual
 choice when the timesheet accompanies a separate invoice) or an Amount column.
@@ -76,7 +109,7 @@ path), from prior documents for the same customer, or from the user directly.
 numbers are deliberately absurd placeholders. Each amount is computed as hours
 divided by 8, multiplied by the day rate.
 
-### Step 4: render
+### Step 5: render
 
 Assemble the JSON payload (schema below) and render:
 
@@ -88,14 +121,15 @@ The engine writes a self-contained HTML sidecar next to the PDF and renders the
 PDF through the shared paged pipeline. Save the PDF to the customer's project
 folder, never into any repository.
 
-### Step 5: verify through CoreGraphics
+### Step 6: verify through CoreGraphics
 
 Verify the PDF through CoreGraphics, never a Chromium preview: run
 `numaco_render.pdfcheck(pdf, name, pages="1,2,...")` (the sample script shows
 the call) and inspect the rasterised pages, or open the PDF in macOS Preview.
-Check page one carries the running header and watermark, the month subtotals
-add up, and the total row matches the sum. Present the PDF to the user and
-iterate until they approve.
+Check the cover carries the meta band, the chart shows the bars and the
+cumulative line (and the budget line when set), the month subtotals add up,
+and the total row matches the sum. Present the PDF to the user and iterate
+until they approve.
 
 ## Payload schema
 
@@ -103,20 +137,25 @@ iterate until they approve.
 > (nobody bills CHF 100 per day), as is every example amount in this skill.
 > Never carry an example number into a real timesheet payload. Real rates come
 > only from the user's defaults file, from prior documents for that customer,
-> or from the user directly.
+> or from the user directly. The same discipline applies to `budget_hours`:
+> real budgets come from the SOW or the user, never from examples.
 
 ```json
 {
   "client_legal_name": "Acme Labs AG",
   "client_address": ["Industriestrasse 12", "CH-8600 Duebendorf"],
   "project_title": "Chromatogram report archival service",
+  "engagement": "Archival service build, rollout, and support",
   "period_label": "Q2 2026",
   "period_start": "2026-04-01",
   "period_end": "2026-06-30",
+  "report_date": "2026-07-02",
   "reference": "TS-261912-Q2",
   "consultant": "Alex Muster",
+  "budget_hours": 120,
+  "prior_hours": 30,
   "entries": [
-    {"date": "2026-04-03", "description": "Kick-off and scoping.", "hours": 3.5}
+    {"date": "2026-04-03", "by": "Petra M.", "description": "Kick-off and scoping.", "hours": 3.5}
   ],
   "day_rate_chf": 100,
   "notes": "All hours were recorded against SOW 261912.",
@@ -124,28 +163,57 @@ iterate until they approve.
 }
 ```
 
-- `client_address`, `reference`, `consultant`, `day_rate_chf`, `notes`, and
-  `output_path` are optional; everything else is required.
+- `client_address`, `engagement`, `report_date`, `reference`, `consultant`,
+  `budget_hours`, `prior_hours`, `day_rate_chf`, `notes`, `output_path`, and
+  the per entry `by` are optional; everything else is required.
+- `engagement` present: shown as the Engagement line in the cover meta band;
+  absent: the project title serves as that line.
+- `report_date` is the date shown on the cover. Pass today's date; when absent
+  the engine falls back to `period_end`. The engine never reads the clock, so
+  a given payload always renders the same document.
+- `budget_hours` present (number > 0): the overview gains the budget
+  utilisation stat band and the chart gains the dashed budget line, with the
+  y axis scaled to the larger of budget and cumulative hours.
+- `prior_hours` (number >= 0, default 0): hours already logged under the same
+  budget before `period_start`. Counted into logged to date, utilisation,
+  remaining, and the progress bar (with a small carry caption under the band),
+  and used as the starting baseline of the chart's cumulative line. The bars
+  stay period hours only. Supply it whenever the budget spans longer than the
+  reported period.
+- Entries with `by` (short consultant names): the By column renders between
+  Date and Description as soon as any entry carries one; when none do, the
+  column is omitted entirely.
 - `day_rate_chf` present: an Amount column appears, each amount computed at
   hours / 8 x rate, with per month subtotal amounts and a total amount. Absent:
   the sheet is hours-only and no money appears anywhere.
 - `consultant` absent: the engine falls back to the second contact in the
   user's defaults file (the same `[[sow.contacts]]` block the SOW skill uses);
-  if there is none, the consultant row is omitted.
+  if there is none, the consultant line is omitted.
 - Validation is strict and fails loudly: every entry date must be an ISO date
-  inside the period, every hours value must be greater than zero, and missing
-  required fields abort the render with a list of every violation.
+  inside the period, every hours value must be greater than zero,
+  `budget_hours` and `day_rate_chf` must be positive when given, `prior_hours`
+  must not be negative, and missing required fields abort the render with a
+  list of every violation.
 
 ## Formatting rules (enforced by the engine)
 
 - Dates render as `dd.mm.yyyy`; the period line reads
   `<label> (dd.mm.yyyy to dd.mm.yyyy)`.
-- Hours render with one decimal (`3.5`, `8.0`); quarter hours keep two.
+- Hours render with one decimal (`3.5`, `8.0`); quarter hours keep two. Stat
+  figures and chart captions drop the decimals on whole values (`120 h`).
 - Amounts render Swiss style through the shared module: apostrophe thousands
   separator and `.-` for whole francs (`CHF 12'000.-`), amounts excluding VAT.
+- Chart bucketing: monthly buckets when the period spans more than one
+  calendar month, else weekly buckets on ISO weeks (labeled `W24` style with
+  the week's date range in small text). Empty buckets stay on the axis so the
+  timeline is continuous.
 - When the period spans several months, the table groups entries under a month
-  subheader row with a quiet subtotal row per month; the closing total row is
-  the same navy band with the amber accent as the SOW effort estimate total.
+  band subheader row with a quiet subtotal row per month; the closing total
+  row is the same navy band with the amber accent as the SOW effort estimate
+  total. Entry rows are compact and zebra striped; the stripes restart at each
+  month so the bands never shift the pattern.
+- When utilisation exceeds 100 percent, the progress bar caps at full and the
+  remaining figure shows the overrun as a negative in the amber accent.
 - Prose on the sheet never uses dashes as punctuation.
 
 ## GUARDRAILS
@@ -154,10 +222,12 @@ iterate until they approve.
   project folder. Never commit a rendered timesheet, its HTML sidecar, or a
   real payload to this repository; this repository is public.
 - **The bundled sample is fictional.** Client Acme Labs AG, invented project,
-  invented entries. It proves the pipeline, nothing more.
+  invented consultants, invented entries and budget. It proves the pipeline,
+  nothing more.
 - **Every example number is a deliberately absurd placeholder** (CHF 12.50 per
   hour, CHF 100 per day, 10 percent discount). Real rates never come from
-  examples; see Step 3.
+  examples; see Step 4. Real budgets come from the SOW or the user; see
+  Step 3.
 - **Internal tracking notes never leak.** Descriptions pulled from a time
   tracker are reviewed and rewritten for the customer before rendering.
 
@@ -177,15 +247,16 @@ numaco-timesheet/
 
 The engine composes the locked Signature module (`shared/signature/`) and the
 shared renderer (`shared/render/numaco_render.py`). It never invents a new
-render path and never hand-writes a bespoke stylesheet; the two small style
-blocks it carries (first page interior chrome for the coverless layout, month
-group rows in the entries table) are composed strictly from the locked
-Signature tokens.
+render path and never hand-writes a bespoke stylesheet; the one style block it
+carries (compact zebra log rows, month bands, the stat band, the chart legend,
+the keep together approval) is composed strictly from the locked Signature
+tokens, and the chart SVG bakes the same palette values.
 
 ## Relationship to the other skills
 
 - `numaco-sow`: Statements of Work, quotations framed as offers, proposals.
-  The SOW's Acceptance term is what makes this timesheet the invoicing basis.
+  The SOW's Acceptance term is what makes this timesheet the invoicing basis,
+  and its effort estimate is where the hours budget comes from.
 - `numaco-report`: the general branded document engine for reports, memos,
   handovers, and letters.
 - `numaco-timesheet`: this skill, the hours report member of the transactional
