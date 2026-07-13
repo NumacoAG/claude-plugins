@@ -82,8 +82,10 @@ Two paths, in order of preference:
    (date, description, hours per row), or for a CSV file to parse. Present the
    parsed rows for review exactly as above.
 
-For sheets covering more than one consultant, set `by` on every entry (short
-names like "Petra M."); the By column renders as soon as any entry carries one.
+Set `by` on every entry when the sheet should show who filed each line, and
+always on multi-consultant sheets. Format: first name plus surname initial with
+a period, for example "Petra M."; the By column renders as soon as any entry
+carries one.
 
 ### Step 3: establish the budget (when there is one)
 
