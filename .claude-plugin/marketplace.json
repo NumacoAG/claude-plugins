@@ -9,7 +9,7 @@
     {
       "name": "numaco-design",
       "source": "./numaco-design",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Numaco branded output engine: renders slide decks, statements of work, reports, and timesheets from markdown to branded PDF.",
       "author": {
         "name": "Numaco AG",

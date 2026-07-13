@@ -133,6 +133,21 @@ cumulative line (and the budget line when set), the month subtotals add up,
 and the total row matches the sum. Present the PDF to the user and iterate
 until they approve.
 
+## Recurring timesheets (series consistency)
+
+A timesheet is usually one of a series (monthly or quarterly for the same
+engagement), and the series must look identical from period to period. The
+layout itself is code, so per-document consistency is guaranteed; what can
+drift are the payload options. Rules:
+
+- Save the payload JSON next to each filed PDF. Start the next period from the
+  previous period's payload: change only `period_*`, `report_date`, `entries`,
+  and `prior_hours` (carry it forward: previous `prior_hours` plus the previous
+  period's total).
+- Keep everything else identical across the series (`budget_hours`, hours-only
+  versus amounts, the By column, `reference`, `engagement`, consultant) unless
+  the engagement itself changed, and say so to the user when it does.
+
 ## Payload schema
 
 > **GUARDRAIL: `day_rate_chf: 100` below is a deliberately absurd placeholder**
