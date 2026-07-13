@@ -68,15 +68,35 @@ independent; do them in any order and pause after each one.
   Mobile sync is optional and stays dormant until you opt in: to mirror a doc
   between your laptop and your phone vault, track it with `/dvsync-track`. Until
   you track a doc, nothing is synced anywhere.
-- **numaco-design** (branded slide decks, statements of work, and reports): run
-  `npm install` in the plugin's `shared/render` directory to install the render
-  toolchain, and make sure a Chrome or Chromium browser is installed on the
-  machine (the renderer drives it to produce PDFs). Then create your personal
-  defaults file: copy `defaults.toml.example` from the numaco-design plugin
-  root to `~/.config/numaco-design/defaults.toml` and fill in your rate card
-  and your contact block. The file stays on your machine and is never
-  committed anywhere. If you skip this, the SOW skill will ask for your rates
-  on first use and offer to write the file for you.
+- **numaco-design** (branded slide decks, statements of work, reports, and
+  timesheets): nothing to preinstall; the renderer toolchain installs itself.
+  Preflight the machine by running the renderer doctor from the installed
+  plugin:
+
+  ```bash
+  python3 "$(ls -dt ~/.claude/plugins/cache/numaco/numaco-design/*/ | head -1)shared/render/numaco_render.py" doctor
+  ```
+
+  (If the plugin lives elsewhere, look up the numaco-design `installPath` in
+  `~/.claude/plugins/installed_plugins.json` and run
+  `python3 <installPath>/shared/render/numaco_render.py doctor`.)
+
+  The doctor installs the Node render dependencies on first run (`npm ci`
+  against the committed lockfile) and resolves a browser automatically: it uses
+  a system Chrome, Chromium, Edge, or Brave when one exists, and otherwise
+  downloads a private `chrome@stable` build into the plugin (about 150 MB, one
+  time). The only thing it cannot install by itself is Node.js: if the doctor
+  reports Node missing, install it with the platform package manager (macOS:
+  `brew install node`; Windows: `winget install OpenJS.NodeJS.LTS`; Linux: the
+  distro package, for example `sudo apt-get install nodejs npm`), then rerun
+  the doctor. Everything else is automatic; the doctor exits 0 when the machine
+  can render.
+
+  Then create your personal defaults file: copy `defaults.toml.example` from
+  the numaco-design plugin root to `~/.config/numaco-design/defaults.toml` and
+  fill in your rate card and your contact block. The file stays on your machine
+  and is never committed anywhere. If you skip this, the SOW skill will ask for
+  your rates on first use and offer to write the file for you.
 - **clockify-mcp** (time tracking): complete the browser OAuth to your own
   Clockify workspace on first use. The plugin talks to Clockify with your own
   authorization; no one else's workspace is involved.

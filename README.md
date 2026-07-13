@@ -127,9 +127,11 @@ New plugin versions arrive on their own once you enable auto update for the
 
 - **numaco-hub**: nothing to configure. Run its `numaco-setup` skill first; it
   orchestrates everything below.
-- **numaco-design**: run `npm install --prefix shared/render` inside the plugin to
-  install the render toolchain, and make sure a Chrome or Chromium browser is
-  installed (the renderer drives it to produce PDFs). See the plugin's `README.md`.
+- **numaco-design**: nothing to preinstall; the renderer toolchain installs
+  itself on first use. The guided setup runs the renderer doctor
+  (`python3 shared/render/numaco_render.py doctor` inside the plugin), which
+  installs the Node dependencies and finds or downloads a browser automatically.
+  See the plugin's `README.md`.
 - **review-kit**: works out of the box. Mobile sync stays dormant until you opt in:
   track a doc with `/dvsync-track` to mirror it between your laptop and your phone
   vault. See the plugin's `README.md` and its orientation skill.
@@ -143,9 +145,11 @@ New plugin versions arrive on their own once you enable auto update for the
 
 Install these on the machine for the plugins you use.
 
-- **numaco-design**: Node.js 18 or newer, plus a one-time
-  `npm install --prefix shared/render`, plus a Chrome or Chromium browser on the
-  machine. Python 3.11 or newer for the build engines (standard library only). The
+- **numaco-design**: Claude Code, signed in. The guided setup (or the first
+  render) installs the renderer dependencies automatically, including a private
+  Chrome build if no browser is found. Node 18 or newer is installed via your
+  package manager if absent (the renderer prints the exact command and you
+  rerun). Python 3.11 or newer for the build engines (standard library only). The
   PDF fidelity check is macOS only; rendering itself is cross-platform.
 - **mcp-mail**: Python 3.13 or newer and [`uv`](https://docs.astral.sh/uv/), plus
   provider authentication (Microsoft or Google OAuth, or an IMAP app password) for

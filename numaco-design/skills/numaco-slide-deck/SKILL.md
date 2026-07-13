@@ -61,7 +61,7 @@ Arrow keys or the on-screen nav move between slides; the canvas scales to the wi
 
 ## Rendering engine
 
-`build_deck.py` uses Playwright/Chromium if installed, otherwise system Google Chrome headless. No network access is needed; every asset is inlined. If neither engine is present, install one (`pip install playwright && playwright install chromium`, or install Google Chrome).
+`build_deck.py` uses Playwright/Chromium if installed, otherwise a browser resolved through the shared ladder in `shared/render/numaco_render.py` (env override, system Chrome, Chromium, Edge, or Brave, a previously downloaded private build, or a fresh `chrome@stable` download as the last resort). Nothing needs to be preinstalled; every asset is inlined and no network access is needed at render time.
 
 ## Design discipline
 

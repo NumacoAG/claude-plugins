@@ -11,11 +11,14 @@ things, a guided setup skill and an update command.
   or against your own credentials, no one else can see your data, secrets live in
   your OS credential store), confirms that automatic updates are enabled, then
   routes you through per-plugin setup for whatever you installed (mcp-mail,
-  review-kit, numaco-design, clockify-mcp). For numaco-design that includes
-  creating your personal defaults file (copy `defaults.toml.example` from the
-  numaco-design plugin root to `~/.config/numaco-design/defaults.toml`); the
-  SOW skill asks and offers to write it if it is missing. It ends by pointing
-  at each plugin's own README and INSTALL for the depth.
+  review-kit, numaco-design, clockify-mcp). For numaco-design nothing needs to
+  be preinstalled: the setup runs the renderer doctor, which installs the render
+  dependencies and finds or downloads a browser by itself (only a missing
+  Node.js is installed via your package manager), and then creates your personal
+  defaults file (copy `defaults.toml.example` from the numaco-design plugin root
+  to `~/.config/numaco-design/defaults.toml`); the SOW skill asks and offers to
+  write it if it is missing. It ends by pointing at each plugin's own README and
+  INSTALL for the depth.
 - **Updates** (the `/numaco-update` command). Updates are automatic at session
   start when auto update is on for the `numaco` marketplace; this command runs an
   on-demand update (`/plugin marketplace update numaco` then `/reload-plugins`)

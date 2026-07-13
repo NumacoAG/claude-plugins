@@ -44,19 +44,32 @@ memorise.
 
 ## Runtime dependencies
 
-- **Node.js 18 or newer.** The document renderer drives Paged.js through
-  `puppeteer-core`. Install the Node dependencies once:
+Claude Code, signed in. The guided setup (or the first render) installs the
+renderer dependencies automatically, including a private Chrome build if no
+browser is found. Node 18 or newer is installed via your package manager if
+absent: the renderer prints the exact command (`brew install node` on macOS,
+`winget install OpenJS.NodeJS.LTS` on Windows, the distro package on Linux) and
+you rerun.
 
-  ```bash
-  npm install --prefix shared/render
-  ```
+How the self-install works:
 
-  `shared/render/package.json` declares `puppeteer-core` (`^24.0.0`, resolved to
-  `24.43.1` in the committed lockfile). `node_modules/` is gitignored; colleagues
-  run the install locally.
-- **A Chrome or Chromium browser must be installed.** `puppeteer-core` does not
-  bundle a browser; it drives the system Chrome or Chromium. The slide-deck skill
-  uses Playwright/Chromium if present, otherwise system Google Chrome headless.
+- **Node dependencies.** On first use the renderer runs `npm ci` inside
+  `shared/render` against the committed lockfile (`puppeteer-core` `^24.0.0`,
+  resolved to `24.43.1`). `node_modules/` is gitignored.
+- **Browser resolution ladder.** Every render resolves its browser in one
+  place, in this order: the `PUPPETEER_EXECUTABLE_PATH` or
+  `NUMACO_RENDER_BROWSER` environment override; a system Chrome, Chromium,
+  Edge, or Brave (standard macOS, Windows, and Linux install locations, then
+  PATH); a private build previously downloaded under
+  `shared/render/.browsers/`; and, as a last resort, a fresh `chrome@stable`
+  download via `@puppeteer/browsers` into that folder (about 150 MB, one
+  time). The resolved executable is cached in `shared/render/.browser-path`
+  and revalidated on every run. Downloaded builds are verified by actually
+  starting the executable; a partially extracted build is repaired with the
+  system unzip or tar automatically.
+- **Doctor.** `python3 shared/render/numaco_render.py doctor` preflights the
+  whole chain (Node, npm, dependencies, browser), prints every resolved path,
+  and exits 0 only when a render could succeed on the machine.
 - **Python 3.11 or newer.** The four build engines (`build_report.py`,
   `build_sow.py`, `build_timesheet.py`, `build_deck.py`) are plain Python with
   no third-party packages; they call the shared renderer over a subprocess. No

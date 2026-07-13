@@ -9,7 +9,7 @@
     {
       "name": "numaco-design",
       "source": "./numaco-design",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "description": "Numaco branded output engine: renders slide decks, statements of work, reports, and timesheets from markdown to branded PDF.",
       "author": {
         "name": "Numaco AG",
@@ -45,7 +45,7 @@
     {
       "name": "numaco-hub",
       "source": "./numaco-hub",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Front door for the Numaco plugins: guided setup skill and an on-demand update command.",
       "author": {
         "name": "Numaco AG",

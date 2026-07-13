@@ -182,20 +182,18 @@ def assemble(slides_path: Path, out_path: Path, title: str, style: str) -> Path:
 
 # ---------------- render engines ----------------
 
-def find_chrome() -> str | None:
-    cands = [
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-        "/Applications/Chromium.app/Contents/MacOS/Chromium",
-        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-    ]
-    for c in cands:
-        if Path(c).exists():
-            return c
-    for name in ("google-chrome", "chromium", "chromium-browser", "microsoft-edge"):
-        p = shutil.which(name)
-        if p:
-            return p
-    return None
+def find_chrome(download: bool = False) -> str | None:
+    """Resolve a browser through the shared ladder in shared/render/numaco_render.py
+    (env override, system Chrome/Chromium/Edge/Brave, previously downloaded private
+    build, and, when download=True, a fresh chrome@stable download)."""
+    sys.path.insert(0, str(SKILL_ROOT.parent.parent / "shared" / "render"))
+    try:
+        import numaco_render
+        return numaco_render.resolve_browser(allow_download=download)
+    except SystemExit:
+        return None
+    finally:
+        sys.path.pop(0)
 
 
 def have_playwright() -> bool:
@@ -244,9 +242,10 @@ def render(html_path: Path, pdf_path: Path) -> None:
             return
         except Exception as e:
             print(f"playwright render failed ({e}); falling back to Chrome")
-    chrome = find_chrome()
+    chrome = find_chrome(download=True)
     if not chrome:
-        sys.exit("ERROR: no render engine. Install Playwright (pip install playwright && playwright install chromium) or Google Chrome.")
+        sys.exit("ERROR: no render engine could be resolved. Run the renderer doctor for a preflight:\n"
+                 "  python3 " + str(SKILL_ROOT.parent.parent / "shared" / "render" / "numaco_render.py") + " doctor")
     render_chrome(html_path, pdf_path, chrome)
 
 
