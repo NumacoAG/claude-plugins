@@ -1,6 +1,6 @@
 # clockify-mcp
 
-MCP server for [Clockify](https://clockify.me) — file time entries and query reports from Claude Code, Cowork, or any MCP client. Includes a `/log-session` skill that turns the conversation you just had into a confirmed time entry.
+MCP server for [Clockify](https://clockify.me) — file time entries and query reports from Claude Code, Cowork, or any MCP client. Includes a `/log-session` command that turns the conversation you just had into a confirmed time entry.
 
 - **`add_time_entry`** — file an entry with start, end, project, description.
 - **`list_time_entries`** — your entries in a date range (single project filter, auto-paginated, totals included).
@@ -94,7 +94,7 @@ You should see `clockify` listed with ~13 tools.
 > Stop my running timer.
 ```
 
-The `/log-session` skill is the dedicated end-of-session flow: it estimates duration from the conversation start, summarises what you did, asks for the project, then confirms before posting.
+The `/log-session` command is the dedicated end-of-session flow: it estimates duration from the conversation start, summarises what you did, asks for the project, then confirms before posting.
 
 ## Set your organisation's billing rules
 
