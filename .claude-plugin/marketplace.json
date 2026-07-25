@@ -21,7 +21,7 @@
     {
       "name": "review-kit",
       "source": "./review-kit",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "description": "Markdown review trio (green-mark co-authoring, release QA) plus a dual-vault-sync engine for laptop and mobile Obsidian.",
       "author": {
         "name": "Numaco AG",
@@ -45,7 +45,7 @@
     {
       "name": "numaco-hub",
       "source": "./numaco-hub",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "description": "Front door for the Numaco plugins: guided setup skill and an on-demand update command.",
       "author": {
         "name": "Numaco AG",
@@ -61,7 +61,7 @@
         "url": "https://github.com/NumacoAG/clockify-mcp.git"
       },
       "version": "0.8.0",
-      "description": "Clockify time tracking for Claude Code: file entries and scan your calendar for un-logged meetings.",
+      "description": "Clockify time tracking for Claude Code: files entries through a Numaco-hosted MCP server (your Clockify key is decrypted there per request, not kept in your keychain) and scans your calendar for un-logged meetings.",
       "author": {
         "name": "Numaco AG",
         "url": "https://numaco.ch"

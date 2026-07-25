@@ -19,6 +19,8 @@ Usage:
   build_deck.py check   --html deck.html
   build_deck.py render  --html deck.html --pdf deck.pdf
 """
+from __future__ import annotations
+
 import argparse, base64, json, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 

@@ -1,6 +1,6 @@
 {
   "name": "numaco-hub",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Front door for the Numaco Claude plugins: guided setup and an update command",
   "author": { "name": "Numaco AG", "url": "https://numaco.ch" },
   "license": "MIT",

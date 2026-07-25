@@ -16,19 +16,26 @@ Before configuring anything, make the trust model explicit. Three points:
 1. **You configure your own accounts and your own data.** Every plugin in this
    packet acts on accounts and workspaces that you own and connect yourself.
    Nothing is pre-wired to anyone else's data.
-2. **Each plugin runs locally or against your own credentials.** The MCP servers
-   and skills run on your machine (or talk straight to your own provider from
-   your machine). There is no shared Numaco server sitting in the middle of your
-   email, calendar, files, or time entries.
-3. **No one at Numaco can see your email or your data.** Not the author, not
-   Numaco, not any other user: nothing in this packet opens a channel that would
-   carry it to them. State the one exception plainly rather than glossing it:
-   whatever Claude reads for you travels to Anthropic as part of your
-   conversation, under your own Claude agreement, exactly as any file you open in
-   Claude Code does. Your secrets (OAuth tokens, app passwords, API keys) live in
-   your operating system's credential store (macOS Keychain, Windows Credential
-   Manager, Linux Secret Service), never in plaintext in the repo and never in
-   this chat.
+2. **Your mail, files, and calendar never pass through a Numaco server.**
+   `mcp-mail`, `numaco-design`, and `review-kit` run on the user's machine, or
+   talk straight to the user's own provider from that machine. Nobody at Numaco,
+   including the author, can see any of it.
+3. **`clockify-mcp` is the one exception, and you must say so unprompted.** It
+   does not reach Clockify directly. It calls a Numaco-operated MCP server on
+   Google Cloud Run, which carries the user's Clockify API key encrypted inside
+   their access token and decrypts it in memory on each request to call Clockify.
+   It keeps no database of their entries, but the key goes to that server rather
+   than into their keychain, and their time entries do pass through it. Say this
+   plainly BEFORE offering to connect Clockify, so the choice is informed, and
+   mention that the other four plugins can be installed without it.
+4. **Where data does travel.** Whatever Claude reads for the user travels to
+   Anthropic as part of the conversation, under their own Claude agreement,
+   exactly as any file they open in Claude Code does. Beyond that these plugins
+   send data only to the providers whose accounts the user connected themselves.
+   Their secrets (OAuth tokens, app passwords, API keys) live in the operating
+   system's credential store (macOS Keychain, Windows Credential Manager, Linux
+   Secret Service), never in plaintext in the repo and never in this chat, with
+   the single exception of the Clockify key described above.
 
 Do not disclose, guess, or speculate about which providers or accounts the
 author personally uses. This setup is about the user's own accounts only.
@@ -38,19 +45,34 @@ author personally uses. This setup is about the user's own accounts only.
 New plugin versions should arrive on their own, so the user is never stuck on a
 stale build. Turn on auto update for the `numaco` marketplace.
 
-Auto update is a per-user consumer setting. It lives under
-`extraKnownMarketplaces` in the user's `settings.json`: set `autoUpdate` to
-`true` for the `numaco` marketplace entry, for example:
+Auto update is a per-user consumer setting under `extraKnownMarketplaces` in the
+user's `settings.json`. **Add the `autoUpdate` key to the `numaco` entry that
+`claude plugin marketplace add` already created. Never replace that entry, and
+never drop its `source` block.** An entry carrying `autoUpdate` without `source`
+registers no marketplace at all, which silently disables every Numaco plugin with
+no error message shown anywhere.
+
+Read the file, add the one key, write it back. The `numaco` entry should end up
+looking like this, with its existing `source` intact:
 
 ```json
 {
   "extraKnownMarketplaces": {
     "numaco": {
+      "source": { "source": "github", "repo": "NumacoAG/claude-plugins" },
       "autoUpdate": true
     }
   }
 }
 ```
+
+Then verify, because this step has two failure modes and only one success mode:
+run `claude plugin list` and confirm every Numaco plugin reads `✔ enabled`. If any
+reads `✘ disabled`, the entry lost its `source`; re-running
+`claude plugin marketplace add NumacoAG/claude-plugins` merges it back and repairs
+the install in place. Note that `claude plugin marketplace list` and
+`claude plugin marketplace update numaco` both report success even in the broken
+state, so neither can be used as the check.
 
 With this on, Claude Code pulls new plugin versions from the `numaco`
 marketplace at session start. After an auto update lands, Claude Code prompts you
@@ -101,9 +123,13 @@ independent; do them in any order and pause after each one.
   fill in your rate card and your contact block. The file stays on your machine
   and is never committed anywhere. If you skip this, the SOW skill will ask for
   your rates on first use and offer to write the file for you.
-- **clockify-mcp** (time tracking): complete the browser OAuth to your own
-  Clockify workspace on first use. The plugin talks to Clockify with your own
-  authorization; no one else's workspace is involved.
+- **clockify-mcp** (time tracking): repeat the hosted-server point from section 1
+  first, then set it up. This is **not** an OAuth sign-in. Generate a personal API
+  key in Clockify (Profile settings, then API), because the next step asks you to
+  paste it and the flow gives you no way to create one mid-stream. On first use the
+  plugin sends you to a Numaco-hosted "Connect Clockify" page where you paste that
+  key; the server then carries it encrypted in your access token. Only your own
+  workspace is ever touched.
 
 ## 4. Point at each plugin's own docs for depth
 

@@ -73,21 +73,36 @@ This packet is built so that your data stays yours.
 - **You configure your own accounts.** Every plugin acts on accounts and
   workspaces that you own and connect yourself. Nothing is pre-wired to anyone
   else's data.
-- **Each plugin runs locally or against your own credentials.** The MCP servers
-  and skills run on your machine, or talk straight to your own provider's API from
-  your machine. There is no shared Numaco server sitting between you and your
-  email, calendar, files, or time entries.
-- **No one at Numaco can see your mail or your data.** Not the author, not
-  Numaco, not any other user of these plugins: nothing in this packet opens a
-  channel that would carry your data to them. Be clear about the one place it
-  does travel: whatever Claude reads on your behalf goes to Anthropic as part of
-  your conversation, under your own Claude agreement, exactly as any file you
-  open in Claude Code does. These plugins send your data nowhere else.
+- **Your mail, files, and calendar never pass through a Numaco server.**
+  `mcp-mail`, `numaco-design`, and `review-kit` run entirely on your machine, or
+  talk straight to your own provider's API from your machine. Nobody at Numaco,
+  including the author, can see any of it.
+- **`clockify-mcp` is the one exception, and you should know how it works.** It
+  does not talk to Clockify directly. It calls a Numaco-operated MCP server on
+  Google Cloud Run, which holds your Clockify API key in encrypted form inside
+  your access token and decrypts it in memory on each request in order to call
+  Clockify for you. It stores no database of your entries, but the key is handed
+  to that server rather than kept in your OS keychain, and your time entries do
+  pass through it. Nothing else in the packet works this way. If you would rather
+  not use it, install the other four instead of the bundle:
+
+  ```bash
+  claude plugin marketplace add NumacoAG/claude-plugins
+  for p in numaco-hub numaco-design review-kit mcp-mail; do claude plugin install $p@numaco; done
+  ```
+
+- **Where your data does travel.** Whatever Claude reads on your behalf goes to
+  Anthropic as part of your conversation, under your own Claude agreement,
+  exactly as any file you open in Claude Code does. Beyond that, these plugins
+  send your data only to the providers whose accounts you connected yourself
+  (your mail host, your Clockify workspace), never to any other destination.
 - **Secrets live in your OS keychain.** OAuth tokens, app passwords, and API keys
   go to your operating system's credential store (macOS Keychain, Windows
   Credential Manager, Linux Secret Service), never in plaintext in the repository
   and never in the chat. Local files that could hold secrets (for example
-  `accounts.toml` and `.env`) are gitignored.
+  `accounts.toml` and `.env`) are gitignored. The one exception is the
+  `clockify-mcp` API key described above, which lives encrypted in your access
+  token instead.
 
 ## Updates
 
