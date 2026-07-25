@@ -1,8 +1,9 @@
 {
   "name": "numaco-hub",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Front door for the Numaco Claude plugins: guided setup and an update command",
   "author": { "name": "Numaco AG", "url": "https://numaco.ch" },
   "license": "MIT",
-  "keywords": ["numaco", "onboarding", "setup", "update", "front-door"]
+  "keywords": ["numaco", "onboarding", "setup", "update", "front-door"],
+  "dependencies": ["numaco-design", "review-kit", "mcp-mail", "clockify-mcp"]
 }

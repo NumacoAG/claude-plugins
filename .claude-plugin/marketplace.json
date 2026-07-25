@@ -45,7 +45,7 @@
     {
       "name": "numaco-hub",
       "source": "./numaco-hub",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "Front door for the Numaco plugins: guided setup skill and an on-demand update command.",
       "author": {
         "name": "Numaco AG",
@@ -57,9 +57,17 @@
     {
       "name": "clockify-mcp",
       "source": {
-        "source": "github",
-        "repo": "NumacoAG/clockify-mcp"
-      }
+        "source": "url",
+        "url": "https://github.com/NumacoAG/clockify-mcp.git"
+      },
+      "version": "0.8.0",
+      "description": "Clockify time tracking for Claude Code: file entries and scan your calendar for un-logged meetings.",
+      "author": {
+        "name": "Numaco AG",
+        "url": "https://numaco.ch"
+      },
+      "license": "MIT",
+      "category": "productivity"
     }
   ]
 }
