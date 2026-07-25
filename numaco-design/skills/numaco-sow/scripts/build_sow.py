@@ -196,8 +196,10 @@ def _context_body(data):
     paras = [p.strip() for p in str(data.get("context") or "").split("\n\n") if p.strip()]
     if not paras:
         return ""
-    out = [S.lead(esc(paras[0]))]
-    out += [S.para(esc(p)) for p in paras[1:]]
+    # Uniform body paragraphs (enshrined): the first context paragraph is NOT
+    # promoted to a larger, darker .lead; it renders like every other paragraph.
+    # The lead promotion read as a bug, not a lead-in. Do not re-introduce it.
+    out = [S.para(esc(p)) for p in paras]
     return "".join(out)
 
 

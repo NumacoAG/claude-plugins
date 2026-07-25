@@ -29,7 +29,10 @@ html{ -webkit-font-smoothing:antialiased; text-rendering:geometricPrecision; }
 body{
   font-family:var(--font-sans); color:var(--body); background:var(--paper);
   font-size:9.6pt; line-height:1.56; font-weight:400;
-  font-feature-settings:"tnum" 1,"lnum" 1;
+  /* Proportional figures in body prose (enshrined): lnum only, never tnum.
+     Forcing tabular figures on the body padded narrow digits (the "5 1 5"
+     look); tables opt into tabular via font-variant-numeric where they need it. */
+  font-feature-settings:"lnum" 1;
 }
 
 /* ===================================================================
