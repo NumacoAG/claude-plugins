@@ -2,13 +2,74 @@
 
 from __future__ import annotations
 
-import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mcp-mail" / "accounts.toml"
+
+# Capability tokens an account may declare. "mail" is the original surface;
+# "drive" and "calendar" are added by the Drive/Calendar/SharePoint expansion.
+KNOWN_CAPABILITIES = frozenset({"mail", "drive", "calendar"})
+
+
+def _parse_capabilities(entry: dict, default: list[str]) -> tuple[str, ...]:
+    """Read and validate an account's `capabilities` list.
+
+    Defaults preserve backward compatibility: an account that predates the
+    expansion (no `capabilities` key) keeps the historical default passed by
+    the caller (mail-only for the mail providers, drive-only for localfs).
+    """
+    raw = entry.get("capabilities", default)
+    if not isinstance(raw, list) or not all(isinstance(c, str) for c in raw):
+        raise ValueError(
+            f"account {entry.get('id')!r}: `capabilities` must be a list of strings"
+        )
+    unknown = [c for c in raw if c not in KNOWN_CAPABILITIES]
+    if unknown:
+        raise ValueError(
+            f"account {entry.get('id')!r}: unknown capabilities {unknown!r}; "
+            f"allowed: {sorted(KNOWN_CAPABILITIES)}"
+        )
+    return tuple(raw)
+
+
+@dataclass(frozen=True)
+class Signature:
+    """An account's outgoing signature: an HTML snippet plus any inline images.
+
+    The adapter inlines an image when the snippet references it as
+    ``cid:<filename>`` (see GraphAdapter._attachments_payload); otherwise the
+    image rides as a normal attachment.
+    """
+
+    html_path: Path
+    inline_images: tuple[Path, ...] = ()
+    on_reply: bool = True
+
+
+def _parse_signature(entry: dict) -> "Signature | None":
+    """Read an account's optional outgoing signature.
+
+    Enabled only when `signature_html` (a path to an HTML snippet) is set. The
+    server appends the snippet to outgoing HTML bodies and attaches
+    `signature_inline_images`. `signature_on_reply` (default True) controls
+    whether replies also carry the signature.
+    """
+    html_path = entry.get("signature_html")
+    if not html_path:
+        return None
+    imgs = entry.get("signature_inline_images", [])
+    if not isinstance(imgs, list) or not all(isinstance(i, str) for i in imgs):
+        raise ValueError(
+            f"account {entry.get('id')!r}: `signature_inline_images` must be a list of paths"
+        )
+    return Signature(
+        html_path=Path(html_path).expanduser(),
+        inline_images=tuple(Path(i).expanduser() for i in imgs),
+        on_reply=bool(entry.get("signature_on_reply", True)),
+    )
 
 
 @dataclass(frozen=True)
@@ -21,6 +82,16 @@ class M365Account:
     keychain_service: str
     keychain_user: str
     auto_send: bool
+    # When set, this account is a DELEGATE VIEW of another user's mailbox (this
+    # value is that person's UPN / SMTP). Graph mail calls target
+    # `/users/{mailbox}` instead of `/me` and use the delegated shared-mailbox
+    # token. `address` should equal the delegated mailbox's address so reply
+    # self-exclusion is correct; `client_id` / `tenant_id` / `keychain_*` stay
+    # those of the signed-in delegate, so that person's own token is reused.
+    mailbox: str | None = None
+    capabilities: tuple[str, ...] = ("mail",)
+    auto_write: bool = False
+    signature: Signature | None = None
 
 
 @dataclass(frozen=True)
@@ -33,6 +104,8 @@ class GmailAccount:
     keychain_service: str
     keychain_user: str
     auto_send: bool
+    capabilities: tuple[str, ...] = ("mail",)
+    auto_write: bool = False
 
 
 @dataclass(frozen=True)
@@ -47,9 +120,52 @@ class IMAPAccount:
     keychain_service: str
     keychain_user: str
     auto_send: bool
+    capabilities: tuple[str, ...] = ("mail",)
+    auto_write: bool = False
 
 
-Account = M365Account | GmailAccount | IMAPAccount
+@dataclass(frozen=True)
+class LocalFSAccount:
+    """A filesystem-backed drive account (iCloud Drive, OneDrive local mount).
+
+    `roots` is the hard sandbox boundary: every path a tool resolves must live
+    inside one of these directories (see ``core.sandbox``). There is no network
+    auth; the iCloud / OneDrive daemons handle cloud propagation.
+    """
+
+    id: str
+    provider: Literal["localfs"]
+    address: str
+    roots: tuple[Path, ...]
+    capabilities: tuple[str, ...] = ("drive",)
+    auto_write: bool = False
+    # localfs has no mailbox, so `auto_send` is meaningless; kept for a uniform
+    # account surface and always False.
+    auto_send: bool = False
+    keychain_service: str = ""
+    keychain_user: str = ""
+
+
+Account = M365Account | GmailAccount | IMAPAccount | LocalFSAccount
+
+
+def _parse_roots(entry: dict) -> tuple[Path, ...]:
+    raw = entry.get("roots")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError(
+            f"localfs account {entry.get('id')!r} requires a non-empty `roots` list"
+        )
+    roots: list[Path] = []
+    for r in raw:
+        if not isinstance(r, str):
+            raise ValueError(
+                f"localfs account {entry.get('id')!r}: each root must be a string path"
+            )
+        # Expand ~ to an absolute anchor. We do not require the root to exist at
+        # load time (a mount may be offline); existence is checked when a tool
+        # actually touches it.
+        roots.append(Path(r).expanduser())
+    return tuple(roots)
 
 
 def load_accounts(path: Path | None = None) -> list[Account]:
@@ -75,6 +191,10 @@ def load_accounts(path: Path | None = None) -> list[Account]:
                     keychain_service=entry.get("keychain_service", "mcp-mail"),
                     keychain_user=entry.get("keychain_user", entry["id"]),
                     auto_send=bool(entry.get("auto_send", False)),
+                    mailbox=entry.get("mailbox"),
+                    capabilities=_parse_capabilities(entry, ["mail"]),
+                    auto_write=bool(entry.get("auto_write", False)),
+                    signature=_parse_signature(entry),
                 )
             )
         elif provider == "gmail":
@@ -88,6 +208,8 @@ def load_accounts(path: Path | None = None) -> list[Account]:
                     keychain_service=entry.get("keychain_service", "mcp-mail"),
                     keychain_user=entry.get("keychain_user", entry["id"]),
                     auto_send=bool(entry.get("auto_send", False)),
+                    capabilities=_parse_capabilities(entry, ["mail"]),
+                    auto_write=bool(entry.get("auto_write", False)),
                 )
             )
         elif provider == "imap":
@@ -103,19 +225,25 @@ def load_accounts(path: Path | None = None) -> list[Account]:
                     keychain_service=entry.get("keychain_service", "mcp-mail"),
                     keychain_user=entry.get("keychain_user", entry["id"]),
                     auto_send=bool(entry.get("auto_send", False)),
+                    capabilities=_parse_capabilities(entry, ["mail"]),
+                    auto_write=bool(entry.get("auto_write", False)),
+                )
+            )
+        elif provider == "localfs":
+            accounts.append(
+                LocalFSAccount(
+                    id=entry["id"],
+                    provider="localfs",
+                    address=entry.get("address", entry["id"]),
+                    roots=_parse_roots(entry),
+                    capabilities=_parse_capabilities(entry, ["drive"]),
+                    auto_write=bool(entry.get("auto_write", False)),
                 )
             )
         else:
-            # Non-mail providers (e.g. 'localfs' drive backends) live in the same
-            # accounts.toml but are not mail accounts. Skip them rather than abort
-            # the whole loader, so one such entry can't block mail/reauth for the
-            # supported accounts. Warn on stderr so a genuine typo still surfaces.
-            print(
-                f"mcp-mail: skipping non-mail provider {provider!r} "
-                f"(account {entry['id']!r})",
-                file=sys.stderr,
+            raise NotImplementedError(
+                f"Provider {provider!r} not yet supported (account {entry['id']!r})"
             )
-            continue
     return accounts
 
 
@@ -124,3 +252,8 @@ def get_account(account_id: str, path: Path | None = None) -> Account:
         if acct.id == account_id:
             return acct
     raise KeyError(f"No account with id {account_id!r} in accounts.toml")
+
+
+def has_capability(account: Account, capability: str) -> bool:
+    """True if the account declares `capability` (e.g. 'drive', 'calendar')."""
+    return capability in account.capabilities

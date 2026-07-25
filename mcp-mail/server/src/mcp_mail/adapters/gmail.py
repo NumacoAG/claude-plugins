@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.utils import getaddresses, parseaddr
 from pathlib import Path
@@ -16,19 +16,31 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+from ._recipients import _extra_recipients
 from ..config import GmailAccount
 
 GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1"
 
+# The mail surface plus the Drive / Sheets / Calendar scopes added by the
+# expansion. The whole list is requested as a UNION at consent time: a Google
+# refresh token freezes its granted scopes when the user re-consents, so the Drive
+# and Calendar adapters (which reuse this same OAuth client and Keychain token)
+# get their scopes from one re-consent rather than three separate clients.
+# Re-consent is a user action (scripts/reauth_google.py); shipping these scopes
+# does NOT touch an existing token until that script is re-run.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.settings.basic",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/calendar",
 ]
 
 # Same inline-attachment limit philosophy as Graph; Gmail's actual cap is
 # higher (~25MB per send) but we keep parity with M365 for predictable UX.
 INLINE_ATTACHMENT_LIMIT = 25 * 1024 * 1024
+
 
 # Gmail uses labels, not folders. Map common cross-provider folder names to
 # the right label-modify or trash action.
@@ -78,10 +90,10 @@ def acquire_credentials(account: GmailAccount, allow_interactive: bool = False) 
 
     Loads the cached refresh token from Keychain and refreshes silently if
     expired. In the MCP server (``allow_interactive=False``, the default) an
-    expired, revoked, or missing token raises a clear, actionable error
-    instead of opening a browser: ``run_local_server`` would block the
-    headless server indefinitely waiting for a redirect that never arrives
-    (the "stuck for hours" failure). The re-auth helper passes
+    expired, revoked, or missing token raises a clear, actionable error instead
+    of opening a browser: ``run_local_server`` would block the headless server
+    indefinitely waiting for a redirect that never arrives (the "stuck for
+    hours" failure). The re-auth helper (``scripts/reauth_google.py``) passes
     ``allow_interactive=True`` to run the one-off browser consent flow.
     """
     creds: Credentials | None = None
@@ -107,13 +119,14 @@ def acquire_credentials(account: GmailAccount, allow_interactive: bool = False) 
     if not allow_interactive:
         raise RuntimeError(
             f"{account.id}: no valid Gmail credentials (token missing, expired, "
-            f"or revoked). Re-authorize from a terminal:\n"
+            f"or revoked, or the granted scopes do not cover this operation). "
+            f"Re-authorize from a terminal:\n"
             f"    uv run python scripts/reauth_google.py {account.id}\n"
             f"If this recurs every ~7 days, set the Google OAuth consent screen "
-            f"to 'In production' — Testing mode expires refresh tokens weekly."
+            f"to 'In production'; Testing mode expires refresh tokens weekly."
         )
 
-    # Interactive (re-auth helper only) — opens a browser, listens on
+    # Interactive (re-auth helper only) opens a browser and listens on
     # localhost:8766 (different from MSAL's 8765 to avoid a port conflict if
     # both servers run concurrently).
     client_config = _load_oauth_client_config(account)
@@ -157,7 +170,25 @@ def _email_only(value: str | None) -> str | None:
 def _internal_date_iso(internal_date: str | None) -> str | None:
     if not internal_date:
         return None
-    return datetime.fromtimestamp(int(internal_date) / 1000, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(int(internal_date) / 1000, tz=UTC).isoformat()
+
+
+def _synth_attachment_name(idx: int, mime: str, content_id: str | None) -> str:
+    """Synthesize a stable name for a filename-less (usually inline) part.
+
+    Prefer the Content-ID local part (``<abc@host>`` -> ``abc``) so a cid-
+    referenced inline image gets a recognisable handle. Otherwise fall back to
+    ``inline-{idx}.{ext}`` where ext is the MIME subtype (``image/png`` ->
+    ``png``), and finally ``attachment-{idx}`` when even the subtype is missing.
+    """
+    if content_id:
+        local = content_id.strip().strip("<>").strip().split("@", 1)[0].strip()
+        if local:
+            return local
+    subtype = mime.split("/", 1)[1].strip() if "/" in mime else ""
+    if subtype:
+        return f"inline-{idx}.{subtype}"
+    return f"attachment-{idx}"
 
 
 def _extract_parts(payload: dict) -> tuple[str | None, str | None, list[dict]]:
@@ -173,20 +204,53 @@ def _extract_parts(payload: dict) -> tuple[str | None, str | None, list[dict]]:
         attachment_id = body.get("attachmentId")
         filename = p.get("filename")
 
-        if attachment_id and filename:
-            # `Content-Disposition: inline` headers mark inline attachments
-            # (typically images embedded in HTML bodies).
-            cd = ""
-            for h in p.get("headers", []) or []:
-                if h.get("name", "").lower() == "content-disposition":
-                    cd = (h.get("value") or "").lower()
-                    break
+        # Read Content-Disposition and Content-ID BEFORE deciding whether this
+        # part is an attachment, so the decision can inspect them.
+        cd = ""
+        content_id: str | None = None
+        for h in p.get("headers", []) or []:
+            hn = h.get("name", "").lower()
+            if hn == "content-disposition":
+                cd = (h.get("value") or "").lower()
+            elif hn == "content-id":
+                content_id = h.get("value")
+        # Parse the disposition TYPE (token before the first ';').
+        disp_type = cd.split(";", 1)[0].strip()
+
+        # A part carrying body.attachmentId is normally a real attachment: a
+        # file (has a filename) OR a cid-referenced inline image (often
+        # filename-less). BUT Gmail also externalizes a LARGE text/plain or
+        # text/html BODY into body.attachmentId with empty body.data — a
+        # filename-less text part carrying only an attachmentId is that
+        # externalized body, NOT an attachment. "inline" is the RFC 2183 DEFAULT
+        # disposition for a body, so it must NOT flip a text part into an
+        # attachment; only a filename, an explicit "attachment" disposition, or a
+        # Content-ID does. Such a text part then falls through to the body
+        # branches below (yielding an empty body for that rare externalized case,
+        # the pre-existing behaviour). Non-text parts keep capturing on
+        # attachment_id alone, so inline IMAGES (non-text) are unaffected; cid-
+        # referenced inline text is still caught by content_id.
+        is_attachment = bool(attachment_id) and (
+            mime not in ("text/plain", "text/html")
+            or bool(filename)
+            or "attachment" in disp_type
+            or content_id is not None
+        )
+
+        if is_attachment:
+            name = filename or _synth_attachment_name(len(attachments), mime, content_id)
+            # Token-aware isInline: classify by the disposition TYPE so a real
+            # attachment whose filename merely CONTAINS "inline"
+            # (e.g. "mainline-budget.pdf") is not mislabelled inline.
+            is_inline = (disp_type == "inline") or (
+                content_id is not None and disp_type != "attachment"
+            )
             attachments.append({
                 "id": attachment_id,
-                "name": filename,
+                "name": name,
                 "size": body.get("size", 0),
                 "contentType": mime,
-                "isInline": "inline" in cd,
+                "isInline": is_inline,
             })
         elif mime == "text/plain" and body.get("data") and text is None:
             text = _b64url_decode(body["data"]).decode("utf-8", errors="replace")
@@ -561,6 +625,8 @@ class GmailAdapter:
         body_html: str | None = None,
         reply_all: bool = False,
         attachments: list[str] | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
     ) -> None:
         """Reply, preserving threading."""
         # Fetch original to get Subject/From/Message-ID/threadId.
@@ -579,23 +645,35 @@ class GmailAdapter:
 
         reply_subject = orig_subject if orig_subject.lower().startswith("re:") else f"Re: {orig_subject}"
 
-        # Recipients: always reply to the From of the original. reply_all adds
-        # the original To and Cc, minus ourselves.
+        # Recipients: always reply to the From of the original. reply_all folds
+        # the original To + Cc into cc; extra `cc` addresses are ADDED on top.
+        self_addr = self.account.address.lower()
+        sender_addr = (orig_from or "").lower()
         to = [orig_from] if orig_from else []
-        cc: list[str] = []
-        if reply_all:
-            self_addr = self.account.address.lower()
-            cc = [
-                a for a in (orig_to + orig_cc)
-                if a.lower() != self_addr and a.lower() != (orig_from or "").lower()
-            ]
+        # Route the WHOLE cc set (reply_all's original To+Cc plus the extras)
+        # through the shared helper, mirroring Graph. This drops self + the
+        # original sender and collapses case-insensitive duplicates, so an
+        # address present in BOTH the original To and Cc is listed only once.
+        exclude = {self_addr, sender_addr}
+        final_cc = _extra_recipients(
+            (orig_to + orig_cc if reply_all else []) + (cc or []),
+            exclude,
+        )
+        # Dedupe bcc against the resolved To + Cc too, so an address already
+        # visible in cc doesn't reappear as a blind copy.
+        final_bcc = _extra_recipients(
+            bcc,
+            exclude,
+            already={a.lower() for a in to} | {a.lower() for a in final_cc},
+        )
 
         mime = self._build_mime(
             subject=reply_subject,
             body_text=body_text,
             body_html=body_html,
             to=to,
-            cc=cc,
+            cc=final_cc,
+            bcc=final_bcc,
             attachments=attachments,
             in_reply_to=orig_msgid,
             references=f"{orig_refs} {orig_msgid}".strip() if orig_refs else orig_msgid,
@@ -607,3 +685,116 @@ class GmailAdapter:
             json={"raw": raw, "threadId": original.get("threadId")},
         )
         resp.raise_for_status()
+
+    # ---- drafts (never sent) ----------------------------------------------
+    #
+    # Destination for the user's "Save as draft" choice. Builds the identical
+    # MIME send() would build, then writes it via users.drafts.create instead of
+    # users.messages.send, so nothing is delivered.
+
+    def create_draft(
+        self,
+        to: list[str],
+        subject: str,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+        attachments: list[str] | None = None,
+    ) -> dict:
+        """Create a draft (users.drafts.create) from a built MIME. Not sent."""
+        mime = self._build_mime(
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            to=to,
+            cc=cc,
+            bcc=bcc,
+            attachments=attachments,
+        )
+        raw = base64.urlsafe_b64encode(mime).decode("ascii")
+        resp = self._client.post(
+            "/users/me/drafts",
+            headers=self._headers(content_type="application/json"),
+            json={"message": {"raw": raw}},
+        )
+        resp.raise_for_status()
+        created = resp.json()
+        msg = created.get("message", {}) or {}
+        return {
+            "id": created.get("id"),
+            "messageId": msg.get("id"),
+            "threadId": msg.get("threadId"),
+            "provider": "gmail",
+        }
+
+    def create_reply_draft(
+        self,
+        message_id: str,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        reply_all: bool = False,
+        attachments: list[str] | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+    ) -> dict:
+        """Create a threaded reply DRAFT (users.drafts.create with threadId).
+
+        Composes recipients and threading headers exactly like reply(), but
+        writes the MIME to Drafts (threaded via threadId + In-Reply-To) rather
+        than sending it.
+        """
+        original = self._get_message(
+            message_id,
+            fmt="metadata",
+            headers=("Subject", "From", "To", "Cc", "Message-ID", "References"),
+        )
+        payload = original.get("payload", {}) or {}
+        orig_subject = _header(payload, "Subject") or ""
+        orig_from = _email_only(_header(payload, "From"))
+        orig_to = _emails_only(_header(payload, "To"))
+        orig_cc = _emails_only(_header(payload, "Cc"))
+        orig_msgid = _header(payload, "Message-ID") or _header(payload, "Message-Id")
+        orig_refs = _header(payload, "References")
+
+        reply_subject = orig_subject if orig_subject.lower().startswith("re:") else f"Re: {orig_subject}"
+        self_addr = self.account.address.lower()
+        sender_addr = (orig_from or "").lower()
+        to = [orig_from] if orig_from else []
+        exclude = {self_addr, sender_addr}
+        final_cc = _extra_recipients(
+            (orig_to + orig_cc if reply_all else []) + (cc or []),
+            exclude,
+        )
+        final_bcc = _extra_recipients(
+            bcc,
+            exclude,
+            already={a.lower() for a in to} | {a.lower() for a in final_cc},
+        )
+
+        mime = self._build_mime(
+            subject=reply_subject,
+            body_text=body_text,
+            body_html=body_html,
+            to=to,
+            cc=final_cc,
+            bcc=final_bcc,
+            attachments=attachments,
+            in_reply_to=orig_msgid,
+            references=f"{orig_refs} {orig_msgid}".strip() if orig_refs else orig_msgid,
+        )
+        raw = base64.urlsafe_b64encode(mime).decode("ascii")
+        resp = self._client.post(
+            "/users/me/drafts",
+            headers=self._headers(content_type="application/json"),
+            json={"message": {"raw": raw, "threadId": original.get("threadId")}},
+        )
+        resp.raise_for_status()
+        created = resp.json()
+        msg = created.get("message", {}) or {}
+        return {
+            "id": created.get("id"),
+            "messageId": msg.get("id"),
+            "threadId": msg.get("threadId"),
+            "provider": "gmail",
+        }

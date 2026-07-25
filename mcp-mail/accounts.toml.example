@@ -1,8 +1,8 @@
-# mcp-mail — accounts configuration (EXAMPLE)
+# mcp-mail: accounts configuration (EXAMPLE)
 #
 # Copy this file to ~/.config/mcp-mail/accounts.toml and edit it to describe
-# YOUR accounts. Delete the providers/accounts you don't use — you can run with
-# any subset (even a single account).
+# YOUR accounts. Delete the providers and accounts you don't use; you can run
+# with any subset (even a single account).
 #
 # The `id` of each account is arbitrary; you choose it. It's the handle you'll
 # use in Claude ("read my work-m365 inbox") and, by default, the name of this
@@ -11,13 +11,41 @@
 # >>> SECRETS NEVER GO IN THIS FILE. <<<
 # Client secrets, refresh tokens and app-specific passwords all live in the
 # macOS Keychain. INSTALL.md explains exactly what to store and how.
+#
+# CAPABILITIES. Every account declares which surfaces it may serve:
+#
+#   capabilities = ["mail"]              mail tools only (the default)
+#   capabilities = ["mail", "calendar"]  mail plus the cal_* tools
+#   capabilities = ["mail", "drive"]     mail plus the drive_*, doc_*, sheet_*
+#                                        and slides_* tools
+#   capabilities = ["drive"]             files only (the localfs default)
+#
+# Omitting the key keeps the historical behaviour: mail providers default to
+# ["mail"], localfs defaults to ["drive"]. Declaring a capability is what turns
+# the corresponding tools on for that account. A tool refuses any account that
+# does not declare its capability, so a mail-only account cannot be pulled into
+# a file or calendar call by accident.
+#
+# WRITE GUARD. `auto_send = true` skips the per-message confirmation on the
+# mail surface. `auto_write = true` is the file and calendar mirror of it:
+# without it, every write, move, delete or share on a drive or calendar surface
+# is refused server side and you are asked to confirm the intent explicitly.
+# Both default to false. Leave them false unless you are sure you want the
+# prompt gone.
 
 # --- Microsoft 365 / Outlook (auth-code + PKCE via MSAL) ----------------------
 # Requires an Azure AD (Microsoft Entra) app registration. Paste its
 # Application (client) ID and Directory (tenant) ID below. No client secret is
-# used (public client + PKCE). On first use a browser opens for you to sign in;
-# the refresh token is then cached in the Keychain automatically — for M365 you
-# store nothing by hand.
+# used (public client plus PKCE). On first use a browser opens for you to sign
+# in; the refresh token is then cached in the Keychain automatically, so for
+# M365 you store nothing by hand.
+#
+# Mail works with the mail scopes alone. To use any capability beyond "mail"
+# you must run the one-off re-consent once, from mcp-mail/server:
+#     uv run python scripts/reauth_m365.py work-m365
+# It requests the file, calendar and shared-mailbox scopes on top of the mail
+# ones and refreshes the SAME Keychain token. Until you run it, mail keeps
+# working normally and only the drive_* and cal_* calls report a clear error.
 [[account]]
 id = "work-m365"
 provider = "m365"
@@ -25,29 +53,70 @@ address = "you@yourcompany.com"
 client_id = "<Application (client) ID from the Azure portal>"
 tenant_id = "<Directory (tenant) ID from the Azure portal>"
 auto_send = false
+# Turn on the extra surfaces for this account (needs the re-consent above):
+capabilities = ["mail", "calendar", "drive"]
+auto_write = false
+
+# --- Microsoft 365: a DELEGATE view of someone else's mailbox (optional) ------
+# Use this when a colleague has granted you Exchange "Full Access" to their
+# mailbox and you want to read and draft in it. Set `mailbox` to that person's
+# address; Graph calls then target /users/<mailbox> instead of /me. Sending on
+# behalf of the mailbox is refused: this account can read and draft only.
+#
+# `client_id`, `tenant_id` and the Keychain entry stay YOURS (the signed-in
+# delegate), so your own token is reused. There are two prerequisites, both
+# outside this file: the Mail.ReadWrite.Shared scope (from reauth_m365.py) and
+# the mailbox owner's Exchange Full Access grant. Neither substitutes for the
+# other.
+#
+# [[account]]
+# id = "shared-team-mailbox"
+# provider = "m365"
+# address = "team@yourcompany.com"
+# mailbox = "team@yourcompany.com"
+# client_id = "<same Application (client) ID as your own M365 account>"
+# tenant_id = "<same Directory (tenant) ID>"
+# keychain_user = "work-m365"        # reuse YOUR token, not a separate one
+# auto_send = false
+# capabilities = ["mail"]
 
 # --- Gmail / Google Workspace (OAuth) -----------------------------------------
 # All your Google accounts share ONE OAuth client, stored in the Keychain as a
 # JSON blob  {"client_id":"...","client_secret":"..."}  under
 #   (service="mcp-mail", account="google-oauth-config").
-# Each account's own refresh token is cached per-account on first sign-in.
-# Add as many gmail accounts as you like (personal + Workspace).
+# Each account's own refresh token is cached per account on first sign-in.
+# Add as many gmail accounts as you like (personal plus Workspace).
+#
+# IMPORTANT IF YOU ARE UPGRADING FROM A MAIL-ONLY RELEASE. Google freezes a
+# refresh token's scopes at consent time, and this release requests Drive,
+# Sheets and Calendar alongside mail as one set. A token minted by an older,
+# mail-only version no longer validates, so MAIL ITSELF STOPS WORKING until you
+# re-consent once per Google account, from mcp-mail/server:
+#     uv run python scripts/reauth_google.py personal-gmail
 [[account]]
 id = "personal-gmail"
 provider = "gmail"
 address = "you@gmail.com"
 auto_send = false
+capabilities = ["mail", "calendar", "drive"]
+auto_write = false
 
 [[account]]
 id = "work-gmail"
 provider = "gmail"
 address = "you@your-workspace-domain.com"
 auto_send = false
+capabilities = ["mail"]
 
-# --- IMAP / SMTP (iCloud, Yahoo, Fastmail, generic) ---------------------------
+# --- IMAP / SMTP (iCloud, Yahoo, Fastmail, Outlook.com, generic) --------------
 # Auth is an app-specific password generated at the provider, stored in the
-# Keychain under (service="mcp-mail", account=<this id>). Host/port are
-# provider-specific; the two examples below are iCloud and Yahoo.
+# Keychain under (service="mcp-mail", account=<this id>). Host and port are
+# provider specific; the four presets below cover the common consumer services.
+#
+# IMAP accounts are mail only: there is no IMAP file or calendar surface, so a
+# capability beyond ["mail"] has nothing to bind to. The draft tools (mail_draft
+# and mail_reply_draft) are not available on IMAP either; they need a server
+# side Drafts API that only M365 and Gmail expose.
 [[account]]
 id = "icloud"
 provider = "imap"
@@ -68,9 +137,80 @@ smtp_host = "smtp.mail.yahoo.com"
 smtp_port = 587
 auto_send = false
 
+# Fastmail. Generate the app password at Settings, Privacy and Security,
+# Integrations, App passwords.
+# [[account]]
+# id = "fastmail"
+# provider = "imap"
+# address = "you@fastmail.com"
+# imap_host = "imap.fastmail.com"
+# imap_port = 993
+# smtp_host = "smtp.fastmail.com"
+# smtp_port = 587
+# auto_send = false
+
+# Outlook.com, Hotmail and Live consumer accounts. Microsoft has been retiring
+# basic IMAP auth on consumer mailboxes; if the app password is refused, use the
+# `m365` provider above instead, which signs in with OAuth.
+# [[account]]
+# id = "outlook-personal"
+# provider = "imap"
+# address = "you@outlook.com"
+# imap_host = "outlook.office365.com"
+# imap_port = 993
+# smtp_host = "smtp-mail.outlook.com"
+# smtp_port = 587
+# auto_send = false
+
+# --- Local filesystem drive (iCloud Drive, a synced OneDrive mount) -----------
+# A no-auth file backend. Nothing to register, nothing to consent to: the
+# iCloud or OneDrive daemon already syncs the folder, and mcp-mail simply reads
+# and writes inside it. This is the recommended file backend for anyone whose
+# tenant admin has not granted the SharePoint scopes, and the simplest one for
+# everybody else.
+#
+# `roots` is the HARD SANDBOX BOUNDARY and is required. Every path a tool
+# resolves must land inside one of these directories; `..` traversal and
+# symlinks that escape a root are rejected. Keep the list as narrow as you can,
+# because it is the whole of the permission model. Use ~ paths, not
+# machine-specific absolute ones.
+#
+# macOS note: deletes go to the Trash through osascript, never `rm`. On Linux
+# and Windows, drive_delete raises instead of deleting.
+[[account]]
+id = "icloud-drive"
+provider = "localfs"
+address = "icloud-drive"
+roots = [
+  "~/Library/Mobile Documents/com~apple~CloudDocs/Documents",
+]
+auto_write = false
+
+# [[account]]
+# id = "onedrive-local"
+# provider = "localfs"
+# address = "onedrive-local"
+# roots = [
+#   "~/OneDrive",
+# ]
+# capabilities = ["drive"]
+# auto_write = false
+
+# --- Optional outgoing signature (m365) ---------------------------------------
+# Point `signature_html` at an HTML snippet and it is appended to outgoing HTML
+# bodies. Any image the snippet references as `cid:<filename>` must be listed
+# in `signature_inline_images`, and it then rides inline rather than as a
+# regular attachment. `signature_on_reply` (default true) controls whether
+# replies carry it too.
+#
+#   signature_html = "~/.config/mcp-mail/signature.html"
+#   signature_inline_images = ["~/.config/mcp-mail/logo.png"]
+#   signature_on_reply = true
+
 # --- Optional per-account overrides (rarely needed) ---------------------------
 # All accounts default to Keychain (service="mcp-mail", account=<id>). Set
-# auto_send = true to skip the per-message send confirmation for an account.
+# auto_send = true to skip the per-message send confirmation for an account,
+# and auto_write = true to skip the file and calendar write guard.
 # You can also override the Keychain names explicitly if you want:
 #   keychain_service = "mcp-mail"
 #   keychain_user    = "some-custom-name"

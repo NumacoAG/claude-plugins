@@ -35,6 +35,11 @@
 
 ## 2. Tool surface (MCP tools)
 
+The table below is the original mail surface. The calendar, Drive, Docs, Sheets
+and Slides surfaces added later bring the registry to **55 tools**; their design
+is section 11, and the authoritative list is always `list_tools()` in
+`server/src/mcp_mail/server.py`.
+
 | Tool | Purpose | Confirmation-gated? |
 |---|---|---|
 | `mail_list_accounts` | Return configured accounts + provider + auth status. | no |
@@ -232,9 +237,22 @@ mcp-mail/
 │       ├── config.py       ← accounts.toml loader
 │       ├── auth.py         ← MSAL (M365) auth + Keychain
 │       └── adapters/
-│           ├── graph.py
-│           ├── gmail.py
-│           └── imap.py
+│           ├── graph.py       ← mail + OneDrive/SharePoint files
+│           ├── gmail.py       ← mail + the shared Google credential
+│           ├── imap.py
+│           ├── _recipients.py ← one reply-recipient filter for all three
+│           ├── gcalendar.py   ← Google Calendar v3
+│           ├── mscalendar.py  ← Graph calendar
+│           ├── gdrive.py      ← Drive v3 + Sheets v4
+│           ├── gdocs.py       ← Docs v1
+│           ├── gslides.py     ← Slides v1
+│           └── localfs.py     ← sandboxed local folder backend
+│       └── core/
+│           ├── sandbox.py     ← localfs path boundary
+│           ├── guard.py       ← auto_write + outward-facing classification
+│           ├── audit.py       ← append-only JSONL write log
+│           └── native_format.py
+├── hooks/                  ← PreToolUse send gate
 ├── skills/
 │   └── contacts/           ← phase 5 skill
 │       └── SKILL.md
@@ -257,3 +275,121 @@ On install, Claude Code:
 
 Distribution mode is local install from a cloned repo (add as a plugin
 marketplace, then install). See `../INSTALL.md`.
+
+---
+
+## 11. Calendar, Drive and files (the capability expansion)
+
+The server grew from 14 mail tools to 55 across six surfaces: mail 16, Drive
+files 16, Docs 10, calendar 5, Sheets 5, Slides 3. Five design decisions carry
+the weight.
+
+### 11.1 Capabilities are declared, not inferred
+
+Every account carries a `capabilities` tuple (`mail`, `drive`, `calendar`),
+validated at load time against `KNOWN_CAPABILITIES`. `_require_capability()`
+refuses any tool call on an account that has not declared the matching
+capability. Defaults preserve the old behaviour exactly: a mail provider with no
+`capabilities` key is mail-only, and `localfs` is drive-only. The point is that
+adding a surface to the server does not silently widen an existing account.
+
+### 11.2 The two OAuth providers are deliberately asymmetric
+
+**Microsoft 365 splits its scope sets.** `GRAPH_SCOPES` (mail) stays exactly as
+it was. `GRAPH_FILE_SCOPES`, `GRAPH_CALENDAR_SCOPES` and `GRAPH_SHARED_SCOPES`
+are separate constants, and `acquire_file_token`, `acquire_calendar_token` and
+`acquire_shared_token` are **silent only**: they never open a browser. Widening
+the silent mail set would have forced an interactive prompt on every ordinary
+mail call, so it was not done. The consequence is the good one: a user who never
+re-consents keeps working mail and gets an actionable error on `drive_*` and
+`cal_*` naming `scripts/reauth_m365.py`. `GRAPH_REAUTH_SCOPES` is the union that
+script requests once, writing back to the same credential-store entry.
+
+**Google cannot do the same thing.** A Google refresh token freezes its granted
+scopes at consent time and `Credentials.from_authorized_user_info` validates the
+cached token against the requested `SCOPES` list. Drive, Sheets and Calendar are
+therefore appended to the single `SCOPES` list in `adapters/gmail.py`, and a
+token minted before the expansion no longer validates. That breaks **mail**, not
+only the new tools. It is a one-time cost paid by running
+`scripts/reauth_google.py` once per Google account, and it is called out in
+INSTALL.md section 5D, DISTRIBUTION.md and both setup skills because a silent
+version of this failure would look like a bug.
+
+An alternative exists and was not taken: split `SCOPES` into a mail set and an
+extended set and validate the cache against the mail set only, mirroring the
+M365 design. That would make Google upgrades non-breaking, at the cost of real
+new logic in the credential path. It is the obvious next change if the
+re-consent proves too sharp an edge in practice.
+
+Docs and Slides need no scope of their own: both ride the broad `/auth/drive`
+scope. They do need their APIs enabled in the Google Cloud project, which is a
+separate switch per API and the most common cause of a 403 on a correct token.
+
+### 11.3 Four file backends behind one tool surface
+
+| Backend | Adapter | Auth | Notes |
+|---|---|---|---|
+| OneDrive and SharePoint | `graph.py` (methods on `GraphAdapter`) | Graph file token | `Sites.ReadWrite.All` is admin-consent gated in most tenants |
+| Google Drive | `gdrive.py` | shared Google credential | also carries all five `sheet_*` methods against Sheets v4 |
+| Local folder | `localfs.py` | none | iCloud Drive or a synced OneDrive mount |
+| (Docs, Slides) | `gdocs.py`, `gslides.py` | shared Google credential | document-level editing, not file management |
+
+`_drive_call()` routes one `drive_*` tool call to whichever method name that
+backend uses, so the tool surface stays single even though the backends do not
+agree on naming. Sheets are methods on `GoogleDriveAdapter` rather than a
+separate module, because they share the credential and the file-id space.
+
+The local backend matters more than it looks. It is the answer for every user
+whose tenant admin will not grant `Sites.ReadWrite.All`, and it needs no
+registration, no consent screen and no network auth. Its cost is two limits:
+`drive_share` is unsupported (there is no service to share through) and deletes
+go to the macOS Trash through `osascript`, so `drive_delete` is macOS only.
+
+### 11.4 Two safety rails, because files and calendars reach other people
+
+`core/sandbox.py` is a hard path boundary for `localfs`: every resolved path must
+sit inside one of the account's declared `roots`, with `..` traversal and
+escaping symlinks rejected before any I/O. The `roots` list is the entire
+permission model for that backend, which is why the example config tells users to
+keep it narrow.
+
+`core/guard.py` carries two independent ideas. `require_auto_write()` refuses
+every write, move, delete and share unless the account opts in with
+`auto_write = true`, mirroring `auto_send` on the mail side. `is_outward_facing()`
+classifies the calls that reach other humans: `drive_share` always, and
+`cal_create_event` / `cal_update_event` / `cal_delete_event` only when the event
+carries attendees, which is why the calendar adapters both expose
+`event_has_attendees` and `fields_have_attendees`. Outward-facing calls are gated
+the way sending mail is gated.
+
+### 11.5 The audit log is new persistent local data
+
+`core/audit.py` appends one JSON line per write, move, delete and share to
+`~/.local/state/mcp-mail/audit.log` (`MCP_MAIL_AUDIT_LOG` overrides the path),
+recording the operation, account id, item reference and a small detail object.
+Writing is best effort and never raises to the caller, so nothing depends on it.
+It does accumulate file names, sharing recipients and calendar references on the
+user's disk, so it is disclosed in the README and INSTALL privacy sections
+rather than left to be discovered.
+
+### 11.6 Delegate mailboxes
+
+`M365Account.mailbox` turns an account into a delegate view of another person's
+mailbox: `_item_base()` targets `/users/{mailbox}` instead of `/me` and the
+adapter uses the shared-mailbox token. Reading and drafting work; sending on
+behalf of the mailbox is refused. Two prerequisites are outside this code and
+neither substitutes for the other: the `Mail.ReadWrite.Shared` scope, and the
+mailbox owner granting Exchange Full Access.
+
+### 11.7 Known rough edges
+
+- `DEFAULT_TZ` in `mscalendar.py` is a hardcoded Windows timezone id used for
+  floating wall-clock events. It is correct for Central Europe and wrong
+  elsewhere; it is documented as an edit point rather than made configurable.
+- The Google re-consent break described in 11.2 is a real upgrade cost, not a
+  bug, but it is the sharpest edge in the whole surface.
+- `hooks/hooks.json` currently matches `mail_send` and `mail_reply` only.
+  `core.guard` designates `drive_share` and attendee-bearing calendar writes as
+  outward facing, and extending the hook matcher to cover them would put the
+  per-call prompt in front of those too.
+

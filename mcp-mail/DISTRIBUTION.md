@@ -4,8 +4,16 @@
 
 This folder is the official, shareable build of **mcp-mail**, a self-hosted
 Model Context Protocol server that gives Claude read and write access to your
-own email accounts (Microsoft 365 / Outlook, Gmail / Google Workspace, and any
-IMAP provider such as iCloud, Yahoo, or Fastmail).
+own mail, calendar, and files (Microsoft 365 / Outlook including SharePoint and
+OneDrive, Gmail / Google Workspace including Drive, Docs, Sheets and Slides, any
+IMAP provider such as iCloud, Yahoo, or Fastmail, and a local iCloud Drive or
+OneDrive folder).
+
+It registers 55 tools across six surfaces: mail (16), Drive files (16), Google
+Docs (10), calendar (5), Sheets (5), and Slides (3). Mail works on its own.
+Calendar and files are opt-in per account and need a `capabilities` line plus,
+on M365 and Google, a one-off re-consent. INSTALL.md section 5D is the step
+people miss.
 
 Everything runs locally on your machine. There is no shared server and no third
 party in the loop. Each account talks straight to its provider's API from your
@@ -21,6 +29,14 @@ shorter overview if you just want the shape of it first.
 
 You configure only the accounts you want. A single account is a valid setup.
 
+**If you are upgrading from a mail-only release, read this first.** Google
+freezes a refresh token's scopes at consent time, and this build requests Drive,
+Sheets and Calendar in the same list as mail. Your existing Gmail token
+therefore no longer validates and mail stops working until you re-consent once
+per Google account: `uv run python scripts/reauth_google.py <account-id>` from
+`server/`. Microsoft 365 has no equivalent risk; its extra scopes are separate
+and silent, so mail is untouched whether or not you ever re-consent.
+
 ## What is inside
 
 | Item | Purpose |
@@ -31,15 +47,26 @@ You configure only the accounts you want. A single account is a valid setup.
 | `tier-2-docs/` | How it is built (architecture) |
 | `accounts.toml.example` | Template you copy to `~/.config/mcp-mail/accounts.toml` |
 | `server/` | The MCP server (Python, one adapter per provider) |
+| `server/tests/` | Regression suite, 232 tests (`cd server && uv run pytest tests`) |
+| `hooks/` | The PreToolUse confirmation gate for `mail_send` and `mail_reply` |
 | `skills/contacts/` | The optional `/contacts` skill |
 | `.claude-plugin/` | Plugin and marketplace manifests |
 
 ## Privacy and provenance
 
-This build ships with no personal data of any kind. The example config and the
-`/contacts` skill use placeholder names and addresses only. When you set it up,
-the configuration you create (your addresses, your credentials) stays on your
-machine; nothing is ever sent back to the author or anyone else.
+This build ships with no personal data of any kind. The example config, the test
+fixtures and the `/contacts` skill use placeholder names and addresses only. A
+publish gate (`scripts/publish_gate.py` at the repository root) runs in CI and as
+a pre-commit hook and refuses any commit that reintroduces a real address, a
+GUID, an absolute home path, or a private key block.
+
+When you set it up, the configuration you create (your addresses, your
+credentials) stays on your machine; nothing is ever sent back to the author or
+anyone else. One local file is worth knowing about: every file and calendar
+write, move, delete and share is appended as a JSON line to
+`~/.local/state/mcp-mail/audit.log`, so that log accumulates file names, sharing
+recipients and calendar references. It is local only, never transmitted, and safe
+to delete at any time. Set `MCP_MAIL_AUDIT_LOG` to move it elsewhere.
 
 ## Re-sharing this package
 

@@ -10,6 +10,13 @@ success writes the fresh refresh token to the Keychain, so the MCP server can
 read the account again. Use this whenever the server reports a Gmail token as
 expired or revoked.
 
+RUN THIS ONCE PER GOOGLE ACCOUNT AFTER UPGRADING FROM A MAIL-ONLY RELEASE. The
+consent screen now requests the UNION of the mail, Drive, Sheets and Calendar
+scopes, because Google freezes a refresh token's granted scopes at consent time
+and one token has to cover every surface. A token minted by an older, mail-only
+version therefore no longer validates against the current scope list, and mail
+itself stops working until this script is run, not just the new tools.
+
 Note: if you have to run this every ~7 days, the OAuth consent screen is still
 in "Testing". Set it to "In production" in Google Cloud Console (APIs &
 Services -> OAuth consent screen) to stop the weekly expiry.

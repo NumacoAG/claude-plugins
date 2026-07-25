@@ -85,11 +85,20 @@ start, run `/numaco-update` (from the numaco-hub plugin).
 Ask which plugins the user installed, then set up only those. Each is
 independent; do them in any order and pause after each one.
 
-- **mcp-mail** (email across your own providers): run the **mcp-mail-setup**
-  skill. It walks you through your own mail accounts provider by provider,
-  storing every secret in your OS credential store. Configure only the accounts
-  you want; a single account is a valid setup. This release is mail only;
-  calendar and Drive are not included yet.
+- **mcp-mail** (mail, calendar, and files across your own providers): run the
+  **mcp-mail-setup** skill. It walks you through your own accounts provider by
+  provider, storing every secret in your OS credential store. Configure only the
+  accounts you want; a single account is a valid setup. Mail works on its own
+  with nothing extra. Calendar and files are opt-in per account: each account
+  declares a `capabilities` list, and M365 and Google additionally need a one-off
+  re-consent so the cached token carries the wider scopes. Warn the user about
+  one thing specifically: on Google the wider scopes travel in the same list as
+  mail, so anyone upgrading from a mail-only release must run
+  `scripts/reauth_google.py <account-id>` once per Google account or mail itself
+  stops working. On Microsoft 365 there is no such risk, and the equivalent
+  `scripts/reauth_m365.py` is purely optional. If the tenant blocks the
+  SharePoint permission, point them at the local filesystem backend in
+  INSTALL.md section 5E, which needs no permissions.
 - **review-kit** (markdown co-authoring plus release QA): works out of the box.
   Mobile sync is optional and stays dormant until you opt in: to mirror a doc
   between your laptop and your phone vault, track it with `/dvsync-track`. Until

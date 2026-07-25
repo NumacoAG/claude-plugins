@@ -25,14 +25,18 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
   folded-in dual-vault-sync engine that reconciles a small tier 1 set of docs
   between your laptop and your phone's iCloud Obsidian vault. The sync stays
   dormant until you track a doc.
-- **mcp-mail** (your own email). A self-hosted MCP server
-  that gives Claude read and write control over your mail across Microsoft 365,
-  Gmail or Google Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and
-  others). Search and read, send and reply behind a per-message confirmation,
-  file and label, one-click unsubscribe, plus a `/contacts` skill that builds a
-  contact directory from your mail history. A single account is a valid setup.
-  This release ships mail only (14 tools). Calendar and Drive are not included
-  yet.
+- **mcp-mail** (your own mail, calendar, and files). A self-hosted MCP server
+  that gives Claude read and write control across Microsoft 365, Gmail or Google
+  Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and others). 55
+  tools over six surfaces: mail (16), Drive and SharePoint or OneDrive files
+  (16), Google Docs (10), calendar (5), Sheets (5), and Slides (3). Search and
+  read, send and reply behind a per-message confirmation, drafts, file and
+  label, one-click unsubscribe, plus a `/contacts` skill that builds a contact
+  directory from your mail history. A single account is a valid setup, and
+  calendar and files are opt-in per account: mail alone needs nothing extra,
+  while the wider surfaces need a `capabilities` line and a one-off re-consent
+  described in INSTALL.md. Files also work with no cloud permissions at all
+  against a local iCloud Drive or OneDrive folder.
 - **numaco-hub** (front door). The thin starting point: a `numaco-setup` skill
   that onboards you through whatever you installed, and a `/numaco-update` command
   for on-demand updates. Carries no engine of its own.

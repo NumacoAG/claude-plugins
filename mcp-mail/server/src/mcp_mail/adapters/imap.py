@@ -14,6 +14,7 @@ from pathlib import Path
 import keyring
 
 from ..config import IMAPAccount
+from ._recipients import _extra_recipients
 
 INLINE_ATTACHMENT_LIMIT = 25 * 1024 * 1024
 
@@ -49,6 +50,24 @@ def _extract_flags(flag_part: str) -> list[str]:
     return [f.decode() if isinstance(f, bytes) else f for f in flag_part[start + 1 : end].split()]
 
 
+def _synth_attachment_name(idx: int, mime: str, content_id: str | None) -> str:
+    """Synthesize a stable name for a filename-less (usually inline) part.
+
+    Prefer the Content-ID local part (``<abc@host>`` -> ``abc``) so a cid-
+    referenced inline image gets a recognisable handle. Otherwise fall back to
+    ``inline-{idx}.{ext}`` where ext is the MIME subtype (``image/png`` ->
+    ``png``), and finally ``attachment-{idx}`` when even the subtype is missing.
+    """
+    if content_id:
+        local = content_id.strip().strip("<>").strip().split("@", 1)[0].strip()
+        if local:
+            return local
+    subtype = mime.split("/", 1)[1].strip() if "/" in mime else ""
+    if subtype:
+        return f"inline-{idx}.{subtype}"
+    return f"attachment-{idx}"
+
+
 def _extract_parts(msg: Message) -> tuple[str | None, str | None, list[dict]]:
     """Walk a parsed RFC822 message. Returns (text_body, html_body, attachment_metas)."""
     text: str | None = None
@@ -59,17 +78,41 @@ def _extract_parts(msg: Message) -> tuple[str | None, str | None, list[dict]]:
             continue
         ctype = part.get_content_type()
         disposition = (part.get("Content-Disposition") or "").lower()
+        disp_type = disposition.split(";", 1)[0].strip()
         filename = part.get_filename()
-        is_attachment = bool(filename) or "attachment" in disposition
+        content_id = part.get("Content-ID")
+        is_text_body = ctype in ("text/plain", "text/html")
+
+        # A filename or an explicit ``attachment`` disposition marks an
+        # attachment for EVERY part, text or not: a genuine text/plain or
+        # text/html FILE attachment (Content-Disposition: attachment;
+        # filename=...) must still be captured, and never consumed by the body
+        # branch (which would LOSE the real body when the file attachment
+        # precedes it in walk() order). Only the NEW inline/Content-ID triggers
+        # are gated behind (not is_text_body): a filename-less text part carrying
+        # merely Content-Disposition: inline or a Content-ID is a candidate BODY,
+        # so it falls through below rather than being swallowed as an attachment.
+        is_attachment = (
+            bool(filename)
+            or "attachment" in disposition
+            or ((not is_text_body) and ("inline" in disposition or content_id is not None))
+        )
 
         if is_attachment:
             payload = part.get_payload(decode=True) or b""
+            name = filename or _synth_attachment_name(idx, ctype, content_id)
+            # Token-aware: classify by the disposition TYPE (the token before the
+            # first ';'), so a real attachment whose filename merely CONTAINS the
+            # substring "inline" (e.g. "mainline-budget.pdf") is not mislabelled.
+            is_inline = (disp_type == "inline") or (
+                content_id is not None and disp_type != "attachment"
+            )
             attachments.append({
                 "id": f"part-{idx}",
-                "name": filename or f"attachment-{idx}",
+                "name": name,
                 "size": len(payload),
                 "contentType": ctype,
-                "isInline": "inline" in disposition,
+                "isInline": is_inline,
             })
         elif ctype == "text/plain" and text is None:
             payload = part.get_payload(decode=True) or b""
@@ -332,7 +375,12 @@ class IMAPAdapter:
         for idx, part in enumerate(msg.walk()):
             if idx == target_idx:
                 payload = part.get_payload(decode=True) or b""
-                filename = part.get_filename() or f"attachment-{idx}"
+                # Reuse the shared synthesizer so a filename-less (cid) inline
+                # image downloads under the SAME friendly name that read() and
+                # list_attachments() report, not a divergent "attachment-{idx}".
+                filename = part.get_filename() or _synth_attachment_name(
+                    idx, part.get_content_type(), part.get("Content-ID")
+                )
                 return filename, payload
         raise KeyError(f"Attachment {attachment_id} not found in {message_id}")
 
@@ -459,6 +507,84 @@ class IMAPAdapter:
         except Exception:
             pass  # don't fail the send if APPEND fails
 
+    def _append_to_drafts(self, msg: EmailMessage) -> dict:
+        """APPEND a built MIME to the Drafts folder with the \\Draft flag.
+
+        Unlike _append_to_sent (a best-effort mirror after a real SMTP send), a
+        draft's ONLY persistence is this APPEND, so a failure here must surface to
+        the caller rather than being swallowed: the "Save as draft" destination
+        has to be real. No SMTP connection is opened, so the message is never
+        delivered.
+        """
+        drafts = self._resolve_folder("drafts")
+        m = self._imap()
+        try:
+            m.append(f'"{drafts}"', "(\\Draft)", None, msg.as_bytes())
+        finally:
+            m.logout()
+        return {"folder": drafts, "provider": "imap", "isDraft": True}
+
+    # ---- drafts (never sent) ----------------------------------------------
+
+    def create_draft(
+        self,
+        to: list[str],
+        subject: str,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+        attachments: list[str] | None = None,
+    ) -> dict:
+        """Build a MIME and APPEND it to Drafts (no SMTP send)."""
+        msg = self._build_mime(subject, body_text, body_html, to, cc, bcc, attachments)
+        return self._append_to_drafts(msg)
+
+    def create_reply_draft(
+        self,
+        message_id: str,
+        body_text: str | None = None,
+        body_html: str | None = None,
+        reply_all: bool = False,
+        attachments: list[str] | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
+    ) -> dict:
+        """Build a threaded reply MIME and APPEND it to Drafts (no SMTP send)."""
+        original = self.read(message_id)
+        orig_subject = original.get("subject") or ""
+        orig_from = original.get("from")
+        orig_to = original.get("to") or []
+        orig_cc = original.get("cc") or []
+        orig_msgid = original.get("internetMessageId")
+
+        reply_subject = orig_subject if orig_subject.lower().startswith("re:") else f"Re: {orig_subject}"
+        self_addr = self.account.address.lower()
+        sender_addr = (orig_from or "").lower()
+        to = [orig_from] if orig_from else []
+        exclude = {self_addr, sender_addr}
+        final_cc = _extra_recipients(
+            (orig_to + orig_cc if reply_all else []) + (cc or []),
+            exclude,
+        )
+        final_bcc = _extra_recipients(
+            bcc,
+            exclude,
+            already={a.lower() for a in to} | {a.lower() for a in final_cc},
+        )
+
+        msg = self._build_mime(
+            reply_subject,
+            body_text,
+            body_html,
+            to,
+            cc=final_cc,
+            bcc=final_bcc,
+            attachments=attachments,
+            in_reply_to=orig_msgid,
+        )
+        return self._append_to_drafts(msg)
+
     def send(
         self,
         to: list[str],
@@ -481,6 +607,8 @@ class IMAPAdapter:
         body_html: str | None = None,
         reply_all: bool = False,
         attachments: list[str] | None = None,
+        cc: list[str] | None = None,
+        bcc: list[str] | None = None,
     ) -> None:
         original = self.read(message_id)
         orig_subject = original.get("subject") or ""
@@ -490,21 +618,34 @@ class IMAPAdapter:
         orig_msgid = original.get("internetMessageId")
 
         reply_subject = orig_subject if orig_subject.lower().startswith("re:") else f"Re: {orig_subject}"
+        self_addr = self.account.address.lower()
+        sender_addr = (orig_from or "").lower()
         to = [orig_from] if orig_from else []
-        cc: list[str] = []
-        if reply_all:
-            self_addr = self.account.address.lower()
-            cc = [
-                a for a in (orig_to + orig_cc)
-                if a.lower() != self_addr and a.lower() != (orig_from or "").lower()
-            ]
+        # reply_all folds the original To + Cc into cc; extra `cc` addresses are
+        # ADDED on top. Route the WHOLE set through the shared helper, mirroring
+        # Graph, so self + the original sender are dropped and case-insensitive
+        # duplicates collapse — an address present in BOTH the original To and Cc
+        # is listed only once.
+        exclude = {self_addr, sender_addr}
+        final_cc = _extra_recipients(
+            (orig_to + orig_cc if reply_all else []) + (cc or []),
+            exclude,
+        )
+        # Dedupe bcc against the resolved To + Cc too, so an address already
+        # visible in cc doesn't reappear as a blind copy.
+        final_bcc = _extra_recipients(
+            bcc,
+            exclude,
+            already={a.lower() for a in to} | {a.lower() for a in final_cc},
+        )
 
         msg = self._build_mime(
             reply_subject,
             body_text,
             body_html,
             to,
-            cc=cc,
+            cc=final_cc,
+            bcc=final_bcc,
             attachments=attachments,
             in_reply_to=orig_msgid,
         )

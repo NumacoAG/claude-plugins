@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^mcp__plugin_mcp-mail_mail__mail_(send|reply)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/mail_send_gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
