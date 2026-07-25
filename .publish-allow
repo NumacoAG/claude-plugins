@@ -1,0 +1,10 @@
+# Known-safe matches: one <relpath>:<token> per line, with a reason.
+# Anything NOT listed here fails the publish gate.
+mcp-mail/skills/contacts/SKILL.md:calendar-notification@google.com  # real-email
+numaco-design/shared/signature/_demo.py:lena.brandt@weeklab.de  # real-email
+numaco-design/shared/signature/_demo.py:tomas.iten@weeklab.de  # real-email
+numaco-design/skills/numaco-sow/SKILL.md:petra.meier@acmelabs.ch  # real-email
+numaco-design/skills/numaco-sow/sample/build_sample.py:jonas.frei@acmelabs.ch  # real-email
+numaco-design/skills/numaco-sow/sample/build_sample.py:petra.meier@acmelabs.ch  # real-email
+numaco-design/skills/numaco-sow/scripts/build_sow.py:petra.meier@acmelabs.ch  # real-email
+numaco-hub/skills/numaco-setup/SKILL.md:/numaco/  # site-specific-term

@@ -1,0 +1,110 @@
+name: publish gate
+
+# Three checks, in increasing order of what they catch:
+#   1. privacy   : nothing private reaches a world-readable repo
+#   2. manifests : versions agree, YAML frontmatter parses
+#   3. install   : the packet actually installs from a clean config
+#
+# Check 3 is the one that matters most. A broken clockify-mcp source once passed
+# `claude plugin validate --strict` cleanly and still failed every colleague's
+# install, because only a real install exercises source resolution.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  privacy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Refuse private data
+        # Site-specific terms live only on the maintainer's machine, so CI runs
+        # the generic rules (emails, GUIDs, home paths, private keys). Those are
+        # what catch an accidental paste; the local pre-commit hook catches the
+        # rest before it ever gets pushed.
+        run: python3 scripts/publish_gate.py .
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pyyaml
+      - name: Every marketplace version must match its plugin.json
+        run: |
+          python3 - <<'PY'
+          import json, sys, pathlib
+          mp = json.load(open(".claude-plugin/marketplace.json"))
+          bad = []
+          for e in mp["plugins"]:
+              src = e.get("source")
+              if not isinstance(src, str):
+                  continue  # external repo, versioned there
+              own = pathlib.Path(src, ".claude-plugin", "plugin.json")
+              if not own.exists():
+                  bad.append(f"{e['name']}: missing {own}")
+                  continue
+              v = json.load(open(own)).get("version")
+              if v != e.get("version"):
+                  bad.append(f"{e['name']}: marketplace {e.get('version')} != plugin.json {v}")
+          print("\n".join(bad) if bad else "all versions agree")
+          sys.exit(1 if bad else 0)
+          PY
+      - name: Every skill must have parseable frontmatter and a description
+        run: |
+          python3 - <<'PY'
+          import glob, sys, yaml, os
+          bad = []
+          for p in sorted(glob.glob("*/skills/**/SKILL.md", recursive=True)):
+              t = open(p).read()
+              if not t.startswith("---"):
+                  bad.append(f"{p}: no frontmatter"); continue
+              try:
+                  d = yaml.safe_load(t.split("---", 2)[1])
+              except Exception as exc:
+                  bad.append(f"{p}: YAML error: {str(exc).splitlines()[0]}"); continue
+              if not isinstance(d, dict) or not d.get("description"):
+                  bad.append(f"{p}: no description (skill will never auto-trigger)")
+          print("\n".join(bad) if bad else "all skills parse and describe themselves")
+          sys.exit(1 if bad else 0)
+          PY
+
+  smoke-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: Marketplace validates
+        run: claude plugin validate .
+      - name: One command installs the whole packet into a clean config
+        env:
+          # An isolated config dir, so nothing touches the runner's real state
+          # and the run reproduces a brand-new colleague machine.
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-cfg
+        run: |
+          set -euo pipefail
+          mkdir -p "$CLAUDE_CONFIG_DIR"
+          claude plugin marketplace list | grep -q "No marketplaces configured" \
+            || { echo "config dir is not clean"; exit 1; }
+          claude plugin marketplace add . < /dev/null
+          claude plugin install numaco-hub@numaco < /dev/null
+          claude plugin list > /tmp/plugins.txt
+          cat /tmp/plugins.txt
+          expected=5
+          got=$(grep -c '✔ enabled' /tmp/plugins.txt || true)
+          if [ "$got" -ne "$expected" ]; then
+            echo "expected $expected enabled plugins, got $got"
+            exit 1
+          fi
+          echo "one command installed $got plugins, all enabled"
