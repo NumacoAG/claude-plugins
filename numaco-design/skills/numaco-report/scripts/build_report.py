@@ -191,11 +191,12 @@ def render_section_body(lines, lead_used, first_section):
     def flush_para():
         if para:
             text = inline(" ".join(x.strip() for x in para).strip())
-            if first_section and not lead_used[0]:
-                out.append(S.lead(text))
-                lead_used[0] = True
-            else:
-                out.append(S.para(text))
+            # Lead-paragraph promotion removed (enshrined): the first paragraph of
+            # the first section renders at the SAME size and colour as every other
+            # body paragraph. Do not re-introduce a .lead promotion here; the larger,
+            # darker opening paragraph read as a bug, not a feature. (lead_used and
+            # first_section are retained for signature compatibility, now unused.)
+            out.append(S.para(text))
             para.clear()
 
     while i < n:
