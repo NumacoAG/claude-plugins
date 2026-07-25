@@ -56,18 +56,16 @@
     },
     {
       "name": "clockify-mcp",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/NumacoAG/clockify-mcp.git"
-      },
-      "version": "0.8.0",
+      "source": "./clockify-mcp",
+      "version": "0.9.0",
       "description": "Clockify time tracking for Claude Code: files entries through a Numaco-hosted MCP server (your Clockify key is decrypted there per request, not kept in your keychain) and scans your calendar for un-logged meetings.",
       "author": {
         "name": "Numaco AG",
         "url": "https://numaco.ch"
       },
       "license": "MIT",
-      "category": "productivity"
+      "category": "productivity",
+      "homepage": "https://github.com/NumacoAG/claude-plugins"
     }
   ]
 }
