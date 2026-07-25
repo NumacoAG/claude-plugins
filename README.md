@@ -25,12 +25,14 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
   folded-in dual-vault-sync engine that reconciles a small tier 1 set of docs
   between your laptop and your phone's iCloud Obsidian vault. The sync stays
   dormant until you track a doc.
-- **mcp-mail** (your own email, calendar, and Drive). A self-hosted MCP server
+- **mcp-mail** (your own email). A self-hosted MCP server
   that gives Claude read and write control over your mail across Microsoft 365,
   Gmail or Google Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and
   others). Search and read, send and reply behind a per-message confirmation,
   file and label, one-click unsubscribe, plus a `/contacts` skill that builds a
   contact directory from your mail history. A single account is a valid setup.
+  This release ships mail only (14 tools). Calendar and Drive are not included
+  yet.
 - **numaco-hub** (front door). The thin starting point: a `numaco-setup` skill
   that onboards you through whatever you installed, and a `/numaco-update` command
   for on-demand updates. Carries no engine of its own.
@@ -48,15 +50,16 @@ You install this packet once per machine. Paste the following into Claude Code.
    /plugin marketplace add NumacoAG/claude-plugins
    ```
 
-2. Install each plugin you want (repeat the line, swapping the name):
+2. Install the packet with one command. numaco-hub declares the other four as
+   dependencies, so this pulls numaco-design, review-kit, mcp-mail, and
+   clockify-mcp in with it:
 
    ```
    /plugin install numaco-hub@numaco
-   /plugin install numaco-design@numaco
-   /plugin install review-kit@numaco
-   /plugin install mcp-mail@numaco
-   /plugin install clockify-mcp@numaco
    ```
+
+   If you want only some of them, install those names individually instead, for
+   example `/plugin install numaco-design@numaco`.
 
 3. Run the guided setup. Say "set up the numaco plugins" (or "numaco setup") to
    trigger the `numaco-setup` skill from numaco-hub. It states the privacy
@@ -74,9 +77,12 @@ This packet is built so that your data stays yours.
   and skills run on your machine, or talk straight to your own provider's API from
   your machine. There is no shared Numaco server sitting between you and your
   email, calendar, files, or time entries.
-- **No one else can see your mail or your data.** Not the author, not Numaco, not
-  any other user of these plugins. Your email, calendar, documents, and time
-  entries are visible only to you.
+- **No one at Numaco can see your mail or your data.** Not the author, not
+  Numaco, not any other user of these plugins: nothing in this packet opens a
+  channel that would carry your data to them. Be clear about the one place it
+  does travel: whatever Claude reads on your behalf goes to Anthropic as part of
+  your conversation, under your own Claude agreement, exactly as any file you
+  open in Claude Code does. These plugins send your data nowhere else.
 - **Secrets live in your OS keychain.** OAuth tokens, app passwords, and API keys
   go to your operating system's credential store (macOS Keychain, Windows
   Credential Manager, Linux Secret Service), never in plaintext in the repository
@@ -94,18 +100,27 @@ New plugin versions arrive on their own once you enable auto update for the
   publisher you push a version bump; colleagues on auto update receive it at their
   next session start.
 - **Enable auto update.** Auto update is a per-user setting under
-  `extraKnownMarketplaces` in your `settings.json`. Set `autoUpdate` to `true` for
-  the `numaco` marketplace entry:
+  `extraKnownMarketplaces` in your `settings.json`. Step 1 already created the
+  `numaco` entry together with its `source` block, so add the `autoUpdate` key
+  beside `source` rather than replacing the entry. The result should look like
+  this:
 
   ```json
   {
     "extraKnownMarketplaces": {
       "numaco": {
+        "source": {
+          "source": "github",
+          "repo": "NumacoAG/claude-plugins"
+        },
         "autoUpdate": true
       }
     }
   }
   ```
+
+  An entry that carries `autoUpdate` but no `source` registers no marketplace at
+  all, so keep the `source` block.
 
   The `numaco-setup` skill turns this on for you during onboarding.
 - **Manual (on demand).** To update right now instead of waiting for the next
@@ -167,7 +182,7 @@ numaco-claude-plugins/
 │   └── marketplace.json     the numaco marketplace manifest (five plugins)
 ├── numaco-design/           branded output engine (reports, SOWs, decks)
 ├── review-kit/              markdown review trio plus dual-vault sync
-├── mcp-mail/                self-hosted mail, calendar, and Drive MCP server
+├── mcp-mail/                self-hosted mail MCP server
 ├── numaco-hub/              front door: setup skill and update command
 ├── LICENSE                  MIT, Numaco AG
 └── README.md                this file

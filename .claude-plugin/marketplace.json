@@ -9,7 +9,7 @@
     {
       "name": "numaco-design",
       "source": "./numaco-design",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "description": "Numaco branded output engine: renders slide decks, statements of work, reports, and timesheets from markdown to branded PDF.",
       "author": {
         "name": "Numaco AG",
@@ -33,8 +33,8 @@
     {
       "name": "mcp-mail",
       "source": "./mcp-mail",
-      "version": "0.1.0",
-      "description": "Self-hosted MCP server giving Claude read and write control over your own email, calendar, and Drive across Microsoft 365, Gmail, and IMAP.",
+      "version": "0.2.0",
+      "description": "Self-hosted MCP server giving Claude read and write control over your own email across Microsoft 365, Gmail, and IMAP.",
       "author": {
         "name": "Numaco AG",
         "url": "https://numaco.ch"

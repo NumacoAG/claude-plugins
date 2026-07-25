@@ -41,8 +41,7 @@ body{
   size:A4;
   margin:26mm 20mm 22mm 20mm;
   background:
-    url(__WM__) right top / 101mm auto no-repeat,
-    linear-gradient(#dbe0e9,#dbe0e9) 20mm 18.4mm / 170mm 0.25mm no-repeat,
+    url(__WM__) right -5mm top -5.5mm / 100mm auto no-repeat,
     linear-gradient(#dbe0e9,#dbe0e9) 20mm 281mm / 170mm 0.3mm no-repeat;
   @top-left{ content:element(rhL); }
   @top-right{ content:element(rhR); }
@@ -115,31 +114,37 @@ body{
 main{ counter-reset:none; }
 .block-eyebrow{ display:flex; align-items:center; gap:3mm;
   font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.1em; text-transform:uppercase;
-  color:#777f8d; margin:0 0 3.5mm; }
+  color:#777f8d; margin:0 0 3.5mm; break-after:avoid; }
 .block-eyebrow .dot{ width:2mm; height:2mm; border-radius:50%; background:var(--amber); flex:none; }
 
 /* Plain block flow (never grid) so a section fragments cleanly across pages;
    the number rides in the gutter as an absolute mark that shows once, at the
    section start. Grid on .sec collapses its content column when it breaks. */
-.sec{ position:relative; border-top:0.4mm solid var(--navy);
-  padding-top:4.5mm; margin-top:9mm; }
+.sec{ position:relative; margin-top:9mm; }
 .sec.first{ margin-top:2mm; }
+/* The section rule, number and heading form one unsplittable unit that is kept
+   with the body that follows, so the section opening (and its number) is never
+   the last thing on a page: it moves to the next page whole (enshrined). The
+   navy rule and the gutter number therefore live on .sec-head, not on the
+   splittable .sec, so a section that reflows leaves no stranded rule + number. */
+.sec-head{ position:relative; border-top:0.4mm solid var(--navy); padding-top:4.5mm;
+  break-inside:avoid; break-after:avoid; }
+.sec-htext{ padding-left:16mm; }
 .sec-no{ position:absolute; left:0; top:5.6mm; font-family:var(--font-mono); font-weight:600;
   font-size:12pt; color:var(--amber); letter-spacing:.02em; line-height:1; }
 .sec-no.apx{ font-size:7pt; letter-spacing:.09em; top:6.4mm; }
-.sec-main{ padding-left:16mm; }
 .sec-h{ font-family:var(--font-sans); font-weight:700; font-size:16.5pt; letter-spacing:-0.014em;
   color:var(--ink); line-height:1.05; break-after:avoid; }
 .sec-tag{ display:block; font-family:var(--font-mono); font-size:6pt; letter-spacing:.1em;
   text-transform:uppercase; color:#777f8d; margin-top:2.2mm; break-after:avoid; }
-.sec-body{ margin-top:3.5mm; }
+.sec-body{ margin-top:3.5mm; padding-left:16mm; }
 .sec-body>p{ margin-top:3mm; max-width:158mm; }
 .sec-body>p:first-child{ margin-top:0; }
 .lead{ font-size:10.3pt; line-height:1.5; color:var(--ink); font-weight:400; }
 
 h3.sub{ font-family:var(--font-mono); font-weight:600; font-size:7pt; letter-spacing:.1em;
   text-transform:uppercase; color:#777f8d; margin:6.5mm 0 1.5mm;
-  padding-bottom:1.4mm; border-bottom:0.25mm solid var(--hair); }
+  padding-bottom:1.4mm; border-bottom:0.25mm solid var(--hair); break-after:avoid; }
 
 /* item lists: deliverables / exclusions / assumptions / options / components */
 .items{ margin-top:2.5mm; }
@@ -162,7 +167,7 @@ h3.sub{ font-family:var(--font-mono); font-weight:600; font-size:7pt; letter-spa
 ul.spec{ list-style:none; margin:2.5mm 0 0; }
 ul.spec li{ position:relative; padding-left:7mm; margin-top:2.6mm; color:var(--grey);
   font-size:9pt; line-height:1.5; break-inside:avoid; }
-ul.spec li::before{ content:""; position:absolute; left:0; top:2.3mm; width:3.5mm; height:0.5mm;
+ul.spec li::before{ content:""; position:absolute; left:0; top:1.9mm; width:3.5mm; height:1.3mm;
   background:var(--amber); }
 ul.spec li b{ color:var(--ink); font-weight:700; }
 
@@ -172,6 +177,30 @@ ul.spec li b{ color:var(--ink); font-weight:700; }
    =================================================================== */
 table.data{ width:100%; border-collapse:collapse; margin-top:4mm;
   font-variant-numeric:tabular-nums; }
+
+/* --- Fixed, content-independent column geometry (enshrined) ---------------
+   Every document table of a given type shares ONE column grid, so geometry never
+   depends on cell content and never differs table to table. table-layout:fixed
+   pins the columns; the wide text column absorbs the remaining width while the
+   fixed numeric columns keep a clear, constant gap (the DAYS and AMOUNT columns
+   never crowd, regardless of the figures). Two SOW table shapes are covered:
+   the effort table (Ref / Workstream / Days / Amount) and the goods table
+   (Item / Description / Price). Plain table.data (e.g. report line-items and
+   free-form report tables) keeps auto layout, so this leaves them untouched. */
+table.sow-effort{ table-layout:fixed; }
+table.sow-effort th:nth-child(1), table.sow-effort td:nth-child(1){ width:12mm; }  /* Ref */
+table.sow-effort th:nth-child(3), table.sow-effort td:nth-child(3){ width:18mm; }  /* Days */
+table.sow-effort th:nth-child(4), table.sow-effort td:nth-child(4){ width:26mm; }  /* Amount */
+
+table.goods{ table-layout:fixed; }
+table.goods th:nth-child(1), table.goods td:nth-child(1){ width:34mm; }  /* Item */
+table.goods th:nth-child(3), table.goods td:nth-child(3){ width:30mm; }  /* Price */
+
+/* Keep-with-next for tables: a table header row is never the last thing on a
+   page. The header stays with at least the first body row; if the two would not
+   fit at the page bottom, the whole table moves to the next page. */
+table.data thead{ break-after:avoid; break-inside:avoid; }
+table.data tbody tr:first-child{ break-before:avoid; break-inside:avoid; }
 table.data th{ font-family:var(--font-mono); font-weight:500; font-size:6.2pt; letter-spacing:.08em;
   text-transform:uppercase; color:var(--grey2); text-align:left; padding:0 3mm 2.2mm 0;
   border-bottom:0.4mm solid var(--navy); }

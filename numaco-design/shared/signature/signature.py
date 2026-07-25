@@ -33,9 +33,11 @@ scope_item(code, title, body, tag=None, excl=False) -> str
     One item row (deliverable / exclusion / assumption / option). Trailing digits in
     code render amber-bold. tag adds a small amber "Optional"-style tag; excl greys it.
 
-effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None) -> str
+effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None, table_class="data effort") -> str
     Engineering effort / data table. cols is a list of (label, num_bool[, width]);
-    rows / total_row / addon_rows are lists of (text, css_class) cells.
+    rows / total_row / addon_rows are lists of (text, css_class) cells. table_class
+    sets the <table> class list, so a caller can opt a table into a fixed-geometry
+    variant (e.g. "data sow-effort" or "data goods") defined in signature.css.
 
 parties(client, supplier) -> str
     Two-column contracting-parties block. client / supplier are dicts (see _party).
@@ -82,9 +84,28 @@ def _png(path):
     return "data:image/png;base64," + _b64(path)
 
 
+# The official Numaco monogram is now a single vector master (crisp at any size).
+# Every corner-N in the Signature look is derived from it by re-tinting: the faint
+# interior @page watermark (navy on white) and the big cover N (white on navy).
+_MONO_SVG = (BRAND / "monogram-official.svg").read_text()   # vector master
+_MONO_FILL_TOKEN = 'fill="#183060" fill-rule="nonzero"'     # master's paint attrs
+
+# Interior corner watermark tint. The old raster (numaco_watermark_light.png)
+# carried a max alpha of ~12/255, so it never actually showed; this is the
+# single knob that sets how present the corner N reads on the page.
+WATERMARK_OPACITY = 0.12
+
+
+def _mono_variant(fill, opacity=1.0):
+    """A data-URI copy of the vector monogram, re-tinted (fill + fill-opacity)."""
+    repl = f'fill="{fill}" fill-opacity="{opacity:g}" fill-rule="nonzero"'
+    svg = _MONO_SVG.replace(_MONO_FILL_TOKEN, repl, 1)
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
 _JBM = _b64(ASSETS / "jetbrainsmono-400.woff2")            # JetBrains Mono woff2
-_WM = _png(BRAND / "numaco_watermark_light.png")           # faint light corner N
-_MONOGRAM = _png(ASSETS / "numaco_monogram_white.png")     # big faint N (cover)
+_WM = _mono_variant("#183060", WATERMARK_OPACITY)          # faint navy corner N (interior)
+_MONOGRAM = _mono_variant("#ffffff")                       # white N (cover; CSS sets opacity)
 _WORDMARK = _png(ASSETS / "numaco_wordmark_white.png")     # white Numaco wordmark
 _MANROPE = (BRAND / "fonts" / "manrope.css").read_text()   # variable @font-face
 _CSS = (HERE / "signature.css").read_text()                # locked stylesheet
@@ -190,14 +211,19 @@ def block_eyebrow(text):
 def section(no, title, tag, body_html="", first=False):
     cls = "sec first" if first else "sec"
     tag_html = f'<span class="sec-tag">{tag}</span>' if tag else ""
+    # The section rule, number and heading ride together in one atomic .sec-head
+    # block (break-inside avoid) so a section heading can never be the last thing
+    # on a page: Paged.js keeps this block with the first line of the body
+    # (break-after avoid) and, being unsplittable, moves the whole opening (rule +
+    # number + heading) to the next page as a unit, leaving no stranded shell.
     return f"""
 <section class="{cls}">
-  <div class="sec-no">{no}</div>
-  <div class="sec-main">
-    <h2 class="sec-h">{title}</h2>{tag_html}
-    <div class="sec-body">
+  <div class="sec-head">
+    <div class="sec-no">{no}</div>
+    <div class="sec-htext"><h2 class="sec-h">{title}</h2>{tag_html}</div>
+  </div>
+  <div class="sec-body">
 {body_html}
-    </div>
   </div>
 </section>"""
 
@@ -251,7 +277,8 @@ def _cells(cells):
     return out
 
 
-def effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None):
+def effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None,
+                 table_class="data effort"):
     thead = ""
     for c in cols:
         label = c[0]
@@ -268,7 +295,7 @@ def effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None):
     for ar in (addon_rows or []):
         body += f'<tr class="addon">{_cells(ar)}</tr>\n'
     tbl = (
-        f'<table class="data effort"><thead><tr>{thead}</tr></thead>'
+        f'<table class="{table_class}"><thead><tr>{thead}</tr></thead>'
         f"<tbody>\n{body}</tbody></table>"
     )
     if footnote:
@@ -353,11 +380,11 @@ def appendix(title, clauses, tag="Representative extract", pagebreak=True, apx_l
     tag_html = f'<span class="sec-tag">{tag}</span>' if tag else ""
     return f"""{pb}
 <section class="sec first">
-  <div class="sec-no apx">{apx_label}</div>
-  <div class="sec-main">
-    <h2 class="sec-h">{title}</h2>{tag_html}
-    <div class="sec-body"><div class="clauses">{cl}</div></div>
+  <div class="sec-head">
+    <div class="sec-no apx">{apx_label}</div>
+    <div class="sec-htext"><h2 class="sec-h">{title}</h2>{tag_html}</div>
   </div>
+  <div class="sec-body"><div class="clauses">{cl}</div></div>
 </section>"""
 
 

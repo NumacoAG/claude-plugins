@@ -10,7 +10,7 @@ description: >-
   and export the PDF (the PDF is the deliverable). Default look is the "numaco standard blue
   template". Other styles can be added later.
 status: beta
-version: 0.5 (2026-07-10 — build now emits a CoreGraphics cover check (pdfcheck) so decks are verified through PDFKit/Preview, not Chromium, plus PDFKit-safe design rules. Includes 0.4's cover CSS fix: definite-px monogram, transform-free centering with inset:0+margin:auto, gradient vignette; and 0.3's print pagination clamp.)
+version: "0.5 (2026-07-10 — build now emits a CoreGraphics cover check (pdfcheck) so decks are verified through PDFKit/Preview, not Chromium, plus PDFKit-safe design rules. Includes 0.4's cover CSS fix: definite-px monogram, transform-free centering with inset:0+margin:auto, gradient vignette; and 0.3's print pagination clamp.)"
 ---
 
 # numaco-slide-deck

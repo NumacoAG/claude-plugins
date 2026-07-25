@@ -1,8 +1,9 @@
 ---
 name: numaco-timesheet
-description: Produce a Numaco AG branded timesheet (hours report) as a PDF in the locked Signature document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, "bill the hours for <project>", "timesheet for <customer> <period>", "prepare the Q2 hours for <customer>", or wants to turn tracked time (for example Clockify entries) into a customer facing hours document. Covers hours-only sheets, sheets with a computed amount column, and sheets that track utilisation against an hours budget with a chart. The skill runs as a short conversation: it establishes client, project, and period, collects and cleans the entries, confirms budget and hours-only versus with-amounts, renders the branded PDF, and verifies it through CoreGraphics.
+description: >-
+  Produce a Numaco AG branded timesheet (hours report) as a PDF in the locked Signature document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, "bill the hours for <project>", "timesheet for <customer> <period>", "prepare the Q2 hours for <customer>", or wants to turn tracked time (for example Clockify entries) into a customer facing hours document. Covers hours-only sheets, sheets with a computed amount column, and sheets that track utilisation against an hours budget with a chart. The skill runs as a short conversation: it establishes client, project, and period, collects and cleans the entries, confirms budget and hours-only versus with-amounts, renders the branded PDF, and verifies it through CoreGraphics.
 status: beta
-version: 0.1.0
+version: 0.2.1
 ---
 
 # Numaco timesheet skill (Signature pipeline)

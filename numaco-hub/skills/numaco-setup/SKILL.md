@@ -20,11 +20,15 @@ Before configuring anything, make the trust model explicit. Three points:
    and skills run on your machine (or talk straight to your own provider from
    your machine). There is no shared Numaco server sitting in the middle of your
    email, calendar, files, or time entries.
-3. **No one else can see your email or your data.** Not the author, not Numaco,
-   not any other user. Your secrets (OAuth tokens, app passwords, API keys) live
-   in your operating system's credential store (macOS Keychain, Windows
-   Credential Manager, Linux Secret Service), never in plaintext in the repo and
-   never in this chat.
+3. **No one at Numaco can see your email or your data.** Not the author, not
+   Numaco, not any other user: nothing in this packet opens a channel that would
+   carry it to them. State the one exception plainly rather than glossing it:
+   whatever Claude reads for you travels to Anthropic as part of your
+   conversation, under your own Claude agreement, exactly as any file you open in
+   Claude Code does. Your secrets (OAuth tokens, app passwords, API keys) live in
+   your operating system's credential store (macOS Keychain, Windows Credential
+   Manager, Linux Secret Service), never in plaintext in the repo and never in
+   this chat.
 
 Do not disclose, guess, or speculate about which providers or accounts the
 author personally uses. This setup is about the user's own accounts only.
@@ -59,11 +63,11 @@ start, run `/numaco-update` (from the numaco-hub plugin).
 Ask which plugins the user installed, then set up only those. Each is
 independent; do them in any order and pause after each one.
 
-- **mcp-mail** (email, calendar, and Drive across your own providers): run the
-  **mcp-mail-setup** skill. It walks you through your own mail, calendar, and
-  Drive accounts provider by provider, storing every secret in your OS
-  credential store. Configure only the accounts you want; a single account is a
-  valid setup.
+- **mcp-mail** (email across your own providers): run the **mcp-mail-setup**
+  skill. It walks you through your own mail accounts provider by provider,
+  storing every secret in your OS credential store. Configure only the accounts
+  you want; a single account is a valid setup. This release is mail only;
+  calendar and Drive are not included yet.
 - **review-kit** (markdown co-authoring plus release QA): works out of the box.
   Mobile sync is optional and stays dormant until you opt in: to mirror a doc
   between your laptop and your phone vault, track it with `/dvsync-track`. Until

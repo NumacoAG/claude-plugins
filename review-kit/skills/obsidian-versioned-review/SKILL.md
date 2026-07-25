@@ -1,8 +1,9 @@
 ---
 name: obsidian-versioned-review
-description: Collaboratively draft, iterate on, review, and lock a markdown document in your Obsidian vault using the green-mark versioned-review regime. Use whenever the user wants to co-author or review a vault doc over multiple rounds — triggers include "let's draft/write X in the vault", "review this doc", "iterate on it", "incorporate my comments", "bump the version", "lock the doc", or working on any file that carries a `**vN.y**` version line under its title. Covers the full loop: versioning, green-marking changes with inline color spans, the review cadence, Obsidian rendering gotchas, the git worktree → commit → push → merge flow, and enshrining conventions.
+description: >-
+  Collaboratively draft, iterate on, review, and lock a markdown document in your Obsidian vault using the green-mark versioned-review regime. Use whenever the user wants to co-author or review a vault doc over multiple rounds — triggers include "let's draft/write X in the vault", "review this doc", "iterate on it", "incorporate my comments", "bump the version", "lock the doc", or working on any file that carries a `**vN.y**` version line under its title. Covers the full loop: versioning, green-marking changes with inline color spans, the review cadence, Obsidian rendering gotchas, the git worktree → commit → push → merge flow, and enshrining conventions.
 status: stable
-version: 1.4 (2026-06-30: no hard line wraps inside a paragraph or bullet, one logical line equals one physical line; see § D)
+version: "1.4 (2026-06-30: no hard line wraps inside a paragraph or bullet, one logical line equals one physical line; see § D)"
 ---
 
 # Obsidian versioned-doc review
