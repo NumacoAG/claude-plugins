@@ -76,7 +76,10 @@ body{
   background:
     radial-gradient(135% 95% at 85% 18%, rgba(122,152,208,0.24), rgba(24,48,96,0) 56%),
     radial-gradient(120% 80% at 6% 104%, rgba(7,16,36,0.60), rgba(24,48,96,0) 52%); }
-.cv-n{ position:absolute; right:-7mm; top:127mm; width:180mm; height:180mm; opacity:.11; }
+/* Cover monogram placement is calibrated and locked (enshrined): tuned once
+   against the real cover with the cover-monogram tuner. Do not hand-tweak these
+   four values; re-run the tuner if the cover mark ever needs to move. */
+.cv-n{ position:absolute; right:-9mm; top:130mm; width:176mm; height:176mm; opacity:.115; }
 .cv-wordmark{ position:absolute; left:20mm; top:23mm; width:49mm; height:auto; }
 .cv-tag{ position:absolute; right:20mm; top:24mm; text-align:right;
   font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.11em; text-transform:uppercase;
