@@ -86,7 +86,7 @@ jobs:
           node-version: "22"
       - run: npm install -g @anthropic-ai/claude-code
       - name: Marketplace validates
-        run: claude plugin validate .
+        run: claude plugin validate "$PWD"
       - name: One command installs the whole packet into a clean config
         env:
           # An isolated config dir, so nothing touches the runner's real state
@@ -97,7 +97,9 @@ jobs:
           mkdir -p "$CLAUDE_CONFIG_DIR"
           claude plugin marketplace list | grep -q "No marketplaces configured" \
             || { echo "config dir is not clean"; exit 1; }
-          claude plugin marketplace add . < /dev/null
+          # A bare "." is rejected ("Invalid marketplace source format"); the
+          # source must be owner/repo, a URL, or an explicit path.
+          claude plugin marketplace add "$PWD" < /dev/null
           claude plugin install numaco-hub@numaco < /dev/null
           claude plugin list > /tmp/plugins.txt
           cat /tmp/plugins.txt
