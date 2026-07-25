@@ -21,7 +21,7 @@ from typing import Any
 
 import httpx
 
-from .gmail import acquire_credentials
+from .gmail import acquire_credentials, FILE_SCOPES
 from ..config import GmailAccount
 
 DOCS_BASE = "https://docs.googleapis.com/v1"
@@ -37,7 +37,7 @@ class GoogleDocsAdapter:
     # ---- auth --------------------------------------------------------------
 
     def _headers(self, content_type: str | None = None) -> dict[str, str]:
-        creds = acquire_credentials(self.account)
+        creds = acquire_credentials(self.account, required_scopes=FILE_SCOPES)
         h = {"Authorization": f"Bearer {creds.token}"}
         if content_type:
             h["Content-Type"] = content_type

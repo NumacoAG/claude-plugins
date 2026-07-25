@@ -90,10 +90,15 @@ You configure any subset of these — a single account is a valid setup.
 
 ## 5. Out of scope
 
-- Calendar read/write (handled by hosted Calendar connectors).
+Calendar read/write was listed here originally and is no longer out of scope: as
+of 0.5.0 the server registers five `cal_*` tools for Google and Microsoft 365,
+alongside Drive, Docs, Sheets and Slides. What follows is what is still genuinely
+excluded.
+
 - Contacts as a first-class API (note: a derived contact directory from emails
   IS a success criterion — see §7 #6).
-- Calendar invitations from inside emails (forwarded ICS handling).
+- Calendar invitations parsed from inside emails (forwarded ICS handling). The
+  calendar tools act on calendars directly, not on ICS attachments.
 - Cross-account move (would be forward + delete; explicitly excluded for safety).
 - Mobile / iOS surface.
 - A UI. The MCP is consumed by Claude only.

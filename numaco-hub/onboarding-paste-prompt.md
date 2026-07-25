@@ -48,19 +48,54 @@ each file you write outside this folder, and approving them is the normal course
 of this setup. You will never ask me to paste a password, a token or an API key
 into this chat, and I should refuse if anything ever does.
 
-STEP 0, preflight.
-Report which operating system I am on, then check the toolchain:
+One rule that overrides everything below. This prompt was sent to me with real
+values filled in. If any angle-bracket placeholder is still present when you
+reach the step that would write it (anything shaped like <RATE-CHF-PER-HOUR> or
+<M365-CLIENT-ID>), do NOT write that file, do NOT invent a value, and do NOT
+leave the placeholder in place. Stop, tell me exactly which placeholder is
+missing, and tell me to ask the person who sent me this prompt for it. A config
+file containing a placeholder fails silently later: the document generator will
+print it onto a real customer document, and a placeholder client id simply cannot
+sign in.
+
+STEP 0, preflight. Assume I have NOTHING installed beyond Claude Code itself: no
+Homebrew, no Node, no uv. Never tell me to run "brew" unless "brew --version"
+already succeeds, because installing Homebrew is a long detour that needs Xcode
+command line tools and an admin password.
+
+Report my operating system, then check the toolchain:
   claude --version
   python3 --version
   uv --version
   node --version
-Python must be 3.11 or newer. uv is required: mcp-mail will not start without it.
-Node is informational only; a later step installs it if needed. If uv is missing,
-install it for my platform, then re-check:
-  macOS:   brew install uv
-  Linux:   curl -LsSf https://astral.sh/uv/install.sh | sh
-  Windows: winget install --id=astral-sh.uv -e     (then open a new terminal)
-Do not continue until claude, python3 and uv all report a version.
+
+uv is required: mcp-mail cannot start without it. If it is missing, install it:
+  macOS and Linux:  curl -LsSf https://astral.sh/uv/install.sh | sh
+  Windows:          winget install --id=astral-sh.uv -e
+That installer puts uv in ~/.local/bin and edits my shell profile, which only
+affects NEW terminals. So do not re-check with a bare "uv --version", which will
+still fail in this session and look like the install did not work. Re-check with
+the full path and then put it on the path for the rest of this session:
+  "$HOME/.local/bin/uv" --version
+  export PATH="$HOME/.local/bin:$PATH"
+
+Python must be 3.11 or newer, and this is a HARD requirement, not advice. On 3.9
+or 3.10 the document generator silently ignores the settings file you write in
+STEP 3 and prints placeholder contact details onto real customer documents, with
+no error shown. Read the version number and compare it properly. If it is below
+3.11, install a newer one WITHOUT Homebrew, then re-check:
+  macOS:    download the current macOS 64-bit universal2 installer from
+            python.org/downloads and run it (a normal double-click installer),
+            or, now that uv exists: uv python install 3.13
+  Windows:  winget install --id=Python.Python.3.13 -e
+  Linux:    the distro package, for example: sudo apt-get install python3.13
+Node is needed later, for slide decks and PDF documents only. If it is missing,
+say so now and tell me I will need it before my first document, and that the
+no-Homebrew route is the Node LTS installer from nodejs.org (again a normal
+double-click installer). Do not claim a later step installs it, because none does.
+
+Do not continue until claude reports a version, uv reports a version, and python3
+reports 3.11 or newer.
 
 STEP 1, install the packet. Exactly these two commands, in this order:
   claude plugin marketplace add NumacoAG/claude-plugins
@@ -194,8 +229,12 @@ short list: which five plugins are installed and at which versions, that
 automatic updates are on, and which config files you created or left untouched.
 
 STEP 6, hand back to me.
-Tell me to restart Claude Code now, because the mcp-mail tools do not appear
-until the session restarts. Then tell me that after restarting I should say "set
+Tell me to quit Claude Code and relaunch it from a NEWLY OPENED terminal window,
+not from the one this session is running in. Two reasons, and say both: the
+mcp-mail tools do not appear until the session restarts, and if uv was installed
+during STEP 0 then only a new terminal has it on the path. Relaunching from the
+same window would start the mail server with no uv, and the tools would silently
+never appear. Then tell me that after restarting I should say "set
 up the numaco plugins", which runs the guided numaco-setup skill for the parts
 nobody can do on my behalf:
   signing in to my own Microsoft 365 account (the first mail call opens a browser

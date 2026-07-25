@@ -21,21 +21,40 @@ from ..config import GmailAccount
 
 GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1"
 
-# The mail surface plus the Drive / Sheets / Calendar scopes added by the
-# expansion. The whole list is requested as a UNION at consent time: a Google
-# refresh token freezes its granted scopes when the user re-consents, so the Drive
-# and Calendar adapters (which reuse this same OAuth client and Keychain token)
-# get their scopes from one re-consent rather than three separate clients.
-# Re-consent is a user action (scripts/reauth_google.py); shipping these scopes
-# does NOT touch an existing token until that script is re-run.
-SCOPES = [
+# Scopes are split by surface, and each caller asks only for what it needs.
+#
+# This split is load-bearing, not tidiness. A Google refresh token freezes the
+# scopes granted at consent time, and google-auth refuses a cached token whose
+# granted scopes are narrower than the ones asked for. If mail validated against
+# the full union, then every token issued before Drive and Calendar existed would
+# stop validating the moment this version landed, and MAIL ITSELF would break for
+# anyone who had already authorised, with no action on their part. Auto-update
+# would deliver that break silently.
+#
+# So: mail validates against MAIL_SCOPES and keeps working on an old token. The
+# newer surfaces validate against their own scopes and fail with a message naming
+# the one-off re-consent, which is the correct outcome for a capability the user
+# has genuinely not granted yet.
+MAIL_SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/gmail.settings.basic",
+]
+
+# Drive covers Docs and Slides file access as well as Drive itself.
+FILE_SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/calendar",
 ]
+
+CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+# Requested as a union at consent time, so one browser round trip grants
+# everything and nobody has to re-consent per surface.
+CONSENT_SCOPES = MAIL_SCOPES + FILE_SCOPES + CALENDAR_SCOPES
+
+# Kept as the name the interactive re-auth helper imports.
+SCOPES = CONSENT_SCOPES
 
 # Same inline-attachment limit philosophy as Graph; Gmail's actual cap is
 # higher (~25MB per send) but we keep parity with M365 for predictable UX.
@@ -85,8 +104,12 @@ def _load_oauth_client_config(account: GmailAccount) -> dict:
     }
 
 
-def acquire_credentials(account: GmailAccount, allow_interactive: bool = False) -> Credentials:
-    """Return valid Gmail credentials.
+def acquire_credentials(
+    account: GmailAccount,
+    allow_interactive: bool = False,
+    required_scopes: list[str] | None = None,
+) -> Credentials:
+    """Return valid Google credentials covering ``required_scopes``.
 
     Loads the cached refresh token from Keychain and refreshes silently if
     expired. In the MCP server (``allow_interactive=False``, the default) an
@@ -95,12 +118,18 @@ def acquire_credentials(account: GmailAccount, allow_interactive: bool = False) 
     indefinitely waiting for a redirect that never arrives (the "stuck for
     hours" failure). The re-auth helper (``scripts/reauth_google.py``) passes
     ``allow_interactive=True`` to run the one-off browser consent flow.
+
+    ``required_scopes`` defaults to the mail surface, so a token issued before
+    Drive and Calendar existed still validates and mail keeps working. Callers
+    for the newer surfaces pass their own scope list and get an explicit
+    re-consent error when the cached grant does not cover them.
     """
+    required = required_scopes or MAIL_SCOPES
     creds: Credentials | None = None
     token_blob = keyring.get_password(account.keychain_service, account.keychain_user)
     if token_blob:
         try:
-            creds = Credentials.from_authorized_user_info(json.loads(token_blob), SCOPES)
+            creds = Credentials.from_authorized_user_info(json.loads(token_blob), required)
         except Exception:
             creds = None
 
@@ -117,11 +146,20 @@ def acquire_credentials(account: GmailAccount, allow_interactive: bool = False) 
         return creds
 
     if not allow_interactive:
+        surface = (
+            "mail" if required is MAIL_SCOPES or required == MAIL_SCOPES
+            else "Drive, Docs, Sheets and Slides" if required == FILE_SCOPES
+            else "Calendar" if required == CALENDAR_SCOPES
+            else "this operation"
+        )
         raise RuntimeError(
-            f"{account.id}: no valid Gmail credentials (token missing, expired, "
-            f"or revoked, or the granted scopes do not cover this operation). "
-            f"Re-authorize from a terminal:\n"
-            f"    uv run python scripts/reauth_google.py {account.id}\n"
+            f"{account.id}: no valid Google credentials for {surface} (the token is "
+            f"missing or revoked, or was granted before this capability existed and "
+            f"does not cover it). One re-consent grants every surface at once. From a "
+            f"terminal, with MCPMAIL set to the installed plugin's directory:\n"
+            f"    uv --directory \"$MCPMAIL/server\" run python scripts/reauth_google.py {account.id}\n"
+            f"See INSTALL.md for how to locate that directory. Mail keeps working on an "
+            f"older token; only the newer surfaces need the re-consent.\n"
             f"If this recurs every ~7 days, set the Google OAuth consent screen "
             f"to 'In production'; Testing mode expires refresh tokens weekly."
         )

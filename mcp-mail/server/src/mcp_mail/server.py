@@ -295,6 +295,26 @@ def _comment_gate_refusal(tool: str) -> list[TextContent]:
     })
 
 
+def _share_gate_refusal(tool: str, principal: str, role: str) -> list[TextContent]:
+    """The server-side outward-facing gate's refusal for an unconfirmed share.
+
+    Granting access is the least reversible outward-facing act the server can
+    perform: ``principal="anyone"`` with ``role="writer"`` makes a file publicly
+    writable, and unlike a comment it cannot be withdrawn from anyone who already
+    fetched the link. So the share is refused until the caller re-invokes with
+    confirmed=true, on top of the ordinary auto_write check.
+    """
+    return _ok({
+        "ok": False,
+        "gated": True,
+        "reason": (
+            f"{tool} would grant '{role}' access to '{principal}' (outward-facing, and "
+            f"hard to take back once the link is out). Show the user exactly who is "
+            f"being granted what, then re-invoke {tool} with confirmed=true."
+        ),
+    })
+
+
 def _apply_signature(
     acct: Account,
     *,
@@ -962,6 +982,14 @@ async def list_tools() -> list[Tool]:
                     "ref": {"type": "string"},
                     "principal": {"type": "string", "description": "Email, or 'anyone'."},
                     "role": {"type": "string", "description": "e.g. 'reader' / 'writer'."},
+                    "confirmed": {
+                        "type": "boolean",
+                        "description": (
+                            "Set true only after showing the user exactly who is being "
+                            "granted what and getting approval. The server refuses the "
+                            "share without it."
+                        ),
+                    },
                 },
                 "required": ["account", "ref", "principal", "role"],
                 "additionalProperties": False,
@@ -1810,6 +1838,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         # Outward-facing: always gated by the per-call prompt (kept off the
         # allowlist), regardless of auto_write. Audited because it grants access.
         acct, adapter = _get_drive_adapter(arguments["account"])
+        require_auto_write(acct, "drive_share")
+        if not bool(arguments.get("confirmed", False)):
+            return _share_gate_refusal(
+                "drive_share", str(arguments["principal"]), str(arguments["role"])
+            )
         try:
             result = _drive_call(
                 adapter, "share", "drive_share",
