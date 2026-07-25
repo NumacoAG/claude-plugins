@@ -6,7 +6,9 @@ files** across **Microsoft 365 / Outlook** (including SharePoint and OneDrive),
 **Gmail / Google Workspace** (Drive, Docs, Sheets, Slides, Calendar), **any IMAP
 provider** (iCloud, Yahoo, Fastmail, …), and a **local iCloud Drive or OneDrive
 folder**. It ships as a Claude Code plugin: one install registers the MCP server
-plus a `/contacts` skill that sweeps your mail into a contact directory.
+plus two skills, a guided setup walkthrough and a contacts skill that sweeps your
+mail into a contact directory. Both are model-invoked; just ask for them by
+name.
 
 55 tools over six surfaces: mail (16), Drive files (16), Google Docs (10),
 calendar (5), Sheets (5), Slides (3). Mail works on its own. Calendar and files
@@ -28,7 +30,8 @@ provider's API from your machine.
 - Save drafts and reply-drafts instead of sending, on every provider.
 - One-click unsubscribe (RFC 8058 `List-Unsubscribe`), with a graceful
   spam → block → delete fallback cascade.
-- Build and maintain a contact directory from your mail history (`/contacts`).
+- Build and maintain a contact directory from your mail history (the contacts
+  skill).
 - Read and write your calendar: list calendars and events, create, update and
   delete. Events with attendees are treated as outward facing and gated.
 - Browse, search, read, create, update, move, copy, delete and share files on
@@ -81,12 +84,15 @@ step by step.
 
 ```
 mcp-mail/
-├── .claude-plugin/        plugin + marketplace manifests
+├── .claude-plugin/        the plugin manifest
 ├── server/                the MCP server (Python, one adapter per provider)
-├── server/tests/          the regression suite (232 tests, `uv run pytest tests`)
+├── server/tests/          the regression suite (238 tests, `uv run pytest tests`)
 ├── hooks/                 the PreToolUse send gate for mail_send / mail_reply
-├── skills/contacts/       the /contacts skill
+├── skills/contacts/       the contacts skill
+├── skills/mcp-mail-setup/ the guided setup skill
 ├── accounts.toml.example  copy to ~/.config/mcp-mail/accounts.toml
+├── defaults.toml.example  optional shared M365 app identity, copy to
+│                          ~/.config/mcp-mail/defaults.toml
 ├── requirements.md        what it does and why (spec)
 ├── tier-2-docs/           how it's built (architecture)
 └── INSTALL.md             setup walkthrough

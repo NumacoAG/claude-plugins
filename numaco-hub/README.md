@@ -19,6 +19,13 @@ things, a guided setup skill and an update command.
   to `~/.config/numaco-design/defaults.toml`); the SOW skill asks and offers to
   write it if it is missing. It ends by pointing at each plugin's own README and
   INSTALL for the depth.
+- **A one-paste onboarding prompt** (`onboarding-paste-prompt.md`). One block you
+  can put in an email: the recipient pastes it into Claude Code and it installs
+  the packet, merges the auto-update setting into their settings without dropping
+  the marketplace source, writes both local config files, and verifies the result
+  with `claude plugin list` before handing off to the setup skill. Fill in its
+  `<PLACEHOLDER>` values first; they are per recipient and are deliberately not
+  stored in this repository.
 - **Updates** (the `/numaco-update` command). Updates are automatic at session
   start when auto update is on for the `numaco` marketplace; this command runs an
   on-demand update (`/plugin marketplace update numaco` then `/reload-plugins`)
@@ -43,6 +50,7 @@ numaco-hub/
 │       └── SKILL.md         guided onboarding front door
 ├── commands/
 │   └── numaco-update.md     the /numaco-update slash command
+├── onboarding-paste-prompt.md  the one-paste colleague onboarding block
 └── README.md                this file
 ```
 

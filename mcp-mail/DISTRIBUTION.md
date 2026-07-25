@@ -46,16 +46,18 @@ and silent, so mail is untouched whether or not you ever re-consent.
 | `requirements.md` | What it does and why (the spec) |
 | `tier-2-docs/` | How it is built (architecture) |
 | `accounts.toml.example` | Template you copy to `~/.config/mcp-mail/accounts.toml` |
+| `defaults.toml.example` | Optional shared M365 app identity, copied to `~/.config/mcp-mail/defaults.toml` |
 | `server/` | The MCP server (Python, one adapter per provider) |
-| `server/tests/` | Regression suite, 232 tests (`cd server && uv run pytest tests`) |
+| `server/tests/` | Regression suite, 238 tests (`cd server && uv run pytest tests`) |
 | `hooks/` | The PreToolUse confirmation gate for `mail_send` and `mail_reply` |
-| `skills/contacts/` | The optional `/contacts` skill |
-| `.claude-plugin/` | Plugin and marketplace manifests |
+| `skills/contacts/` | The optional contacts skill |
+| `skills/mcp-mail-setup/` | The guided setup skill |
+| `.claude-plugin/` | The plugin manifest |
 
 ## Privacy and provenance
 
 This build ships with no personal data of any kind. The example config, the test
-fixtures and the `/contacts` skill use placeholder names and addresses only. A
+fixtures and the contacts skill use placeholder names and addresses only. A
 publish gate (`scripts/publish_gate.py` at the repository root) runs in CI and as
 a pre-commit hook and refuses any commit that reintroduces a real address, a
 GUID, an absolute home path, or a private key block.

@@ -60,20 +60,37 @@ After installing on Windows, **open a new terminal** so `uv` is on your `PATH`.
 
 ---
 
-## 2. Get the code & build the server
+## 2. Get the code (usually: you already have it)
 
-Put the repo somewhere stable (you'll point Claude Code's plugin install at this
-path). `cd` into it, then build the server's virtual environment:
+**If you installed mcp-mail from the `numaco` marketplace, there is nothing to
+clone and nothing to build.** The plugin manifest launches the server as
+`uv --directory <plugin>/server run python -m mcp_mail`, and `uv` creates the
+isolated environment from `server/uv.lock` the first time it runs. Nothing is
+installed globally, and on Windows the credential-store backend
+(`pywin32-ctypes`) is pulled in automatically.
+
+The helper scripts below run out of that same installed copy. Resolve its path
+once and keep it in a shell variable:
 
 ```bash
-cd server
-uv sync
-cd ..
+MCPMAIL=$(python3 -c "import json,os;p=os.path.expanduser('~/.claude/plugins/installed_plugins.json');print(json.load(open(p))['plugins']['mcp-mail@numaco'][0]['installPath'])")
+echo "$MCPMAIL"
 ```
 
-`uv sync` reads `server/uv.lock` and creates an isolated `.venv` — nothing is
-installed globally, and on Windows it automatically pulls the credential-store
-backend (`pywin32-ctypes`). Re-run it any time dependencies change.
+Then run any helper script as:
+
+```bash
+uv --directory "$MCPMAIL/server" run python scripts/<name>.py
+```
+
+Only clone this repository if you are developing mcp-mail itself; in that case
+`cd server && uv sync` builds the same environment, and every
+`uv --directory "$MCPMAIL/server" run python …` below becomes a plain
+`uv run python …` from `server/`.
+
+> After a plugin update the environment lives in a new versioned directory, so
+> the first call following an update rebuilds it (a few seconds, once). That is
+> expected, not a fault.
 
 ---
 
@@ -84,6 +101,11 @@ mcp-mail splits **identity (non-secret)** from **secrets**:
 - **`~/.config/mcp-mail/accounts.toml`** — non-secret: which accounts exist, their
   addresses, the Azure client/tenant ID for M365, IMAP host/port. Safe to edit.
   (On Windows this path resolves to `C:\Users\<you>\.config\mcp-mail\accounts.toml`.)
+- **`~/.config/mcp-mail/defaults.toml`** — optional, also non-secret: shared
+  settings several accounts inherit. Today it holds one table, `[m365]`, with the
+  `client_id` and `tenant_id` of an app registration shared across a team, so
+  nobody has to register their own Azure app. The account block always wins; the
+  shared file fills in only what an account leaves out. See §5A.
 - **OS credential store** (entries under service name `mcp-mail`) — all secrets:
   the Google OAuth client secret, IMAP app-specific passwords, and the OAuth
   refresh tokens the server caches after you sign in.
@@ -106,36 +128,36 @@ directly.
 
 ## 4. Write your `accounts.toml`
 
-Copy the example and open it.
+Copy the example and open it. `$MCPMAIL` is the installed plugin path from §2.
 
 **macOS / Linux:**
 ```bash
 mkdir -p ~/.config/mcp-mail
-cp accounts.toml.example ~/.config/mcp-mail/accounts.toml
+cp "$MCPMAIL/accounts.toml.example" ~/.config/mcp-mail/accounts.toml
 ${EDITOR:-nano} ~/.config/mcp-mail/accounts.toml      # macOS also: open -e <path>
 ```
 
 **Windows (PowerShell):**
 ```powershell
 New-Item -ItemType Directory -Force "$HOME\.config\mcp-mail" | Out-Null
-Copy-Item accounts.toml.example "$HOME\.config\mcp-mail\accounts.toml"
+Copy-Item "$env:MCPMAIL\accounts.toml.example" "$HOME\.config\mcp-mail\accounts.toml"
 notepad "$HOME\.config\mcp-mail\accounts.toml"
 ```
 
 Delete the blocks for providers you don't use. For each account you keep, set a
 short `id` (your choice — the handle you'll use in Claude) and the `address`.
-Leave M365 `client_id`/`tenant_id` as placeholders for now; you'll fill them in
-§5A. **Do not put any secret in this file.**
+For M365, either fill in `client_id`/`tenant_id` in §5A or inherit them from a
+shared `defaults.toml` (§5A again). **Do not put any secret in this file.**
 
 Validate it parses at any time (network-free, works on every OS):
 
 ```bash
-cd server
-uv run python scripts/check_config.py
-cd ..
+uv --directory "$MCPMAIL/server" run python scripts/check_config.py
 ```
 
-This prints the account ids it parsed, or a clear error if the TOML is malformed.
+This prints the account ids it parsed, and for each M365 account whether its
+`client_id` and `tenant_id` came from `accounts.toml` or from the shared
+`defaults.toml`. A malformed file produces a clear error instead.
 
 ---
 
@@ -145,6 +167,33 @@ Do only the ones you configured. Each is self-contained. The secret-storing
 scripts are run the same way on every OS.
 
 ### 5A. Microsoft 365 / Outlook
+
+> **Were you given a `client_id` and a `tenant_id`?** Then skip this entire
+> section except step 4. Those two values are the identity of an app
+> registration someone else already made, they are not secrets, and reusing them
+> is the supported path: put them once in `~/.config/mcp-mail/defaults.toml`
+>
+> ```bash
+> mkdir -p ~/.config/mcp-mail
+> cp "$MCPMAIL/defaults.toml.example" ~/.config/mcp-mail/defaults.toml
+> ${EDITOR:-nano} ~/.config/mcp-mail/defaults.toml
+> ```
+>
+> and leave `client_id`/`tenant_id` out of your account blocks. Every M365
+> account then inherits them, and an account that does set its own overrides the
+> shared file per key. Register your own app (the steps below) only when you are
+> self-hosting outside that organisation, or when you want an account on a
+> different app registration.
+>
+> Why this is safe to hand around: mcp-mail signs in as a **public client with
+> PKCE**, so the `client_id` travels in the browser URL on every sign-in anyway,
+> and a tenant id resolves from Microsoft's unauthenticated discovery endpoint.
+> They identify *which application is asking*. They authorise nothing: your own
+> interactive sign-in does that, and the resulting token is yours alone, cached
+> in your credential store. Still keep them inside the organisation that gave
+> them to you, because a shared app registration is shared blast radius: its
+> consented Graph scopes apply to everyone who signs in through it, and revoking
+> or misconfiguring it breaks mail for all of them at once.
 
 You need an **Azure AD (Microsoft Entra) app registration**. For a work/school
 account, your tenant admin may need to approve the permissions.
@@ -158,11 +207,13 @@ account, your tenant admin may need to approve the permissions.
    ```
    ⚠️ **No path** — `http://localhost:8765`, not `.../callback`. Must match exactly.
 4. **Register**, then from the Overview page copy the **Application (client) ID**
-   and **Directory (tenant) ID** into `accounts.toml`:
+   and **Directory (tenant) ID** into that account's block in `accounts.toml`:
    ```toml
    client_id = "the Application (client) ID"
    tenant_id = "the Directory (tenant) ID"
    ```
+   (Or, if the same registration serves all your M365 accounts, into the `[m365]`
+   table of `~/.config/mcp-mail/defaults.toml` instead, once.)
 5. **API permissions → Add a permission → Microsoft Graph → Delegated
    permissions**, add the mail set: `Mail.ReadWrite`, `Mail.Send`,
    `MailboxSettings.ReadWrite`, `offline_access`.
@@ -233,9 +284,7 @@ client**. All your Google accounts share this one client.
 5. Store the client in the credential store (shared by all your Google accounts):
 
    ```bash
-   cd server
-   uv run python scripts/store_google_oauth.py
-   cd ..
+   uv --directory "$MCPMAIL/server" run python scripts/store_google_oauth.py
    ```
 
    Paste the client_id and client_secret at the prompts (the secret is hidden and
@@ -260,9 +309,7 @@ won't work over IMAP with 2FA on).
 Store each app-specific password (run **once per IMAP account**):
 
 ```bash
-cd server
-uv run python scripts/store_imap_password.py
-cd ..
+uv --directory "$MCPMAIL/server" run python scripts/store_imap_password.py
 ```
 
 It asks for the account id (must match `accounts.toml` exactly) and the password
@@ -296,9 +343,7 @@ as before and only the new tools report a clear error naming the fix. When you
 want them:
 
 ```bash
-cd server
-uv run python scripts/reauth_m365.py work-m365     # your account id
-cd ..
+uv --directory "$MCPMAIL/server" run python scripts/reauth_m365.py work-m365   # your account id
 ```
 
 A browser opens on `http://localhost:8765` asking for the union of the mail,
@@ -313,9 +358,7 @@ itself stops working**, not just the new tools. This is a one-time cost, once pe
 Google account:
 
 ```bash
-cd server
-uv run python scripts/reauth_google.py personal-gmail    # your account id
-cd ..
+uv --directory "$MCPMAIL/server" run python scripts/reauth_google.py personal-gmail   # your account id
 ```
 
 A browser opens on `http://localhost:8766`. Approve the consent screen (the same
@@ -359,27 +402,28 @@ cross-platform.
 
 ## 6. Install the plugin in Claude Code
 
-In a Claude Code session, install from the public Numaco marketplace:
+Install from the public Numaco marketplace. Two commands in a terminal:
 
+```bash
+claude plugin marketplace add NumacoAG/claude-plugins
+claude plugin install mcp-mail@numaco
 ```
-/plugin marketplace add NumacoAG/claude-plugins
-/plugin install mcp-mail@numaco
-```
+
+(In a Claude Code session the slash forms `/plugin marketplace add …` and
+`/plugin install …` do the same thing. To get the whole Numaco packet rather than
+mcp-mail alone, install `numaco-hub@numaco` instead: it pulls mcp-mail in as a
+dependency.)
 
 If you are instead working from a local copy of this folder, register that folder
-as a marketplace with its **absolute path**:
+as a marketplace with its **absolute path**, then install from it. (Windows:
+either slash style works in the path.)
 
+Confirm the install, then **restart your Claude Code session** so the MCP server
+registers its tools:
+
+```bash
+claude plugin list
 ```
-/plugin marketplace add /absolute/path/to/mcp-mail
-/plugin install mcp-mail@numaco
-```
-
-(Windows: either slash style works in the path.)
-
-Then **restart your Claude Code session**.
-
-> CLI equivalents: `claude plugin marketplace add NumacoAG/claude-plugins` then
-> `claude plugin install mcp-mail@numaco`.
 
 The manifest registers the MCP server automatically using
 `${CLAUDE_PLUGIN_ROOT}/server` (resolved to wherever the plugin is installed) —
@@ -434,8 +478,9 @@ If you set up §5D, check the wider surfaces too:
 7. "What's on my calendar this week in work-m365?"
 8. (Google only) "Read the first sheet of <a spreadsheet you own>."
 
-To build a contact directory, run **`/contacts`** (see `skills/contacts/SKILL.md`;
-set its `OUTPUT_PATH` first).
+To build a contact directory, ask for the **contacts** skill by name (it is
+model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
+`OUTPUT_PATH` first).
 
 ---
 
@@ -444,6 +489,7 @@ set its `OUTPUT_PATH` first).
 | Symptom | Fix |
 |---|---|
 | `No accounts config at …` | Create `~/.config/mcp-mail/accounts.toml` (§4). |
+| `m365 account '<id>': missing client_id` (or `tenant_id`) | Neither that account's block nor `~/.config/mcp-mail/defaults.toml` supplies it. Put it in one of them (§5A). |
 | `uv: command not found` / not recognized | Install `uv` (§1); on Windows open a **new** terminal so PATH updates. |
 | M365 sign-in fails / "redirect URI mismatch" | Azure redirect URI must be **exactly** `http://localhost:8765` (no path), platform **Mobile and desktop applications**; enable **Allow public client flows** (§5A.6). |
 | M365 "need admin approval" | Tenant requires admin consent for the Graph permissions — ask your admin (§5A.5). |
@@ -463,7 +509,7 @@ set its `OUTPUT_PATH` first).
 | `drive_share` fails on a localfs account | Not supported: there is no service to share through. Use an M365 or Google account for sharing. |
 | `drive_delete` fails on Linux or Windows | localfs deletes go to the macOS Trash via `osascript`. Delete the file yourself, or use an M365 or Google backend. |
 | Every send is blocked with "outbound mail is gated" | That is the send gate doing its job: Claude must ask you first and you must pick "Send email". If it never clears, check that `python3` is on your `PATH` (§1): the gate fails **closed** on purpose, so a missing interpreter blocks rather than silently sends. |
-| See the raw server error | Run standalone: `cd server` then `uv run python -m mcp_mail` (stdio server; Ctrl-C to stop). |
+| See the raw server error | Run it standalone: `uv --directory "$MCPMAIL/server" run python -m mcp_mail` (stdio server; Ctrl-C to stop). |
 
 ---
 

@@ -31,7 +31,7 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
   tools over six surfaces: mail (16), Drive and SharePoint or OneDrive files
   (16), Google Docs (10), calendar (5), Sheets (5), and Slides (3). Search and
   read, send and reply behind a per-message confirmation, drafts, file and
-  label, one-click unsubscribe, plus a `/contacts` skill that builds a contact
+  label, one-click unsubscribe, plus a contacts skill that builds a contact
   directory from your mail history. A single account is a valid setup, and
   calendar and files are opt-in per account: mail alone needs nothing extra,
   while the wider surfaces need a `capabilities` line and a one-off re-consent
@@ -46,29 +46,41 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
 
 ## One-time install
 
-You install this packet once per machine. Paste the following into Claude Code.
+You install this packet once per machine. Two commands in a terminal:
 
-1. Add the marketplace:
+```bash
+claude plugin marketplace add NumacoAG/claude-plugins
+claude plugin install numaco-hub@numaco
+```
 
-   ```
-   /plugin marketplace add NumacoAG/claude-plugins
-   ```
+numaco-hub declares the other four as dependencies, so the second command pulls
+numaco-design, review-kit, mcp-mail and clockify-mcp in with it and reports
+`+ 4 dependencies`. Inside a running Claude Code session the slash forms
+`/plugin marketplace add …` and `/plugin install …` do the same thing; the CLI
+forms are what a pasted onboarding prompt can actually run.
 
-2. Install the packet with one command. numaco-hub declares the other four as
-   dependencies, so this pulls numaco-design, review-kit, mcp-mail, and
-   clockify-mcp in with it:
+Check the result, and read this output rather than
+`claude plugin marketplace list`, which reports success even when every plugin is
+disabled:
 
-   ```
-   /plugin install numaco-hub@numaco
-   ```
+```bash
+claude plugin list
+```
 
-   If you want only some of them, install those names individually instead, for
-   example `/plugin install numaco-design@numaco`.
+All five should read `✔ enabled`. Then restart Claude Code and say "set up the
+numaco plugins" (or "numaco setup") to trigger the `numaco-setup` skill from
+numaco-hub. It states the privacy promise, turns on automatic updates, and routes
+you through the per-user setup that only you can do: signing in to your own mail
+accounts, and generating your own Clockify API key.
 
-3. Run the guided setup. Say "set up the numaco plugins" (or "numaco setup") to
-   trigger the `numaco-setup` skill from numaco-hub. It states the privacy
-   promise, confirms automatic updates are enabled, and routes you through
-   per-plugin setup for exactly what you installed.
+If you want only some of the plugins, install those names individually instead,
+for example `claude plugin install numaco-design@numaco`.
+
+**Onboarding a colleague.** `numaco-hub/onboarding-paste-prompt.md` is a single
+block you can put in an email: the recipient pastes it into Claude Code and it
+performs the whole install, the auto-update setting and both local config files,
+then hands off to `numaco-setup` for the steps that need the person themselves.
+Fill in its `<PLACEHOLDER>` values before sending.
 
 ## Privacy
 
@@ -88,12 +100,18 @@ This packet is built so that your data stays yours.
   Clockify for you. It stores no database of your entries, but the key is handed
   to that server rather than kept in your OS keychain, and your time entries do
   pass through it. Nothing else in the packet works this way. If you would rather
-  not use it, install the other four instead of the bundle:
+  not use it, install the three engine plugins on their own and skip the hub,
+  which currently declares clockify-mcp as a dependency:
 
   ```bash
   claude plugin marketplace add NumacoAG/claude-plugins
-  for p in numaco-hub numaco-design review-kit mcp-mail; do claude plugin install $p@numaco; done
+  for p in numaco-design review-kit mcp-mail; do claude plugin install $p@numaco; done
   ```
+
+  Without numaco-hub you do not get the guided `numaco-setup` skill or the
+  `/numaco-update` command, so follow this README instead. Installing
+  `numaco-hub` and then uninstalling `clockify-mcp` is not a way around it: the
+  hub then fails to load entirely.
 
 - **Where your data does travel.** Whatever Claude reads on your behalf goes to
   Anthropic as part of your conversation, under your own Claude agreement,
@@ -171,7 +189,11 @@ New plugin versions arrive on their own once you enable auto update for the
   vault. See the plugin's `README.md` and its orientation skill.
 - **mcp-mail**: run the plugin's `mcp-mail-setup` skill (or read `INSTALL.md`) for
   the provider by provider walkthrough. Configure only the accounts you want;
-  every secret goes to your OS credential store.
+  every secret goes to your OS credential store. Two local files carry the
+  non-secret part: `~/.config/mcp-mail/accounts.toml` (your accounts) and the
+  optional `~/.config/mcp-mail/defaults.toml`, which lets a team share one
+  Microsoft 365 app registration so nobody has to create an Azure app
+  registration of their own.
 - **clockify-mcp**: complete the browser OAuth to your own Clockify workspace on
   first use. See the plugin's `README.md`.
 

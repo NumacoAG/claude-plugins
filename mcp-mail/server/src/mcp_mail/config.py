@@ -9,6 +9,15 @@ from typing import Literal
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "mcp-mail" / "accounts.toml"
 
+# Optional shared, non-secret settings that several accounts can inherit. Today
+# it carries one table, [m365], holding the `client_id` and `tenant_id` of an
+# app registration shared across a team, so nobody has to register their own
+# Azure app. Both values are application identity, not secrets: a public client
+# puts the client_id in the browser URL on every sign-in, and the tenant id
+# resolves from Microsoft's unauthenticated discovery endpoint. Real secrets
+# still live only in the OS credential store.
+DEFAULTS_PATH = Path.home() / ".config" / "mcp-mail" / "defaults.toml"
+
 # Capability tokens an account may declare. "mail" is the original surface;
 # "drive" and "calendar" are added by the Drive/Calendar/SharePoint expansion.
 KNOWN_CAPABILITIES = frozenset({"mail", "drive", "calendar"})
@@ -168,26 +177,70 @@ def _parse_roots(entry: dict) -> tuple[Path, ...]:
     return tuple(roots)
 
 
-def load_accounts(path: Path | None = None) -> list[Account]:
+def load_defaults(path: Path | None = None) -> dict:
+    """Read the optional shared defaults file (see DEFAULTS_PATH).
+
+    Returns an empty mapping when the file is absent, unreadable or invalid.
+    That is deliberate: a broken defaults file must never take mail down, it
+    must only stop filling in the values it would have supplied, which then
+    surfaces as a precise per-account error from `load_accounts`.
+    """
+    defaults_path = path or DEFAULTS_PATH
+    try:
+        with open(defaults_path, "rb") as f:
+            data = tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _shared_m365(defaults: dict) -> dict:
+    table = defaults.get("m365", {})
+    return table if isinstance(table, dict) else {}
+
+
+def load_accounts(
+    path: Path | None = None, defaults_path: Path | None = None
+) -> list[Account]:
     config_path = path or DEFAULT_CONFIG_PATH
+    shared_defaults_path = defaults_path or DEFAULTS_PATH
     if not config_path.exists():
         raise FileNotFoundError(
-            f"No accounts config at {config_path}. "
-            "Copy accounts.toml.example from the repo root."
+            f"No accounts config at {config_path}. Copy accounts.toml.example from "
+            "the installed mcp-mail plugin (look up its installPath in "
+            "~/.claude/plugins/installed_plugins.json) to that location."
         )
     with open(config_path, "rb") as f:
         data = tomllib.load(f)
+    shared_m365 = _shared_m365(load_defaults(shared_defaults_path))
     accounts: list[Account] = []
     for entry in data.get("account", []):
         provider = entry["provider"]
         if provider == "m365":
+            # Per-account values win; the shared defaults fill in only what the
+            # account block leaves out, so anyone who later registers their own
+            # Azure app can override one account without touching the others.
+            client_id = entry.get("client_id") or shared_m365.get("client_id")
+            tenant_id = entry.get("tenant_id") or shared_m365.get("tenant_id")
+            missing = [
+                key
+                for key, value in (("client_id", client_id), ("tenant_id", tenant_id))
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    f"m365 account {entry.get('id')!r}: missing "
+                    f"{' and '.join(missing)}. Set it in that account's block in "
+                    f"{config_path}, or once for every M365 account in the [m365] "
+                    f"table of {shared_defaults_path}."
+                )
             accounts.append(
                 M365Account(
                     id=entry["id"],
                     provider="m365",
                     address=entry["address"],
-                    client_id=entry["client_id"],
-                    tenant_id=entry["tenant_id"],
+                    client_id=client_id,
+                    tenant_id=tenant_id,
                     keychain_service=entry.get("keychain_service", "mcp-mail"),
                     keychain_user=entry.get("keychain_user", entry["id"]),
                     auto_send=bool(entry.get("auto_send", False)),
@@ -247,8 +300,10 @@ def load_accounts(path: Path | None = None) -> list[Account]:
     return accounts
 
 
-def get_account(account_id: str, path: Path | None = None) -> Account:
-    for acct in load_accounts(path):
+def get_account(
+    account_id: str, path: Path | None = None, defaults_path: Path | None = None
+) -> Account:
+    for acct in load_accounts(path, defaults_path):
         if acct.id == account_id:
             return acct
     raise KeyError(f"No account with id {account_id!r} in accounts.toml")

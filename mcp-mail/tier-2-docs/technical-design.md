@@ -192,6 +192,20 @@ Every MCP tool call takes an `account` argument that matches an `id` above. Full
 field reference and defaults: see `../accounts.toml.example` and the parser in
 `server/src/mcp_mail/config.py`.
 
+**Shared, non-secret defaults.** `load_accounts` also reads an optional
+`~/.config/mcp-mail/defaults.toml` (`config.DEFAULTS_PATH`). Its one table today,
+`[m365]`, carries the `client_id` and `tenant_id` of an app registration shared
+across a team, which removes the Azure portal step for everyone who is not the
+person who created the app. Precedence is per key and the account block always
+wins: `entry.get("client_id") or shared.get("client_id")`, so an account can move
+to its own registration without the shared file being deleted. `load_defaults`
+returns `{}` for a missing, unreadable or invalid file, deliberately, so a broken
+shared file degrades into a precise per-account `ValueError` naming both
+candidate locations rather than taking mail down. Nothing secret is read from
+this file: client and tenant ids are application identity, transmitted in the
+browser URL on every PKCE sign-in, while tokens stay in the credential store.
+Covered by `server/tests/test_shared_defaults.py`.
+
 ## 8. Contact-directory workflow
 
 Not a dedicated tool — a Claude-orchestrated workflow over the primitives,
@@ -257,6 +271,7 @@ mcp-mail/
 │   └── contacts/           ← phase 5 skill
 │       └── SKILL.md
 ├── accounts.toml.example
+├── defaults.toml.example   ← optional shared M365 app identity
 ├── requirements.md         ← tier-1 spec
 ├── INSTALL.md              ← setup walkthrough
 └── tier-2-docs/

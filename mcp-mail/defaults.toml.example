@@ -1,0 +1,32 @@
+# mcp-mail: shared, non-secret defaults (EXAMPLE)
+#
+# Copy this file to ~/.config/mcp-mail/defaults.toml. It is OPTIONAL: without it
+# every Microsoft 365 account in accounts.toml carries its own client_id and
+# tenant_id, exactly as before.
+#
+# What it is for. A team that shares one Azure app registration can put that
+# app's identity here once, instead of pasting it into every account block on
+# every machine. If your organisation sent you these two values, paste them
+# below and leave client_id and tenant_id out of your accounts.toml entirely.
+#
+# >>> STILL NO SECRETS IN THIS FILE. <<<
+# client_id and tenant_id are application identity, not credentials: a public
+# client transmits the client_id in the browser URL on every sign-in, and the
+# tenant id resolves from Microsoft's unauthenticated discovery endpoint. They
+# say WHICH app asks; they never say who you are and they grant nothing on their
+# own. Your own sign-in is what authorises access, and the resulting refresh
+# token lives in the OS credential store, never here. Client secrets, app
+# passwords and tokens do not belong in this file, and mcp-mail reads none from
+# it.
+#
+# PRECEDENCE. The account block always wins. A value here is used only when the
+# matching key is absent or empty in that account's [[account]] table, so you
+# can register your own Azure app later and override one account without
+# deleting this file.
+#
+# CHECK IT. `check_config.py` prints, per M365 account, whether each value came
+# from accounts.toml or from here.
+
+[m365]
+client_id = "<Application (client) ID of the shared app registration>"
+tenant_id = "<Directory (tenant) ID of the shared app registration>"

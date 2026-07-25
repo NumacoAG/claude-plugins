@@ -40,6 +40,11 @@
 # in; the refresh token is then cached in the Keychain automatically, so for
 # M365 you store nothing by hand.
 #
+# SHARED APP IDENTITY. If your organisation runs one app registration for
+# everybody, put its two ids once in ~/.config/mcp-mail/defaults.toml (see
+# defaults.toml.example) and omit client_id and tenant_id here. Whatever you do
+# write in an account block wins over the shared file, per key.
+#
 # Mail works with the mail scopes alone. To use any capability beyond "mail"
 # you must run the one-off re-consent once, from mcp-mail/server:
 #     uv run python scripts/reauth_m365.py work-m365
