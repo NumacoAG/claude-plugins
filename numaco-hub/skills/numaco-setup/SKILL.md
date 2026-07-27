@@ -149,7 +149,17 @@ independent; do them in any order and pause after each one.
 
 - **mcp-mail** (mail, calendar, and files across your own providers): run the
   **mcp-mail-setup** skill. It walks you through your own accounts provider by
-  provider, storing every secret in your OS credential store. Configure only the
+  provider, storing every secret in your OS credential store.
+
+  **Before that skill reaches the Microsoft step, ask the gate question:** *"Did
+  your organisation give you a `client_id` and a `tenant_id` for mcp-mail?"* At
+  Numaco the answer is yes and the two values arrive in the onboarding email;
+  they go into the `[m365]` table of `~/.config/mcp-mail/defaults.toml` (section
+  3 above) and the Azure portal never enters the picture. If the user does not
+  have them, tell them to ask for them rather than registering their own app: on
+  a managed tenant a self-registered app returns `access_denied` at the consent
+  screen, and every duplicate registration made that way is one more dead app in
+  the directory. This is the single most common way this install fails. Configure only the
   accounts you want; a single account is a valid setup. The build ships 55 tools
   over six surfaces: mail (16), Drive and SharePoint or OneDrive files (16),
   Google Docs (10), calendar (5), Sheets (5) and Slides (3). Mail works on its

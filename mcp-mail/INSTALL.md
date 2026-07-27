@@ -168,32 +168,53 @@ scripts are run the same way on every OS.
 
 ### 5A. Microsoft 365 / Outlook
 
-> **Were you given a `client_id` and a `tenant_id`?** Then skip this entire
-> section except step 4. Those two values are the identity of an app
-> registration someone else already made, they are not secrets, and reusing them
-> is the supported path: put them once in `~/.config/mcp-mail/defaults.toml`
+#### STOP. Answer this before you open the Azure portal.
+
+> **Did your organisation give you a `client_id` and a `tenant_id`?**
 >
-> ```bash
-> mkdir -p ~/.config/mcp-mail
-> cp "$MCPMAIL/defaults.toml.example" ~/.config/mcp-mail/defaults.toml
-> ${EDITOR:-nano} ~/.config/mcp-mail/defaults.toml
-> ```
+> If you do not know, **ask before you register anything.** Someone at your
+> organisation has very likely already made this app registration, and creating a
+> second one is the single most common way this setup fails.
 >
-> and leave `client_id`/`tenant_id` out of your account blocks. Every M365
-> account then inherits them, and an account that does set its own overrides the
-> shared file per key. Register your own app (the steps below) only when you are
-> self-hosting outside that organisation, or when you want an account on a
-> different app registration.
->
-> Why this is safe to hand around: mcp-mail signs in as a **public client with
-> PKCE**, so the `client_id` travels in the browser URL on every sign-in anyway,
-> and a tenant id resolves from Microsoft's unauthenticated discovery endpoint.
-> They identify *which application is asking*. They authorise nothing: your own
-> interactive sign-in does that, and the resulting token is yours alone, cached
-> in your credential store. Still keep them inside the organisation that gave
-> them to you, because a shared app registration is shared blast radius: its
-> consented Graph scopes apply to everyone who signs in through it, and revoking
-> or misconfiguring it breaks mail for all of them at once.
+> | Your answer | Where to go |
+> |---|---|
+> | **Yes, I was given both values** | **Path A** below. Two minutes, no portal, no admin to chase. |
+> | **No, and this is a work or school account** | **Ask your admin first.** Do not go to Path B yet; read the warning under it. |
+> | **No, and this is my own tenant, or I am self-hosting** | **Path B** below. |
+
+#### Path A: use the app registration you were given
+
+Put the two values once in `~/.config/mcp-mail/defaults.toml`:
+
+```bash
+mkdir -p ~/.config/mcp-mail
+cp "$MCPMAIL/defaults.toml.example" ~/.config/mcp-mail/defaults.toml
+${EDITOR:-nano} ~/.config/mcp-mail/defaults.toml
+```
+
+Fill in the `[m365]` table, and leave `client_id`/`tenant_id` out of your account
+blocks in `accounts.toml`. Every M365 account then inherits them, and an account
+that does set its own overrides the shared file key by key. That is the whole of
+Path A: **you are done with this section**, skip to §5B or to the sign-in in §7.
+
+Why this is safe to hand around: mcp-mail signs in as a **public client with
+PKCE**, so the `client_id` travels in the browser URL on every sign-in anyway,
+and a tenant id resolves from Microsoft's unauthenticated discovery endpoint.
+They identify *which application is asking*. They authorise nothing: your own
+interactive sign-in does that, and the resulting token is yours alone, cached in
+your credential store. Still keep them inside the organisation that gave them to
+you, because a shared app registration is shared blast radius: its consented
+Graph scopes apply to everyone who signs in through it, and revoking or
+misconfiguring it breaks mail for all of them at once.
+
+#### Path B: register your own app
+
+> ⚠️ **On a managed work or school tenant this path usually dead-ends.** Most
+> tenants forbid users from consenting to `Mail.ReadWrite` class scopes on their
+> own, so your brand new registration returns `access_denied` at the consent
+> screen and only an administrator can clear it. You then own a duplicate,
+> unconsented app registration that nobody else can use either. If you have any
+> doubt, go back and ask for the values in Path A.
 
 You need an **Azure AD (Microsoft Entra) app registration**. For a work/school
 account, your tenant admin may need to approve the permissions.
@@ -492,7 +513,7 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 | `m365 account '<id>': missing client_id` (or `tenant_id`) | Neither that account's block nor `~/.config/mcp-mail/defaults.toml` supplies it. Put it in one of them (§5A). |
 | `uv: command not found` / not recognized | Install `uv` (§1); on Windows open a **new** terminal so PATH updates. |
 | M365 sign-in fails / "redirect URI mismatch" | Azure redirect URI must be **exactly** `http://localhost:8765` (no path), platform **Mobile and desktop applications**; enable **Allow public client flows** (§5A.6). |
-| M365 "need admin approval" | Tenant requires admin consent for the Graph permissions — ask your admin (§5A.5). |
+| M365 "need admin approval" or `access_denied` at the consent screen | Your tenant forbids user self-consent for these Graph scopes. **First ask whether your organisation already has an mcp-mail app registration**, and if it does, switch to Path A in §5A: the consent is already granted there and you need nothing else. Registering a second app does not get you past this screen. Only if there is genuinely no shared registration does an admin need to grant consent on yours (§5A Path B, step 5). |
 | Google "Access blocked: app not verified" | Publish the consent screen to Production, or add yourself as a Test user; then **Advanced → Go to … (unsafe)**. |
 | Gmail dies after ~a week | Consent screen still in **Testing** (7-day token expiry). Set to **Production** (§5B.3) and re-authorize once. |
 | `OAuth client config not found in Keychain` | Run `scripts/store_google_oauth.py` (§5B.5). |

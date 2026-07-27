@@ -81,8 +81,23 @@ written so you can follow it top to bottom on macOS, Windows, or Linux. In short
    with `scripts/check_config.py`.
 4. **Set up each chosen provider** (section 5), pausing after each one to confirm
    it works before moving to the next. Providers are independent.
-   - Microsoft 365 / Outlook: an Azure AD app registration; no secret to store by
-     hand, the first browser sign-in caches the token.
+   - **Microsoft 365 / Outlook. Ask this question before anything else, and do
+     not skip it:** *"Did your organisation give you a `client_id` and a
+     `tenant_id` for mcp-mail?"* Offer three answers and route accordingly.
+     - **Yes.** Take the two values, write them into the `[m365]` table of
+       `~/.config/mcp-mail/defaults.toml`, and leave `client_id`/`tenant_id` out
+       of the account block. That is the whole Microsoft setup (§5A Path A).
+       **Never send this user to the Azure portal.**
+     - **No, or unsure, on a work or school account.** Stop and tell them to ask
+       their IT administrator or whoever introduced them to the packet whether a
+       shared registration already exists, before registering anything. Explain
+       why in one line: on a managed tenant a self-registered app almost always
+       returns `access_denied` at the consent screen, and the result is a
+       duplicate registration nobody can use. Waiting for an answer beats
+       creating the duplicate. Set up their other providers meanwhile.
+     - **No, this is their own tenant or they are self-hosting.** Only now walk
+       §5A Path B: an Azure AD app registration, no secret to store by hand, the
+       first browser sign-in caches the token.
    - Gmail / Google Workspace: one shared Google OAuth client, stored with
      `scripts/store_google_oauth.py`.
    - IMAP (iCloud, Yahoo, Fastmail, and so on): one app-specific password per
