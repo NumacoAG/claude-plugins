@@ -315,6 +315,50 @@ def _share_gate_refusal(tool: str, principal: str, role: str) -> list[TextConten
     })
 
 
+# ---- outgoing body hygiene -------------------------------------------------
+#
+# `body_html` is forwarded to the provider verbatim as contentType=HTML, so a
+# caller that hands it the wrong thing produces a mail whose recipient reads the
+# raw markup. Two caller mistakes cause that and both are repairable here: a body
+# whose markup was HTML-escaped somewhere upstream (`&lt;p&gt;` for `<p>`), and
+# plain text passed to the HTML parameter. Neither is repaired silently; the
+# tool result carries a note saying what was wrong.
+
+_REAL_MARKUP = re.compile(r"<[a-zA-Z/!]")
+_ESCAPED_TAG = re.compile(r"&lt;/?[a-zA-Z][^&]*?&gt;")
+
+
+def _normalize_body_html(body_html: str | None) -> tuple[str | None, str | None]:
+    """Repair an outgoing HTML body the caller got wrong. Returns (html, note).
+
+    `note` is None whenever the body is left untouched, which is the case for
+    every well-formed body: anything containing real markup passes through
+    verbatim, including a mail that deliberately shows escaped tags alongside
+    real ones. Only the two broken shapes are rewritten: a body that is escaped
+    markup and nothing else (unescaped once), and a body with no markup at all
+    (escaped and wrapped, i.e. treated as the plain text it plainly is).
+    """
+    if not body_html:
+        return body_html, None
+    if _REAL_MARKUP.search(body_html):
+        return body_html, None
+    if _ESCAPED_TAG.search(body_html):
+        return html.unescape(body_html), (
+            "body_html arrived HTML-escaped (&lt;p&gt; rather than <p>), which would "
+            "have shown the tags to the recipient; it was unescaped before sending. "
+            "Pass real markup to body_html, or use body_text for plain text."
+        )
+    esc = html.escape(body_html).replace("\n", "<br>")
+    return (
+        '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;'
+        'color:#1a1a1a">' + esc + "</div>"
+    ), (
+        "body_html contained no markup, so it was treated as plain text: escaped, "
+        "newlines turned into <br>, and wrapped in a default-styled div. Use "
+        "body_text for plain text."
+    )
+
+
 def _apply_signature(
     acct: Account,
     *,
@@ -364,6 +408,42 @@ def _apply_signature(
         if s not in merged:
             merged.append(s)
     return new_html, (merged or None)
+
+
+def _prepare_body(
+    acct: Account,
+    arguments: dict[str, Any],
+    *,
+    is_reply: bool,
+) -> tuple[str | None, list[str] | None, str | None]:
+    """Body hygiene then signature for one outgoing message. Returns
+    (body_html, attachments, note), shared by all four writing tools.
+
+    Order matters: normalization runs FIRST, so the signature is appended to
+    already-clean HTML and a body the caller escaped can never take the
+    signature down with it.
+    """
+    body_html, note = _normalize_body_html(arguments.get("body_html"))
+    body_html, attachments = _apply_signature(
+        acct,
+        body_text=arguments.get("body_text"),
+        body_html=body_html,
+        attachments=arguments.get("attachments"),
+        is_reply=is_reply,
+        append_signature=arguments.get("append_signature"),
+    )
+    return body_html, attachments, note
+
+
+def _with_note(payload: dict, note: str | None) -> dict:
+    """Add a body-normalization note to a success payload, when there is one.
+
+    The caller passed a malformed body and needs to know, rather than learning
+    it from the recipient.
+    """
+    if note:
+        payload["normalized"] = note
+    return payload
 
 
 # ---- tool registration -----------------------------------------------------
@@ -1562,14 +1642,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 
     if name == "mail_send":
         acct, adapter = _get_adapter(arguments["account"])
-        body_html, attachments = _apply_signature(
-            acct,
-            body_text=arguments.get("body_text"),
-            body_html=arguments.get("body_html"),
-            attachments=arguments.get("attachments"),
-            is_reply=False,
-            append_signature=arguments.get("append_signature"),
-        )
+        body_html, attachments, note = _prepare_body(acct, arguments, is_reply=False)
         adapter.send(
             to=arguments["to"],
             subject=arguments["subject"],
@@ -1579,18 +1652,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             bcc=arguments.get("bcc"),
             attachments=attachments,
         )
-        return _ok({"ok": True, "sent_to": arguments["to"]})
+        return _ok(_with_note({"ok": True, "sent_to": arguments["to"]}, note))
 
     if name == "mail_reply":
         acct, adapter = _get_adapter(arguments["account"])
-        body_html, attachments = _apply_signature(
-            acct,
-            body_text=arguments.get("body_text"),
-            body_html=arguments.get("body_html"),
-            attachments=arguments.get("attachments"),
-            is_reply=True,
-            append_signature=arguments.get("append_signature"),
-        )
+        body_html, attachments, note = _prepare_body(acct, arguments, is_reply=True)
         adapter.reply(
             message_id=arguments["message_id"],
             body_text=arguments.get("body_text"),
@@ -1600,21 +1666,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             cc=arguments.get("cc"),
             bcc=arguments.get("bcc"),
         )
-        return _ok({"ok": True, "replied_to": arguments["message_id"]})
+        return _ok(_with_note({"ok": True, "replied_to": arguments["message_id"]}, note))
 
     if name == "mail_draft":
         # Native draft creation: the "Save as draft" destination. Applies the
         # account signature exactly like mail_send, but writes to Drafts and
         # never sends. Not gated by the send hook.
         acct, adapter = _get_adapter(arguments["account"])
-        body_html, attachments = _apply_signature(
-            acct,
-            body_text=arguments.get("body_text"),
-            body_html=arguments.get("body_html"),
-            attachments=arguments.get("attachments"),
-            is_reply=False,
-            append_signature=arguments.get("append_signature"),
-        )
+        body_html, attachments, note = _prepare_body(acct, arguments, is_reply=False)
         result = adapter.create_draft(
             to=arguments["to"],
             subject=arguments["subject"],
@@ -1624,21 +1683,14 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             bcc=arguments.get("bcc"),
             attachments=attachments,
         )
-        return _ok({"ok": True, "draft": result})
+        return _ok(_with_note({"ok": True, "draft": result}, note))
 
     if name == "mail_reply_draft":
         # Native reply-draft creation: the "Save as draft" destination for a
         # reply. Applies the reply signature (is_reply=True) like mail_reply, but
         # writes to Drafts and never sends. Not gated by the send hook.
         acct, adapter = _get_adapter(arguments["account"])
-        body_html, attachments = _apply_signature(
-            acct,
-            body_text=arguments.get("body_text"),
-            body_html=arguments.get("body_html"),
-            attachments=arguments.get("attachments"),
-            is_reply=True,
-            append_signature=arguments.get("append_signature"),
-        )
+        body_html, attachments, note = _prepare_body(acct, arguments, is_reply=True)
         result = adapter.create_reply_draft(
             message_id=arguments["message_id"],
             body_text=arguments.get("body_text"),
@@ -1648,7 +1700,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             cc=arguments.get("cc"),
             bcc=arguments.get("bcc"),
         )
-        return _ok({"ok": True, "draft": result})
+        return _ok(_with_note({"ok": True, "draft": result}, note))
 
     if name == "mail_unsubscribe":
         _, adapter = _get_adapter(arguments["account"])

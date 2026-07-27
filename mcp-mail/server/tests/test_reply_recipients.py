@@ -544,7 +544,10 @@ def test_handler_flows_cc_bcc_and_applies_reply_signature(
         {
             "account": "acct",
             "message_id": "m1",
-            "body_html": "Hi",
+            # Real markup, so the body-hygiene step ahead of the signature is a
+            # no-op and this stays a test of the signature reaching the adapter
+            # (see test_body_html_normalization.py for the hygiene itself).
+            "body_html": "<p>Hi</p>",
             "reply_all": True,
             "cc": ["colleague@example.com"],
             "bcc": ["boss@example.com"],
@@ -559,7 +562,7 @@ def test_handler_flows_cc_bcc_and_applies_reply_signature(
     assert fake.reply_kwargs["cc"] == ["colleague@example.com"]
     assert fake.reply_kwargs["bcc"] == ["boss@example.com"]
     assert fake.reply_kwargs["reply_all"] is True
-    assert fake.reply_kwargs["body_html"] == "SIGNED::Hi"
+    assert fake.reply_kwargs["body_html"] == "SIGNED::<p>Hi</p>"
 
 
 # ---- shared _extra_recipients helper ----------------------------------------
