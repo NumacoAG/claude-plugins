@@ -25,9 +25,10 @@ Two things to watch on the consent screen itself:
   account" if it preselected the wrong one, and confirm afterwards with
   ``mail_whoami``.
 * Google presents the permissions as individual checkboxes. Tick every one, or
-  use "Select all". A partial grant is accepted silently, and the surfaces you
-  left unchecked then fail with HTTP 403
-  ``ACCESS_TOKEN_SCOPE_INSUFFICIENT`` while the ones you ticked keep working.
+  use "Select all". Leaving any unticked aborts the re-auth: oauthlib rejects a
+  grant narrower than the request, nothing is stored, and this script reports
+  that you need to run it again and tick everything. Your previous token is
+  left untouched, so nothing is lost by retrying.
 
 Note: if you have to run this every ~7 days, the OAuth consent screen is still
 in "Testing". Set it to "In production" in Google Cloud Console (APIs &

@@ -79,11 +79,27 @@ class _FakeCreds:
         )
 
 
+class _FakeFlow:
+    """Stand-in for InstalledAppFlow that records whether the browser flow ran."""
+
+    def __init__(self, seen: dict, raises: BaseException | None) -> None:
+        self._seen = seen
+        self._raises = raises
+
+    def run_local_server(self, **kwargs):
+        self._seen["flow_runs"] = self._seen.get("flow_runs", 0) + 1
+        if self._raises is not None:
+            raise self._raises
+        return _FakeCreds(
+            {"token": "consented-token", "refresh_token": "r"}, list(CONSENT_SCOPES)
+        )
+
+
 @pytest.fixture
 def env(monkeypatch):
-    """Stub keyring + Credentials; expose the stored blob and requested scopes."""
+    """Stub keyring + Credentials + the consent flow; expose what was recorded."""
     store: dict[tuple[str, str], str] = {}
-    seen: dict[str, object] = {}
+    seen: dict[str, object] = {"flow_runs": 0}
 
     class _FakeKeyring:
         @staticmethod
@@ -105,6 +121,22 @@ def env(monkeypatch):
     monkeypatch.setattr(gmail, "keyring", _FakeKeyring)
     monkeypatch.setattr(gmail, "Credentials", _FakeCredentials)
     monkeypatch.setattr(gmail, "Request", lambda: None)
+    monkeypatch.setattr(gmail, "_load_oauth_client_config", lambda account: {})
+    monkeypatch.setattr(
+        gmail,
+        "InstalledAppFlow",
+        type(
+            "_FlowFactory",
+            (),
+            {
+                "from_client_config": staticmethod(
+                    lambda cfg, scopes: _FakeFlow(seen, seen.get("consent_raises"))
+                )
+            },
+        ),
+    )
+    # Module-level memo of already-probed grants; each test starts clean.
+    gmail._PROBED_GRANTS.clear()
 
     def write_blob(*, scopes, granted, expired=False):
         store[("mcp-mail", "work-gmail")] = json.dumps(
@@ -169,5 +201,81 @@ def test_genuinely_narrow_grant_still_demands_re_consent(env):
     """When Google really has not granted the surface, say so actionably."""
     env.write_blob(scopes=list(MAIL_SCOPES), granted=list(MAIL_SCOPES))
 
-    with pytest.raises(RuntimeError, match="reauth_google.py"):
+    with pytest.raises(RuntimeError, match=r"reauth_google\.py"):
         gmail.acquire_credentials(_FakeAccount(), required_scopes=FILE_SCOPES)
+
+
+def test_healthy_token_is_not_refreshed(env):
+    """A live token covering the surface must cost zero network round trips.
+
+    Without this, dropping the coverage guard on the re-learning probe would
+    refresh on every single call and every other test would still pass.
+    """
+    env.write_blob(scopes=list(CONSENT_SCOPES), granted=list(CONSENT_SCOPES))
+
+    creds = gmail.acquire_credentials(_FakeAccount(), required_scopes=FILE_SCOPES)
+
+    assert creds.refresh_calls == 0
+
+
+def test_mail_only_grant_serving_mail_is_not_refreshed(env):
+    """The common legacy case stays byte-for-byte free of extra work."""
+    env.write_blob(scopes=list(MAIL_SCOPES), granted=list(MAIL_SCOPES))
+
+    creds = gmail.acquire_credentials(_FakeAccount(), required_scopes=MAIL_SCOPES)
+
+    assert creds.refresh_calls == 0
+    assert env.seen["flow_runs"] == 0
+
+
+def test_narrow_grant_probes_google_once_not_every_call(env):
+    """Re-asking Google about an unchanged grant buys only latency.
+
+    A genuinely narrow grant used to pay a token request and a Keychain write on
+    every tool call before raising the same error.
+    """
+    env.write_blob(scopes=list(MAIL_SCOPES), granted=list(MAIL_SCOPES))
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError):
+            gmail.acquire_credentials(_FakeAccount(), required_scopes=FILE_SCOPES)
+
+    assert env.seen["creds"].refresh_calls == 0, (
+        "the third call built fresh creds; only the first should have probed"
+    )
+    assert len(gmail._PROBED_GRANTS) == 1
+
+
+def test_interactive_always_runs_the_consent_flow(env):
+    """Re-authorize must mean re-authorize, even when the cached token looks fine.
+
+    This is the regression that made the advertised remedy a no-op: the helper
+    passes no required_scopes, so `required` defaults to the mail subset, a
+    mail-only grant looked covered, and the function returned the cached token
+    without ever opening a browser while Drive kept failing.
+    """
+    env.write_blob(scopes=list(MAIL_SCOPES), granted=list(MAIL_SCOPES))
+
+    creds = gmail.acquire_credentials(_FakeAccount(), allow_interactive=True)
+
+    assert env.seen["flow_runs"] == 1
+    assert creds.token == "consented-token"
+    assert env.stored_scopes() == sorted(set(CONSENT_SCOPES))
+
+
+def test_interactive_runs_even_when_the_grant_is_already_complete(env):
+    """No cached-credential shortcut on the interactive path at all."""
+    env.write_blob(scopes=list(CONSENT_SCOPES), granted=list(CONSENT_SCOPES))
+
+    gmail.acquire_credentials(_FakeAccount(), allow_interactive=True)
+
+    assert env.seen["flow_runs"] == 1
+
+
+def test_partial_consent_is_reported_actionably(env):
+    """oauthlib aborts on a narrowed grant; translate it instead of leaking it."""
+    env.seen["consent_raises"] = Warning('Scope has changed from "a b" to "a".')
+    env.write_blob(scopes=list(MAIL_SCOPES), granted=list(MAIL_SCOPES))
+
+    with pytest.raises(RuntimeError, match="tick every checkbox"):
+        gmail.acquire_credentials(_FakeAccount(), allow_interactive=True)

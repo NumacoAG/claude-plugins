@@ -134,21 +134,48 @@ def _covers(recorded: list[str], required: list[str]) -> bool:
 
 
 def _store_credentials(
-    account: GmailAccount, creds: Credentials, scopes: list[str]
-) -> None:
+    account: GmailAccount, creds: Credentials, previous: list[str]
+) -> list[str]:
     """Persist credentials, recording the scopes Google actually granted.
+
+    Returns the grant that was written, so callers keep reasoning about coverage
+    without re-deriving it.
 
     ``creds.to_json()`` writes ``creds.scopes`` and drops ``granted_scopes``
     entirely, so writing it verbatim would lose the real grant and re-introduce
     the narrowing described in ``acquire_credentials``. Overwriting the
-    ``scopes`` key keeps the blob honest for the next load.
+    ``scopes`` key keeps the blob honest for the next load. ``previous`` is the
+    fallback for the case google-auth leaves ``granted_scopes`` unset, which it
+    does whenever the refresh carried no ``scope`` parameter.
     """
+    scopes = sorted(set(creds.granted_scopes or previous))
     blob = json.loads(creds.to_json())
     if scopes:
-        blob["scopes"] = sorted(set(scopes))
+        blob["scopes"] = scopes
     keyring.set_password(
         account.keychain_service, account.keychain_user, json.dumps(blob)
     )
+    return scopes or list(previous)
+
+
+# One entry per (account, recorded grant) whose grant has already been re-learned
+# from Google in this process. Bounds the re-learning probe in
+# ``acquire_credentials`` to a single round trip per distinct grant.
+_PROBED_GRANTS: set[tuple[str, str, frozenset[str]]] = set()
+
+
+def _probe_once(account: GmailAccount, recorded: list[str]) -> bool:
+    """Whether the grant re-learning probe should run for this account and grant.
+
+    True the first time a given pair is seen in this process, False afterwards.
+    Google's answer for a given refresh token does not change between calls, so
+    re-asking buys nothing but latency and a Keychain write.
+    """
+    key = (account.keychain_service, account.keychain_user, frozenset(recorded))
+    if key in _PROBED_GRANTS:
+        return False
+    _PROBED_GRANTS.add(key)
+    return True
 
 
 def acquire_credentials(
@@ -179,39 +206,54 @@ def acquire_credentials(
     deciding whether a re-consent is genuinely needed.
     """
     required = required_scopes or MAIL_SCOPES
-    creds: Credentials | None = None
-    recorded: list[str] = []
-    token_blob = keyring.get_password(account.keychain_service, account.keychain_user)
-    if token_blob:
-        try:
-            creds, recorded = _credentials_from_blob(token_blob)
-        except Exception:
-            creds, recorded = None, []
 
-    if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            recorded = list(creds.granted_scopes or recorded)
-            _store_credentials(account, creds, recorded)
-        except Exception:
-            creds = None  # refresh failed: token expired or revoked
-
-    # A grant recorded by a release before 0.5.3 may be a per-surface subset
-    # rather than what the refresh token actually carries. Refresh even though
-    # the token is still live: Google reports the real grant, which settles it
-    # without sending the user through a needless re-consent.
-    if creds and creds.valid and creds.refresh_token and not _covers(recorded, required):
-        try:
-            creds.refresh(Request())
-            recorded = list(creds.granted_scopes or recorded)
-            _store_credentials(account, creds, recorded)
-        except Exception:
-            pass
-
-    if creds and creds.valid and _covers(recorded, required):
-        return creds
-
+    # Only the server path consults the cache. The interactive helper exists to
+    # mint a fresh consent, so short-circuiting it on a cached credential makes
+    # it a no-op for precisely the people who need it: a user whose mail grant
+    # still works would see "OK: fresh token stored" with no browser ever
+    # opening, while the surface they came to fix kept failing, because
+    # ``required`` defaults to the mail subset and therefore always looked
+    # covered. Re-authorize has to mean re-authorize.
     if not allow_interactive:
+        creds: Credentials | None = None
+        recorded: list[str] = []
+        token_blob = keyring.get_password(account.keychain_service, account.keychain_user)
+        if token_blob:
+            try:
+                creds, recorded = _credentials_from_blob(token_blob)
+            except Exception:
+                creds, recorded = None, []
+
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+                recorded = _store_credentials(account, creds, recorded)
+            except Exception:
+                creds = None  # refresh failed: token expired or revoked
+
+        # A grant recorded by a release before 0.5.3 may be a per-surface subset
+        # rather than what the refresh token actually carries, so ask Google
+        # before demanding a re-consent. ``_probe_once`` bounds that to one round
+        # trip per account per recorded grant: Google's answer for a given
+        # refresh token does not change, so an account whose grant really is
+        # narrow would otherwise pay a token request and a Keychain write on
+        # every tool call before raising the same error.
+        if (
+            creds
+            and creds.valid
+            and creds.refresh_token
+            and not _covers(recorded, required)
+            and _probe_once(account, recorded)
+        ):
+            try:
+                creds.refresh(Request())
+                recorded = _store_credentials(account, creds, recorded)
+            except Exception:
+                pass
+
+        if creds and creds.valid and _covers(recorded, required):
+            return creds
+
         surface = (
             "mail" if required is MAIL_SCOPES or required == MAIL_SCOPES
             else "Drive, Docs, Sheets and Slides" if required == FILE_SCOPES
@@ -235,8 +277,21 @@ def acquire_credentials(
     # both servers run concurrently).
     client_config = _load_oauth_client_config(account)
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=8766, prompt="consent", open_browser=True)
-    _store_credentials(account, creds, list(creds.granted_scopes or creds.scopes or SCOPES))
+    try:
+        creds = flow.run_local_server(port=8766, prompt="consent", open_browser=True)
+    except Warning as exc:
+        # oauthlib raises a bare Warning ("Scope has changed from ... to ...")
+        # when the consent screen came back with fewer permissions than were
+        # requested, and nothing is stored. Say what to do about it instead of
+        # surfacing the library's wording as a traceback.
+        raise RuntimeError(
+            f"{account.id}: the consent screen did not grant every permission that "
+            f"was requested, so nothing was stored ({exc}). Run this again and tick "
+            f"every checkbox, or use 'Select all'. The whole set is needed because "
+            f"Google freezes a refresh token's scopes at consent time, and one token "
+            f"has to cover mail, files and calendar."
+        ) from exc
+    _store_credentials(account, creds, list(creds.scopes or SCOPES))
     return creds
 
 
