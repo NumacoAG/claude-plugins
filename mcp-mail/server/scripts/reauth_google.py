@@ -17,6 +17,18 @@ and one token has to cover every surface. A token minted by an older, mail-only
 version therefore no longer validates against the current scope list, and mail
 itself stops working until this script is run, not just the new tools.
 
+Two things to watch on the consent screen itself:
+
+* If you are signed into more than one Google account, check the account shown
+  is the one you are re-authorizing. The flow follows the browser's active
+  session, so it happily consents as the wrong identity. Use "Use another
+  account" if it preselected the wrong one, and confirm afterwards with
+  ``mail_whoami``.
+* Google presents the permissions as individual checkboxes. Tick every one, or
+  use "Select all". A partial grant is accepted silently, and the surfaces you
+  left unchecked then fail with HTTP 403
+  ``ACCESS_TOKEN_SCOPE_INSUFFICIENT`` while the ones you ticked keep working.
+
 Note: if you have to run this every ~7 days, the OAuth consent screen is still
 in "Testing". Set it to "In production" in Google Cloud Console (APIs &
 Services -> OAuth consent screen) to stop the weekly expiry.

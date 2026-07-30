@@ -104,6 +104,53 @@ def _load_oauth_client_config(account: GmailAccount) -> dict:
     }
 
 
+def _credentials_from_blob(token_blob: str) -> tuple[Credentials, list[str]]:
+    """Build credentials from a Keychain blob, plus the grant that blob records.
+
+    The requested scopes are always ``CONSENT_SCOPES`` (or the recorded grant),
+    never a per-surface subset: whatever sits in ``creds.scopes`` is sent as the
+    refresh ``scope`` parameter, and a subset there narrows the next access
+    token. Asking for the union is safe because Google returns only what was
+    granted and google-auth merely warns about the rest.
+
+    The recorded grant is returned separately so callers can reason about
+    coverage without it influencing the refresh request.
+    """
+    info = json.loads(token_blob)
+    recorded = [s for s in (info.get("scopes") or []) if s]
+    return Credentials.from_authorized_user_info(info, CONSENT_SCOPES), recorded
+
+
+def _covers(recorded: list[str], required: list[str]) -> bool:
+    """Whether the grant recorded in Keychain covers ``required``.
+
+    An unknown grant (nothing recorded) returns True: the API is a better
+    arbiter than a guess here, and refusing locally would lock out a token that
+    works.
+    """
+    if not recorded:
+        return True
+    return set(required).issubset(set(recorded))
+
+
+def _store_credentials(
+    account: GmailAccount, creds: Credentials, scopes: list[str]
+) -> None:
+    """Persist credentials, recording the scopes Google actually granted.
+
+    ``creds.to_json()`` writes ``creds.scopes`` and drops ``granted_scopes``
+    entirely, so writing it verbatim would lose the real grant and re-introduce
+    the narrowing described in ``acquire_credentials``. Overwriting the
+    ``scopes`` key keeps the blob honest for the next load.
+    """
+    blob = json.loads(creds.to_json())
+    if scopes:
+        blob["scopes"] = sorted(set(scopes))
+    keyring.set_password(
+        account.keychain_service, account.keychain_user, json.dumps(blob)
+    )
+
+
 def acquire_credentials(
     account: GmailAccount,
     allow_interactive: bool = False,
@@ -119,30 +166,49 @@ def acquire_credentials(
     hours" failure). The re-auth helper (``scripts/reauth_google.py``) passes
     ``allow_interactive=True`` to run the one-off browser consent flow.
 
-    ``required_scopes`` defaults to the mail surface, so a token issued before
-    Drive and Calendar existed still validates and mail keeps working. Callers
-    for the newer surfaces pass their own scope list and get an explicit
-    re-consent error when the cached grant does not cover them.
+    ``required_scopes`` names the surface being used. It is checked against the
+    grant recorded in Keychain, but it is deliberately NOT handed to
+    ``Credentials``. google-auth sends ``creds.scopes`` as the refresh request's
+    ``scope`` parameter, so a per-surface subset makes Google mint an access
+    token narrowed to that subset; ``to_json`` then persists the narrowed list,
+    and every other surface starts failing with
+    ``ACCESS_TOKEN_SCOPE_INSUFFICIENT`` until its own refresh narrows the token
+    back the other way. Google only logs a warning when scopes are missing, so
+    the whole thing is silent. That thrash is why the grant is always loaded and
+    stored whole, and why the recorded grant is the only thing consulted when
+    deciding whether a re-consent is genuinely needed.
     """
     required = required_scopes or MAIL_SCOPES
     creds: Credentials | None = None
+    recorded: list[str] = []
     token_blob = keyring.get_password(account.keychain_service, account.keychain_user)
     if token_blob:
         try:
-            creds = Credentials.from_authorized_user_info(json.loads(token_blob), required)
+            creds, recorded = _credentials_from_blob(token_blob)
         except Exception:
-            creds = None
+            creds, recorded = None, []
 
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
-            keyring.set_password(
-                account.keychain_service, account.keychain_user, creds.to_json()
-            )
+            recorded = list(creds.granted_scopes or recorded)
+            _store_credentials(account, creds, recorded)
         except Exception:
             creds = None  # refresh failed: token expired or revoked
 
-    if creds and creds.valid:
+    # A grant recorded by a release before 0.5.3 may be a per-surface subset
+    # rather than what the refresh token actually carries. Refresh even though
+    # the token is still live: Google reports the real grant, which settles it
+    # without sending the user through a needless re-consent.
+    if creds and creds.valid and creds.refresh_token and not _covers(recorded, required):
+        try:
+            creds.refresh(Request())
+            recorded = list(creds.granted_scopes or recorded)
+            _store_credentials(account, creds, recorded)
+        except Exception:
+            pass
+
+    if creds and creds.valid and _covers(recorded, required):
         return creds
 
     if not allow_interactive:
@@ -170,9 +236,7 @@ def acquire_credentials(
     client_config = _load_oauth_client_config(account)
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
     creds = flow.run_local_server(port=8766, prompt="consent", open_browser=True)
-    keyring.set_password(
-        account.keychain_service, account.keychain_user, creds.to_json()
-    )
+    _store_credentials(account, creds, list(creds.granted_scopes or creds.scopes or SCOPES))
     return creds
 
 
