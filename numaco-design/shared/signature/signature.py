@@ -240,6 +240,12 @@ def subhead(text):
     return f'<h3 class="sub">{text}</h3>'
 
 
+def subsubhead(text):
+    """Third-level heading. Distinct from block_eyebrow, which is a block LABEL
+    with no top margin and must stay that way (the SOW opens blocks with it)."""
+    return f'<h4 class="subsub">{text}</h4>'
+
+
 def spec_list(bullets):
     """Prose bullets (each item may contain <b> lead-ins)."""
     return '<ul class="spec">' + "".join(f"<li>{b}</li>" for b in bullets) + "</ul>"

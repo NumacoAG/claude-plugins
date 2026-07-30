@@ -9,7 +9,7 @@ it to a self-contained, offline A4 PDF through the shared paged renderer, then
 runs the CoreGraphics fidelity check.
 
 The HTML is produced ENTIRELY through signature-module calls (cover, section,
-para, lead, subhead, block_eyebrow, scope_item, spec_list, effort_table,
+para, lead, subhead, subsubhead, block_eyebrow, scope_item, spec_list, effort_table,
 line_items_table, note, appendix). This engine never hand-writes branded HTML or
 a bespoke stylesheet; the locked look lives in the shared module.
 
@@ -34,7 +34,7 @@ Body Markdown vocabulary (mapped to the Signature module):
                           splits an optional mono sub-tag off the heading; a
                           leading "1. " ordinal is stripped (the module numbers).
     ## H2                 subhead (h3.sub)
-    ### H3                block_eyebrow (small dotted eyebrow label)
+    ### H3                subsubhead (third-level heading, carries top margin)
     paragraph            para (the first paragraph of the first section -> lead)
     - bullet             spec_list; "Title -- body" / "Title : body" bolds the title
     1. item              scope_item inside items(); a leading "C1:" / "S1:" label
@@ -80,8 +80,37 @@ def inline(s):
     return s
 
 
-# split "Title -- body" / "Title : body" / "Title | body" into (title, body)
-_TITLE_SPLIT = re.compile(r"^(.*?)\s*(?:--|:|\|)\s+(.*)$", re.DOTALL)
+# Split "Title -- body" / "Title : body" / "Title | body" into (title, body).
+#
+# "--" and "|" are deliberate separators and win over ":", which also turns up
+# incidentally in ordinary prose. Three guards stop an incidental colon from
+# bolding half a paragraph, which it used to do:
+#   1. text already opening with "**" is left alone; the author has marked the
+#      title themselves, and splitting it stranded the ** markers,
+#   2. a colon title longer than _MAX_COLON_TITLE is prose, not a title,
+#   3. a split that leaves an odd number of "**" on either side is rejected.
+_TITLE_SPLIT_EXPLICIT = re.compile(r"^(.*?)\s*(?:--|\|)\s+(.*)$", re.DOTALL)
+_TITLE_SPLIT_COLON = re.compile(r"^(.*?)\s*:\s+(.*)$", re.DOTALL)
+_MAX_COLON_TITLE = 80
+
+
+def _bold_balanced(text):
+    return text.count("**") % 2 == 0
+
+
+def title_split(text):
+    """Return a match with (title, body), or None when the text is one run."""
+    m = _TITLE_SPLIT_EXPLICIT.match(text)
+    if m and _bold_balanced(m.group(1)) and _bold_balanced(m.group(2)):
+        return m
+    if text.lstrip().startswith("**"):
+        return None
+    m = _TITLE_SPLIT_COLON.match(text)
+    if (m and len(m.group(1)) <= _MAX_COLON_TITLE
+            and "**" not in m.group(1)
+            and _bold_balanced(m.group(2))):
+        return m
+    return None
 
 
 # ---------------------------------------------------------------- front matter
@@ -241,7 +270,9 @@ def render_section_body(lines, lead_used, first_section):
             i += 1
             continue
 
-        # headings inside a section: ## -> subhead, ### (or deeper) -> block_eyebrow
+        # headings inside a section: ## -> subhead, ### and deeper -> subsubhead.
+        # ### used to render as block_eyebrow, a block LABEL with no top margin,
+        # so a third-level heading collided with the paragraph above it.
         m = re.match(r"^(#{2,})\s+(.*)$", stripped)
         if m:
             flush_para()
@@ -249,7 +280,7 @@ def render_section_body(lines, lead_used, first_section):
             if len(m.group(1)) == 2:
                 out.append(S.subhead(text))
             else:
-                out.append(S.block_eyebrow(text))
+                out.append(S.subsubhead(text))
             i += 1
             continue
 
@@ -280,7 +311,7 @@ def render_section_body(lines, lead_used, first_section):
             bullets = []
             while i < n and re.match(r"^[-*]\s+", lines[i].strip()):
                 it = re.sub(r"^[-*]\s+", "", lines[i].strip())
-                mt = _TITLE_SPLIT.match(it)
+                mt = title_split(it)
                 if mt and mt.group(1).strip():
                     bullets.append("<b>" + inline(mt.group(1).strip()) + "</b> "
                                    + inline(mt.group(2).strip()))
@@ -304,7 +335,7 @@ def render_section_body(lines, lead_used, first_section):
                 else:
                     code = str(k)
                     rest = body_txt
-                mt = _TITLE_SPLIT.match(rest)
+                mt = title_split(rest)
                 if mt and mt.group(1).strip():
                     title = inline(mt.group(1).strip())
                     body = inline(mt.group(2).strip())

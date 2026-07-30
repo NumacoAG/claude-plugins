@@ -89,7 +89,7 @@ Standard Markdown maps onto the branded components. The mapping:
 |---|---|
 | `# Heading` | navy ruled H1 section heading |
 | `## Heading` | teal H2 sub-heading |
-| `### Heading` | small navy H3 sub-sub-heading |
+| `### Heading` | third-level heading (`h4.subsub`), quieter than `##` and carrying a top margin |
 | paragraph | justified body `<p>` in Manrope |
 | `- item` | `ul.doc` bullet (em-dash marker) |
 | `- Title -- body` | bullet with the title split out in bold |
@@ -109,7 +109,14 @@ Inline: `**bold**`, `*italic*`, `` `code` ``.
 ### Bullet and scope-item title splits
 
 Write a bullet or a numbered item as `Title -- body`, `Title : body`, or
-`Title | body`; the engine renders the part before the separator in bold. For a
+`Title | body`; the engine renders the part before the separator in bold.
+
+`--` and `|` are explicit and take precedence over `:`, which also occurs
+incidentally in prose. Three guards keep an incidental colon from bolding half a
+paragraph: an item that already opens with `**` is left alone, because you have
+marked the title yourself; a colon "title" longer than 80 characters is treated
+as prose; and a split that would strand a `**` pair is rejected. So
+`- **My title.** Body with a colon: here` renders exactly as written. For a
 numbered item you can supply an explicit label, for example
 `1. S1: Native writer -- captures ZPL and renders it inline`, which renders as a
 labelled scope-item (`S1:` in the hanging gutter, `Native writer` bold, then the

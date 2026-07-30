@@ -1,6 +1,6 @@
 {
   "name": "numaco-design",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Numaco branded output engine. Renders slide decks, statements of work, reports, and timesheets from markdown or JSON to branded HTML to PDF on one shared renderer and one brand core. Verifies every PDF through CoreGraphics (macOS Preview's engine). Future home for quotations, purchase orders, and invoices.",
   "author": {
     "name": "Numaco AG",

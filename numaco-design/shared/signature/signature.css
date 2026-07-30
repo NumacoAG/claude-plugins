@@ -152,6 +152,11 @@ h3.sub{ font-family:var(--font-mono); font-weight:600; font-size:7pt; letter-spa
   text-transform:uppercase; color:#777f8d; margin:6.5mm 0 1.5mm;
   padding-bottom:1.4mm; border-bottom:0.25mm solid var(--hair); break-after:avoid; }
 
+/* Third-level heading. Subordinate to h3.sub: no rule, quieter colour, but it
+   MUST carry a top margin or it collides with the paragraph above it. */
+h4.subsub{ font-family:var(--font-mono); font-weight:600; font-size:6.6pt; letter-spacing:.1em;
+  text-transform:uppercase; color:#8a919c; margin:5mm 0 1.5mm; break-after:avoid; }
+
 /* item lists: deliverables / exclusions / assumptions / options / components */
 .items{ margin-top:2.5mm; }
 .item{ display:grid; grid-template-columns:12mm 1fr; column-gap:4mm; padding:3mm 0;
@@ -319,6 +324,7 @@ body{ font-size:var(--fs-body,10pt); }
 .sec-no{ font-size:var(--fs-sec_no,13pt); }
 .sec-tag{ font-size:calc(var(--fs-sub_label,11pt) * 0.92308); }
 h3.sub{ font-size:calc(var(--fs-sub_label,11pt) * 1.07692); }
+h4.subsub{ font-size:calc(var(--fs-sub_label,11pt) * 0.92308); }
 .lead{ font-size:calc(var(--fs-body,10pt) * 1.07292); }
 .item .ibody{ font-size:calc(var(--fs-body,10pt) * 0.9375); }
 ul.spec li{ font-size:calc(var(--fs-body,10pt) * 0.9375); }
