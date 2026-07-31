@@ -11,7 +11,9 @@ The plugin ships four skills that all sit on the same renderer and brand core:
 - **numaco-report**: the general branded document engine. It takes one Markdown
   file with a small front-matter header and produces a branded A4 PDF (reports,
   memos, one-pagers, architecture overviews, handovers, solution designs,
-  letters). It also carries a first-class line-items table with computed totals,
+  letters) in the Signal Stack presentation, with centred navy section bands,
+  large readable body type, structured evidence cards, and high contrast data
+  tables. It also carries a first-class line-items table with computed totals,
   the seam for future quotations, purchase orders, and invoices.
 - **numaco-sow**: an interactive Statement of Work skill. It gathers inputs,
   drafts each section in chat for approval, iterates the budget in a live
