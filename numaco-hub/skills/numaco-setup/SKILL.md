@@ -178,8 +178,9 @@ independent; do them in any order and pause after each one.
   Mobile sync is optional and stays dormant until you opt in: to mirror a doc
   between your laptop and your phone vault, track it with `/dvsync-track`. Until
   you track a doc, nothing is synced anywhere.
-- **numaco-design** (branded slide decks, statements of work, reports, and
-  timesheets): nothing to preinstall; the renderer toolchain installs itself.
+- **numaco-design** (branded slide decks, statements of work, reports,
+  timesheets, quotations, order confirmations, delivery notes, and invoices):
+  nothing to preinstall; the renderer toolchain installs itself.
   Preflight the machine by running the renderer doctor from the installed
   plugin. Resolve the path from the manifest rather than guessing it, so this
   works whatever `CLAUDE_CONFIG_DIR` is set to:

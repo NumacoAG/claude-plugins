@@ -6,15 +6,15 @@ and then into a print-ready PDF. Every PDF is verified through CoreGraphics (the
 engine macOS Preview uses), not through a Chromium preview, because the two
 diverge on print layout.
 
-The plugin ships four skills that all sit on the same renderer and brand core:
+The plugin ships five skills that all sit on the same renderer and brand core:
 
 - **numaco-report**: the general branded document engine. It takes one Markdown
   file with a small front-matter header and produces a branded A4 PDF (reports,
   memos, one-pagers, architecture overviews, handovers, solution designs,
   letters) in the Signal Stack presentation, with centred navy section bands,
   large readable body type, structured evidence cards, and high contrast data
-  tables. It also carries a first-class line-items table with computed totals,
-  the seam for future quotations, purchase orders, and invoices.
+  tables. It also carries a first-class line-items table with computed totals
+  for narrative documents that need one.
 - **numaco-sow**: an interactive Statement of Work skill. It gathers inputs,
   drafts each section in chat for approval, iterates the budget in a live
   artifact, then renders the branded PDF from a JSON payload (effort table,
@@ -28,6 +28,12 @@ The plugin ships four skills that all sit on the same renderer and brand core:
   column, an approval block, and strict payload validation. Entries can be
   pulled from Clockify when its MCP tools are in the session, with the user
   reviewing every description before rendering.
+- **numaco-trading-documents**: the standard transactional document family. It
+  renders quotations, order confirmations, delivery notes, and invoices from a
+  validated JSON payload. Quotations retain list price, discount, unit price,
+  and total price as separate columns. Delivery notes never expose financial
+  values. Invoice totals and VAT reconcile before rendering, and the legal
+  default interest clause never prints a speculative worked amount.
 - **numaco-slide-deck**: a Numaco branded presentation skill. It first writes and
   locks a slide-content Markdown spec (verbatim on-slide text), then renders a
   self-contained 1920x1080 deck and exports the PDF.
@@ -40,10 +46,13 @@ memorise.
 - Ask for a branded report, memo, one-pager, handover, solution design, or letter
   ("write it in the Numaco template", "in Numaco branding") and **numaco-report**
   runs.
-- Ask to write, draft, quote, or revise a Statement of Work, proposal, quotation,
-  or offer for any customer and **numaco-sow** runs.
+- Ask to write, draft, or revise a Statement of Work or scoped service proposal
+  for any customer and **numaco-sow** runs.
 - Ask for a timesheet, hours report, Stundenrapport, or to bill the hours for a
   project or period and **numaco-timesheet** runs.
+- Ask for a quotation, commercial offer, order confirmation, delivery note,
+  invoice, Rechnung, Offerte, Angebot, Auftragsbestätigung, or Lieferschein and
+  **numaco-trading-documents** runs.
 - Ask to build a presentation, slide deck, or pitch deck for a customer and
   **numaco-slide-deck** runs.
 
@@ -75,8 +84,9 @@ How the self-install works:
 - **Doctor.** `python3 shared/render/numaco_render.py doctor` preflights the
   whole chain (Node, npm, dependencies, browser), prints every resolved path,
   and exits 0 only when a render could succeed on the machine.
-- **Python 3.11 or newer.** The four build engines (`build_report.py`,
-  `build_sow.py`, `build_timesheet.py`, `build_deck.py`) are plain Python with
+- **Python 3.11 or newer.** The five build engines (`build_report.py`,
+  `build_sow.py`, `build_timesheet.py`, `build_trading_document.py`,
+  `build_deck.py`) are plain Python with
   no third-party packages; they call the shared renderer over a subprocess. No
   virtual environment is required.
 - **PDF verification (macOS only, optional).** The CoreGraphics fidelity check
@@ -117,5 +127,6 @@ numaco-design/
     ├── numaco-report/             Markdown to branded PDF engine
     ├── numaco-sow/                Statement of Work engine
     ├── numaco-timesheet/          branded timesheet (hours report) engine
+    ├── numaco-trading-documents/  quotation, order confirmation, delivery note, invoice
     └── numaco-slide-deck/         branded presentation engine
 ```
