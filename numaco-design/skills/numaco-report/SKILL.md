@@ -1,6 +1,6 @@
 ---
 name: numaco-report
-description: Produce a Numaco AG branded document as a PDF, from a single Markdown file, through the shared HTML to PDF pipeline. Use whenever the user asks for a document "in Numaco's template", "with Numaco branding", "in the Numaco style", or by default for ANY standalone branded report, memo, one-pager, architecture overview, handover, solution design, or letter for Numaco, unless they explicitly ask for something unbranded. Successor to the old numaco-docx skill (same visual identity, PDF-native instead of Word). This is the general branded-document engine and the future home for timesheets, quotations, purchase orders, and invoices.
+description: Produce a Numaco AG branded document as a PDF, from a single Markdown file, through the shared HTML to PDF pipeline. Use whenever the user asks for a document "in Numaco's template", "with Numaco branding", "in the Numaco style", or by default for any standalone branded report, memo, one-pager, architecture overview, handover, solution design, or letter for Numaco, unless they explicitly ask for something unbranded. Successor to the old numaco-docx skill with the same visual identity and a PDF native workflow. Use the dedicated numaco-timesheet, numaco-trading-documents, numaco-sow, or numaco-slide-deck skill for those document families.
 ---
 
 # Numaco branded report skill (HTML to PDF)
@@ -11,10 +11,9 @@ that should wear Numaco's visual identity: reports, memos, one-pagers,
 architecture overviews, handovers, solution designs, letters. Reports use the
 Signal Stack presentation: a dark technical cover, centred navy section bands,
 large readable body type, strong numbered subsection rules, stacked evidence
-cards, and high contrast data tables. It is the future home for the transactional
-document family too (timesheets, quotations, purchase orders, invoices), which
-is why the engine already ships a first-class line-items table with computed
-totals.
+cards, and high contrast data tables. The engine also ships a first-class
+line-items table with computed totals for narrative reports that need one.
+Transactional documents use the dedicated `numaco-trading-documents` skill.
 
 This is the renamed, HTML-pipeline successor to `numaco-docx`. Same navy and teal
 identity, same cover, same block vocabulary; the difference is that the
@@ -32,8 +31,10 @@ Triggers include, but are not limited to:
 - Any ad-hoc request for a standalone branded Numaco document where the user does not
   explicitly ask for something unbranded.
 
-If the user asks for a Statement of Work, quotation, or offer, defer to `numaco-sow`.
-For any other branded document, use this skill. When in doubt, use this skill
+If the user asks for a Statement of Work or scoped service proposal, defer to
+`numaco-sow`. If the user asks for a quotation, order confirmation, delivery
+note, or invoice, defer to `numaco-trading-documents`. For any other branded
+document, use this skill. When in doubt, use this skill
 rather than hand-writing HTML or CSS from scratch.
 
 ## How it works
@@ -209,12 +210,12 @@ path. The Signal Stack presentation shared with SOWs lives at
 
 ## Relationship to the other skills
 
-- `numaco-sow`: the specialised Statement of Work skill (fixed structure, effort
-  table, T&Cs appendix, interactive budget, SOW number generator). Defer to it
-  for SOWs, quotations framed as offers, and proposals.
-- `numaco-report`: the general branded-document engine (this skill), and the
-  future home for timesheets, quotations, purchase orders, and invoices via the
-  line-items component.
+- `numaco-sow`: the specialised Statement of Work skill with fixed structure,
+  effort table, terms appendix, interactive budget, and SOW number generator.
+  Defer to it for scoped service proposals and SOWs.
+- `numaco-trading-documents`: the quotation, order confirmation, delivery note,
+  and invoice skill. Defer every transactional document to it.
+- `numaco-report`: the general branded document engine described here.
 
 ## Migration note
 

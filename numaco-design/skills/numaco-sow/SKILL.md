@@ -1,7 +1,7 @@
 ---
 name: numaco-sow
 description: >-
-  Draft, iterate on, and generate a Numaco AG Statement of Work (SOW) as a branded PDF for approval. Use whenever the user asks to write, draft, prepare, or quote an SOW, proposal, quotation, or offer for any customer, even if the customer name is given casually (e.g. "write an SOW for Acme", "quote 10 days for a system migration"). Also use when editing, revising, or extending an existing SOW (change requests). The skill runs as an interactive conversation: it gathers inputs, drafts sections in chat for approval, opens a live budget artifact for iteration, renders the branded PDF, and only finalises once the user confirms. Do not generate an SOW in a single step without running the conversation protocol below.
+  Draft, iterate on, and generate a Numaco AG Statement of Work (SOW) as a branded PDF for approval. Use whenever the user asks to write, draft, prepare, or quote an SOW, scoped consulting proposal, service proposal, or project offer that defines deliverables, assumptions, effort, and commercial terms, even if the customer name is given casually, for example "write an SOW for Acme" or "quote 10 days for a system migration". Also use when editing, revising, or extending an existing SOW through a change request. Use numaco-trading-documents instead for a transactional quotation, product offer, order confirmation, delivery note, or invoice. The skill runs as an interactive conversation: it gathers inputs, drafts sections in chat for approval, opens a live budget artifact for iteration, renders the branded PDF, and only finalises once the user confirms. Do not generate an SOW in a single step without running the conversation protocol below.
 ---
 
 # Numaco SOW skill (HTML pipeline)

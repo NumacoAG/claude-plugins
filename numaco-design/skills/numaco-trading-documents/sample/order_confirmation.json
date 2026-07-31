@@ -1,0 +1,37 @@
+{
+  "document_type": "order_confirmation",
+  "document_number": "OC260002",
+  "language": "en",
+  "currency": "CHF",
+  "issue_date": "30.07.2026",
+  "expected_delivery": "12.08.2026",
+  "payment_terms_days": 30,
+  "customer_po": "PO 450000001",
+  "customer": {
+    "name": "Example Manufacturing AG",
+    "address": ["Industriestrasse 12", "CH 8000 Zurich"],
+    "references": ["Your reference: Purchasing", "Our quote: QU260002"]
+  },
+  "lines": [
+    {
+      "position": "10",
+      "item": "SMA BASE",
+      "description": "Software maintenance renewal, base package including five printer connections, for a term of three years.",
+      "quantity": 3,
+      "unit_price": 1596.60,
+      "total_price": 4789.80
+    },
+    {
+      "position": "20",
+      "item": "SMA ADD ON",
+      "description": "Software maintenance renewal for fourteen additional printer connections, for a term of three years.",
+      "quantity": 3,
+      "unit_price": 1323.00,
+      "total_price": 3969.00
+    }
+  ],
+  "totals": {
+    "net": 8758.80,
+    "grand_total": 8758.80
+  }
+}
