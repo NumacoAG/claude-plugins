@@ -21,11 +21,13 @@ The plugin ships four skills that all sit on the same renderer and brand core:
   parties block, commercial terms, and a Terms and Conditions appendix) in the
   Signal Stack presentation.
 - **numaco-timesheet**: a branded timesheet (hours report) skill. It renders a
-  JSON payload of time entries into a Signature styled hours document: one
-  entries table grouped by month with subtotals, hours-only by default with an
-  optional computed Amount column, an approval block, and strict payload
-  validation. Entries can be pulled from Clockify when its MCP tools are in the
-  session, with the user reviewing every description before rendering.
+  JSON payload of time entries into a Signal Stack hours document. It provides
+  a multicolour hours chart, an optional Work mix insight page with four to
+  eight categories, a chronological entries table grouped by month with colour
+  markers and subtotals, hours only by default with an optional computed Amount
+  column, an approval block, and strict payload validation. Entries can be
+  pulled from Clockify when its MCP tools are in the session, with the user
+  reviewing every description before rendering.
 - **numaco-slide-deck**: a Numaco branded presentation skill. It first writes and
   locks a slide-content Markdown spec (verbatim on-slide text), then renders a
   self-contained 1920x1080 deck and exports the PDF.

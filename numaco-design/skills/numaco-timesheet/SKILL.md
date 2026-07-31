@@ -1,18 +1,16 @@
 ---
 name: numaco-timesheet
 description: >-
-  Produce a Numaco AG branded timesheet (hours report) as a PDF in the locked Signature document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, "bill the hours for <project>", "timesheet for <customer> <period>", "prepare the Q2 hours for <customer>", or wants to turn tracked time (for example Clockify entries) into a customer facing hours document. Covers hours-only sheets, sheets with a computed amount column, and sheets that track utilisation against an hours budget with a chart. The skill runs as a short conversation: it establishes client, project, and period, collects and cleans the entries, confirms budget and hours-only versus with-amounts, renders the branded PDF, and verifies it through CoreGraphics.
-status: beta
-version: 0.2.1
+  Produce a Numaco AG branded timesheet as a PDF in the locked Signal Stack document style. Use whenever the user asks for a timesheet, hours report, Stundenrapport, monthly hours, quarterly hours, billing the hours for a project, a timesheet for a customer and period, a quarterly customer hours report, or wants to turn tracked time such as Clockify entries into a customer facing hours document. Covers optional category analysis with four to eight colour coded work types, hours only sheets, sheets with a computed amount column, and sheets that track utilisation against an hours budget with a chart. The skill establishes the client, project, and period, cleans and categorises the entries, confirms the budget and financial detail, renders the branded PDF, and verifies every page through CoreGraphics.
 ---
 
-# Numaco timesheet skill (Signature pipeline)
+# Numaco timesheet skill (Signal Stack pipeline)
 
 ## What this skill does
 
 Produces a Numaco branded timesheet as a print ready A4 PDF in the locked
-Numaco Signature document style, the same visual system as the SOW and report
-skills. Version 2 of the layout:
+Numaco Signal Stack document style, the same visual system as the SOW and
+report skills. The layout provides:
 
 - **Page one is the navy Signature cover**: project title, a "Timesheet for
   <period>" subtitle, and the meta band with Client, Engagement, Period,
@@ -20,21 +18,25 @@ skills. Version 2 of the layout:
 - **Page two opens the content** with the standard running header and footer:
   an Overview section with an optional **budget utilisation stat band** (budget,
   logged to date, utilisation, remaining, plus a slim progress bar) and an
-  always present **hours chart** (navy bars per bucket, an ink cumulative line,
-  and a dashed amber budget line when a budget is set). The chart is pure
-  inline SVG generated in Python; no chart library.
+  always present **hours chart** with distinct bucket colours, a cumulative
+  line, explicit axis titles, and a dashed budget line when a budget is set.
+  The chart is pure inline SVG generated in Python, with no chart library.
+- **The optional Work mix section** appears when the payload supplies four to
+  eight categories. It defines the colour system, identifies the leading work
+  types, and calculates a summary table of total hours and percentage share.
 - **The activity log** is one compact zebra striped table: Date, an optional By
   column for multi consultant sheets, Description, Hours, and an optional
   Amount column. When the period spans several months the table carries month
-  band subheader rows and month subtotal rows; the navy total row closes it.
+  band subheader rows and month subtotal rows. Category colours mark each row
+  without changing the chronological order. The navy total row closes it.
 - **The approval block** (text plus the two signature lines and the Numaco
   address and VAT foot line) always stays together on one page.
 
 The engine is `scripts/build_timesheet.py`: it takes a JSON payload, validates
-it strictly, composes the document from the shared Signature module
-(`shared/signature/signature.py`), and renders through the shared paged
-renderer with the two pass render (which bakes the true page count into the
-footer) and the CoreGraphics fidelity check.
+it strictly, composes the structure from the shared Signature module
+(`shared/signature/signature.py`), applies the shared Signal Stack presentation,
+and renders through the shared paged renderer. The two pass render bakes the
+true page count into the footer. CoreGraphics verifies the result.
 
 ## When to trigger (be generous)
 
@@ -88,7 +90,24 @@ always on multi-consultant sheets. Format: first name plus surname initial with
 a period, for example "Petra M."; the By column renders as soon as any entry
 carries one.
 
-### Step 3: establish the budget (when there is one)
+### Step 3: classify the work
+
+For a substantive support or delivery timesheet, inspect the approved entry
+descriptions and propose a manageable set of four to eight primary categories.
+Choose categories that describe the work at a useful management level, not
+individual tickets or technologies. Common families include coordination and
+project management, technical design, issue management and support,
+development and enhancement, configuration and rollout, and testing,
+validation and handover.
+
+Give every entry exactly one primary category. Keep the table grouped by month
+and chronological within each month. The renderer calculates total hours and
+percentage share, builds the Work mix insight page, and applies the category
+colour to the matching activity rows. Use stable `key` values across recurring
+timesheets. A small or simple sheet may omit categories entirely; never provide
+fewer than four categories merely to force a Work mix page.
+
+### Step 4: establish the budget (when there is one)
 
 Ask whether the engagement runs against an hours budget. The budget figure
 comes **from the SOW for that engagement or from the user**; never invent one
@@ -101,7 +120,7 @@ the earlier timesheets or the finance overview. Without it the utilisation
 figures would mislead. Without a budget the chart still renders, hours and
 cumulative only.
 
-### Step 4: confirm hours-only versus with-amounts
+### Step 5: confirm hours only versus with amounts
 
 Ask whether the sheet should show hours only (the default, and the usual
 choice when the timesheet accompanies a separate invoice) or an Amount column.
@@ -112,7 +131,7 @@ path), from prior documents for the same customer, or from the user directly.
 numbers are deliberately absurd placeholders. Each amount is computed as hours
 divided by 8, multiplied by the day rate.
 
-### Step 5: render
+### Step 6: render
 
 Assemble the JSON payload (schema below) and render:
 
@@ -124,15 +143,16 @@ The engine writes a self-contained HTML sidecar next to the PDF and renders the
 PDF through the shared paged pipeline. Save the PDF to the customer's project
 folder, never into any repository.
 
-### Step 6: verify through CoreGraphics
+### Step 7: verify through CoreGraphics
 
 Verify the PDF through CoreGraphics, never a Chromium preview: run
 `numaco_render.pdfcheck(pdf, name, pages="1,2,...")` (the sample script shows
 the call) and inspect the rasterised pages, or open the PDF in macOS Preview.
 Check the cover carries the meta band, the chart shows the bars and the
-cumulative line (and the budget line when set), the month subtotals add up,
-and the total row matches the sum. Present the PDF to the user and iterate
-until they approve.
+cumulative line (and the budget line when set), every axis title is legible,
+the Work mix totals add to 100 percent when categories are present, category
+markers agree with the definitions, month subtotals add up, and the total row
+matches the sum. Present the PDF to the user and iterate until they approve.
 
 ## Recurring timesheets (series consistency)
 
@@ -145,9 +165,10 @@ drift are the payload options. Rules:
   previous period's payload: change only `period_*`, `report_date`, `entries`,
   and `prior_hours` (carry it forward: previous `prior_hours` plus the previous
   period's total).
-- Keep everything else identical across the series (`budget_hours`, hours-only
-  versus amounts, the By column, `reference`, `engagement`, consultant) unless
-  the engagement itself changed, and say so to the user when it does.
+- Keep everything else identical across the series (`budget_hours`, categories,
+  hours only versus amounts, the By column, `reference`, `engagement`,
+  consultant) unless the engagement itself changed, and say so to the user
+  when it does.
 
 ## Payload schema
 
@@ -172,8 +193,34 @@ drift are the payload options. Rules:
   "consultant": "Alex Muster",
   "budget_hours": 120,
   "prior_hours": 30,
+  "categories": [
+    {
+      "key": "coordination",
+      "name": "Coordination and project management",
+      "description": "Planning, reporting, and stakeholder coordination.",
+      "color": "#3f65a6"
+    },
+    {
+      "key": "design",
+      "name": "Technical design and advisory",
+      "description": "Analysis, solution design, and technical advice.",
+      "color": "#c98a14"
+    },
+    {
+      "key": "development",
+      "name": "Development and enhancement",
+      "description": "New capabilities and material improvements.",
+      "color": "#1f7a8c"
+    },
+    {
+      "key": "validation",
+      "name": "Testing, validation and handover",
+      "description": "Verification, release preparation, and handover.",
+      "color": "#5b8f7b"
+    }
+  ],
   "entries": [
-    {"date": "2026-04-03", "by": "Petra M.", "description": "Kick-off and scoping.", "hours": 3.5}
+    {"date": "2026-04-03", "by": "Petra M.", "description": "Kick-off and scoping.", "hours": 3.5, "category": "coordination"}
   ],
   "day_rate_chf": 100,
   "notes": "All hours were recorded against SOW 261912.",
@@ -182,8 +229,9 @@ drift are the payload options. Rules:
 ```
 
 - `client_address`, `engagement`, `report_date`, `reference`, `consultant`,
-  `budget_hours`, `prior_hours`, `day_rate_chf`, `notes`, `output_path`, and
-  the per entry `by` are optional; everything else is required.
+  `budget_hours`, `prior_hours`, `categories`, `day_rate_chf`, `notes`,
+  `output_path`, and the per entry `by` are optional; everything else is
+  required.
 - `engagement` present: shown as the Engagement line in the cover meta band;
   absent: the project title serves as that line.
 - `report_date` is the date shown on the cover. Pass today's date; when absent
@@ -201,6 +249,12 @@ drift are the payload options. Rules:
 - Entries with `by` (short consultant names): the By column renders between
   Date and Description as soon as any entry carries one; when none do, the
   column is omitted entirely.
+- `categories` present: supply four to eight objects with unique `key`, `name`,
+  and `description` values. A six digit hexadecimal `color` is optional; the
+  renderer assigns a stable palette colour when omitted. Every entry must then
+  carry `category` and reference a defined key. The renderer adds the Work mix
+  page and category markers. When `categories` is absent, entries must not
+  carry `category`, and the timesheet renders without the Work mix page.
 - `day_rate_chf` present: an Amount column appears, each amount computed at
   hours / 8 x rate, with per month subtotal amounts and a total amount. Absent:
   the sheet is hours-only and no money appears anywhere.
@@ -210,8 +264,8 @@ drift are the payload options. Rules:
 - Validation is strict and fails loudly: every entry date must be an ISO date
   inside the period, every hours value must be greater than zero,
   `budget_hours` and `day_rate_chf` must be positive when given, `prior_hours`
-  must not be negative, and missing required fields abort the render with a
-  list of every violation.
+  must not be negative, category keys and references must be valid, and missing
+  required fields abort the render with a list of every violation.
 
 ## Formatting rules (enforced by the engine)
 
@@ -225,6 +279,14 @@ drift are the payload options. Rules:
   calendar month, else weekly buckets on ISO weeks (labeled `W24` style with
   the week's date range in small text). Empty buckets stay on the axis so the
   timeline is continuous.
+- Chart bars use distinct colours, with larger value labels and explicit Hours
+  and Months or Weeks axis titles. The cumulative line remains dark navy and
+  the budget line remains amber, so neither can be confused with a work
+  category.
+- Category totals are calculated from the rendered entries, never supplied by
+  the caller. The summary ranks categories by hours and shows both hours and
+  percentage share. Category markers add meaning without replacing the zebra
+  striping, month bands, or chronological ordering.
 - When the period spans several months, the table groups entries under a month
   band subheader row with a quiet subtotal row per month; the closing total
   row is the same navy band with the amber accent as the SOW effort estimate
@@ -244,8 +306,8 @@ drift are the payload options. Rules:
   nothing more.
 - **Every example number is a deliberately absurd placeholder** (CHF 12.50 per
   hour, CHF 100 per day, 10 percent discount). Real rates never come from
-  examples; see Step 4. Real budgets come from the SOW or the user; see
-  Step 3.
+  examples; see Step 5. Real budgets come from the SOW or the user; see
+  Step 4.
 - **Internal tracking notes never leak.** Descriptions pulled from a time
   tracker are reviewed and rewritten for the customer before rendering.
 
@@ -255,20 +317,21 @@ drift are the payload options. Rules:
 numaco-timesheet/
 ├── SKILL.md                       <- you are here
 ├── scripts/
-│   └── build_timesheet.py         <- JSON payload -> Signature branded PDF
+│   └── build_timesheet.py         <- JSON payload -> Signal Stack branded PDF
 └── sample/
     ├── build_sample.py            <- renders the fictional Acme sample
-    ├── sample_payload.json        <- fictional hours-only payload (15 entries)
+    ├── sample_payload.json        <- fictional categorised payload (15 entries)
     ├── sample_timesheet.html      <- generated, gitignored
     └── sample_timesheet.pdf       <- generated, gitignored
 ```
 
-The engine composes the locked Signature module (`shared/signature/`) and the
-shared renderer (`shared/render/numaco_render.py`). It never invents a new
-render path and never hand-writes a bespoke stylesheet; the one style block it
-carries (compact zebra log rows, month bands, the stat band, the chart legend,
-the keep together approval) is composed strictly from the locked Signature
-tokens, and the chart SVG bakes the same palette values.
+The engine composes the locked Signature structure (`shared/signature/`), the
+shared Signal Stack presentation (`shared/signal-stack/`), and the shared
+renderer (`shared/render/numaco_render.py`). It never invents a new render path.
+Its timesheet specific style block covers compact activity rows, month bands,
+the stat band, Work mix components, chart legend, category markers, and the
+keep together approval. The chart SVG bakes the same palette values used by the
+document styles.
 
 ## Relationship to the other skills
 
