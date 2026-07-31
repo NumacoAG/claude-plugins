@@ -381,7 +381,9 @@ _TS_CSS = (
     "<style>\n"
     "/* compact zebra entry rows (explicit stripes, parity safe) */\n"
     "table.data td.tse{ padding-top:1.3mm; padding-bottom:1.3mm;"
-    " background:var(--paper) !important; }\n"
+    " background:var(--paper) !important; vertical-align:middle; }\n"
+    "table.data td.tse.ref{ font-size:var(--fs-table_body,9pt) !important;"
+    " letter-spacing:.01em; white-space:nowrap; }\n"
     "table.data td.tse.tsz{ background:var(--hair2) !important; }\n"
     "/* month band subheader rows (stronger than the zebra) */\n"
     "table.data td.tsm{ font-family:var(--font-mono); font-weight:600;"
@@ -444,13 +446,15 @@ _TS_CSS = (
     "table.data td.num{ text-align:right !important;"
     " padding-right:4mm !important; }\n"
     "/* optional Work mix insight page */\n"
-    ".work-mix-page{ break-before:page; break-after:page; }\n"
+    ".work-mix-page{ page-break-before:always !important;"
+    " break-before:page !important; page-break-after:always; break-after:page;"
+    " page-break-inside:avoid; break-inside:avoid-page; }\n"
     ".mix-lead strong{ color:var(--navy); }\n"
     ".category-grid{ display:grid; grid-template-columns:1fr 1fr; gap:3mm;"
-    " margin:5mm 0 7mm; }\n"
+    " margin:5mm 0 7mm; page-break-inside:avoid; break-inside:avoid-page; }\n"
     ".category-card{ display:grid; grid-template-columns:4mm 1fr; gap:2.5mm;"
     " padding:3.3mm 3.8mm; border:0.25mm solid #dfe5ed; background:#f7f9fc;"
-    " break-inside:avoid; }\n"
+    " page-break-inside:avoid; break-inside:avoid-page; }\n"
     ".category-swatch{ width:3mm; height:3mm; margin-top:.8mm; border-radius:50%; }\n"
     ".category-name{ color:var(--navy); font-weight:700; font-size:9.4pt;"
     " line-height:1.25; }\n"
@@ -899,9 +903,9 @@ def _work_mix_section(data):
         '<div class="category-grid">' + ''.join(cards) + '</div>'
         + S.subhead("Hours by category") + summary
     )
-    return '<div class="work-mix-page">' + S.section(
+    return '<div class="pagebreak"></div><div class="work-mix-page">' + S.section(
         "02", "Work mix", "SERVICE CATEGORIES &middot; HOURS", body
-    ) + '</div>'
+    ) + '</div><div class="pagebreak"></div>'
 
 
 # ---------------------------------------------------------------- sections

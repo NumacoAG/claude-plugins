@@ -76,6 +76,8 @@ jobs:
           print("\n".join(bad) if bad else "all skills parse and describe themselves")
           sys.exit(1 if bad else 0)
           PY
+      - name: Timesheet template contract stays deterministic
+        run: python3 -m unittest numaco-design/skills/numaco-timesheet/tests/test_template_contract.py
 
   smoke-install:
     runs-on: ubuntu-latest
