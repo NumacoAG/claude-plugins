@@ -4,6 +4,7 @@
 import importlib.util
 import json
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
@@ -53,6 +54,50 @@ class TimesheetTemplateContractTest(unittest.TestCase):
         self.assertIn(
             "page-break-inside:avoid; break-inside:avoid-page; }",
             css,
+        )
+
+    def _chart_text(self, svg, value):
+        root = ET.fromstring(svg)
+        namespace = {"svg": "http://www.w3.org/2000/svg"}
+        for node in root.findall("svg:text", namespace):
+            if node.text == value:
+                return node
+        self.fail(f"chart text not found: {value}")
+
+    def test_monthly_axis_title_has_a_dedicated_gutter(self):
+        buckets = [
+            {"label": "Apr", "sub": "", "hours": 12.0},
+            {"label": "May", "sub": "", "hours": 8.0},
+        ]
+        svg = self.builder._chart_svg(buckets, budget=40.0)
+        month = self._chart_text(svg, "Apr")
+        title = self._chart_text(svg, "MONTHS")
+        self.assertGreaterEqual(float(title.attrib["y"]) - float(month.attrib["y"]), 24.0)
+
+    def test_weekly_axis_title_clears_the_date_range(self):
+        buckets = [
+            {"label": "W30", "sub": "20.07 to 26.07", "hours": 5.0},
+            {"label": "W31", "sub": "27.07 to 31.07", "hours": 7.0},
+        ]
+        svg = self.builder._chart_svg(buckets, budget=None)
+        date_range = self._chart_text(svg, "20.07 to 26.07")
+        title = self._chart_text(svg, "WEEKS")
+        self.assertGreaterEqual(
+            float(title.attrib["y"]) - float(date_range.attrib["y"]),
+            24.0,
+        )
+
+    def test_hours_axis_title_clears_tick_labels(self):
+        buckets = [
+            {"label": "Jan", "sub": "", "hours": 125.0},
+            {"label": "Feb", "sub": "", "hours": 75.0},
+        ]
+        svg = self.builder._chart_svg(buckets, budget=200.0)
+        title = self._chart_text(svg, "HOURS")
+        top_tick = self._chart_text(svg, "200")
+        self.assertGreaterEqual(
+            float(top_tick.attrib["x"]) - float(title.attrib["y"]),
+            35.0,
         )
 
 
