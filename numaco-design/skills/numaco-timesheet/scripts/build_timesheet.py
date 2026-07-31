@@ -582,10 +582,10 @@ def _chart_svg(buckets, budget, prior=0.0):
     step = _nice_step(ymax)
     top = math.ceil(ymax / step - 1e-9) * step
 
-    width, height = 690.0, 278.0
+    width, height = 690.0, 300.0
     has_sub = any(b["sub"] for b in buckets)
-    pad_l, pad_r, pad_t = 40.0, 10.0, 22.0
-    pad_b = 40.0 if has_sub else 27.0
+    pad_l, pad_r, pad_t = 64.0, 10.0, 22.0
+    pad_b = 62.0 if has_sub else 49.0
     plot_w = width - pad_l - pad_r
     plot_h = height - pad_t - pad_b
 
@@ -602,7 +602,7 @@ def _chart_svg(buckets, budget, prior=0.0):
     t = 0.0
     while t <= top + 1e-9:
         yy = ypos(t)
-        p.append(f'<text x="{pad_l - 7}" y="{yy + 3.4:.1f}" text-anchor="end"'
+        p.append(f'<text x="{pad_l - 8}" y="{yy + 3.4:.1f}" text-anchor="end"'
                  f' font-family="{_SVG_MONO}" font-size="12.5" font-weight="600"'
                  f' fill="{_C_GREY}">{_fmt_tick(t)}</text>')
         t += step
@@ -665,10 +665,12 @@ def _chart_svg(buckets, budget, prior=0.0):
              f' fill="{_C_INK}">{_hours_trim(total)} h cumulative</text>')
 
     axis_label = "WEEKS" if has_sub else "MONTHS"
-    p.append(f'<text x="{width / 2:.1f}" y="271" text-anchor="middle"'
+    p.append(f'<text x="{width / 2:.1f}" y="{height - 6:.1f}" text-anchor="middle"'
              f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
              f' letter-spacing="1.2" fill="{_C_NAVY}">{axis_label}</text>')
-    p.append(f'<text x="-126" y="13" transform="rotate(-90)" text-anchor="middle"'
+    y_axis_center = -(pad_t + plot_h / 2.0)
+    p.append(f'<text x="{y_axis_center:.1f}" y="14" transform="rotate(-90)"'
+             f' text-anchor="middle"'
              f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
              f' letter-spacing="1.2" fill="{_C_NAVY}">HOURS</text>')
 
