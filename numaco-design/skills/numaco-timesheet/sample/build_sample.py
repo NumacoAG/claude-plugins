@@ -20,7 +20,7 @@ def main():
     print("HTML:", html_path)
     print("PDF: ", pdf_path)
     n = build_timesheet.R.pdf_page_count(pdf_path)
-    pages = ",".join(str(p) for p in range(1, n + 1)) if n <= 4 else f"1,2,3,{n}"
+    pages = ",".join(str(p) for p in range(1, n + 1))
     build_timesheet.R.pdfcheck(pdf_path, "sample_timesheet", pages=pages)
     print("PAGE_COUNT:", n)
 

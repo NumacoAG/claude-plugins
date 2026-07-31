@@ -11,22 +11,28 @@
   "consultant": "Alex Muster",
   "budget_hours": 120,
   "prior_hours": 30,
+  "categories": [
+    {"key": "coordination", "name": "Coordination and project management", "description": "Scoping, client reviews, decisions and project closure.", "color": "#3f65a6"},
+    {"key": "design", "name": "Technical design and advisory", "description": "Analysis, architecture, acceptance criteria and operational design.", "color": "#c98a14"},
+    {"key": "development", "name": "Development and enhancement", "description": "Implementation, integration, hardening and release engineering.", "color": "#1f7a8c"},
+    {"key": "validation", "name": "Testing, validation and handover", "description": "Test execution, defect verification, runbooks and knowledge transfer.", "color": "#7b61a8"}
+  ],
   "entries": [
-    {"date": "2026-04-03", "by": "Petra M.", "description": "Kick-off and scoping: reviewed the export archive and agreed the capture points.", "hours": 3.5},
-    {"date": "2026-04-07", "by": "Petra M.", "description": "Analysed representative CDS export files and catalogued the active report templates.", "hours": 6.0},
-    {"date": "2026-04-09", "by": "Jonas F.", "description": "Set up the rendering service skeleton and the development environment.", "hours": 4.0},
-    {"date": "2026-04-14", "by": "Jonas F.", "description": "Implemented the report layout engine for the two most common templates.", "hours": 7.5},
-    {"date": "2026-04-17", "by": "Petra M.", "description": "Review call with the client team; walked through the first rendered samples.", "hours": 2.0},
-    {"date": "2026-04-23", "by": "Jonas F.", "description": "Extended the layout engine to the remaining templates and fixed pagination issues.", "hours": 6.5},
-    {"date": "2026-05-05", "by": "Jonas F.", "description": "Implemented the archive integration: rendered PDFs written next to the source export.", "hours": 7.0},
-    {"date": "2026-05-08", "by": "Jonas F.", "description": "Job keying and duplicate handling; reprocessing path for failed capture jobs.", "hours": 5.5},
-    {"date": "2026-05-12", "by": "Petra M.", "description": "End to end test run against the staging archive; logged and triaged findings.", "hours": 6.0},
-    {"date": "2026-05-19", "by": "Jonas F.", "description": "Resolved the findings from the staging run and hardened the error handling.", "hours": 4.5},
-    {"date": "2026-05-27", "by": "Petra M.", "description": "Client review of the staging results; agreed the acceptance criteria.", "hours": 2.5},
-    {"date": "2026-06-04", "by": "Jonas F.", "description": "Acceptance test support and defect fixes during the client test window.", "hours": 5.0},
-    {"date": "2026-06-10", "by": "Petra M.", "description": "Drafted the operator runbook: deployment, health checks, batch reprocessing.", "hours": 4.0},
-    {"date": "2026-06-16", "by": "Petra M.", "description": "Handover session with the operations team, including a runbook walkthrough.", "hours": 3.0},
-    {"date": "2026-06-24", "by": "Petra M.", "description": "Final cleanup, versioned release build, and project closure notes.", "hours": 3.5}
+    {"date": "2026-04-03", "by": "Petra M.", "category": "coordination", "description": "Kick-off and scoping: reviewed the export archive and agreed the capture points.", "hours": 3.5},
+    {"date": "2026-04-07", "by": "Petra M.", "category": "design", "description": "Analysed representative CDS export files and catalogued the active report templates.", "hours": 6.0},
+    {"date": "2026-04-09", "by": "Jonas F.", "category": "development", "description": "Set up the rendering service skeleton and the development environment.", "hours": 4.0},
+    {"date": "2026-04-14", "by": "Jonas F.", "category": "development", "description": "Implemented the report layout engine for the two most common templates.", "hours": 7.5},
+    {"date": "2026-04-17", "by": "Petra M.", "category": "coordination", "description": "Review call with the client team; walked through the first rendered samples.", "hours": 2.0},
+    {"date": "2026-04-23", "by": "Jonas F.", "category": "development", "description": "Extended the layout engine to the remaining templates and fixed pagination issues.", "hours": 6.5},
+    {"date": "2026-05-05", "by": "Jonas F.", "category": "development", "description": "Implemented the archive integration: rendered PDFs written next to the source export.", "hours": 7.0},
+    {"date": "2026-05-08", "by": "Jonas F.", "category": "development", "description": "Job keying and duplicate handling; reprocessing path for failed capture jobs.", "hours": 5.5},
+    {"date": "2026-05-12", "by": "Petra M.", "category": "validation", "description": "End to end test run against the staging archive; logged and triaged findings.", "hours": 6.0},
+    {"date": "2026-05-19", "by": "Jonas F.", "category": "development", "description": "Resolved the findings from the staging run and hardened the error handling.", "hours": 4.5},
+    {"date": "2026-05-27", "by": "Petra M.", "category": "design", "description": "Client review of the staging results; agreed the acceptance criteria.", "hours": 2.5},
+    {"date": "2026-06-04", "by": "Jonas F.", "category": "validation", "description": "Acceptance test support and defect fixes during the client test window.", "hours": 5.0},
+    {"date": "2026-06-10", "by": "Petra M.", "category": "validation", "description": "Drafted the operator runbook: deployment, health checks, batch reprocessing.", "hours": 4.0},
+    {"date": "2026-06-16", "by": "Petra M.", "category": "validation", "description": "Handover session with the operations team, including a runbook walkthrough.", "hours": 3.0},
+    {"date": "2026-06-24", "by": "Petra M.", "category": "coordination", "description": "Final cleanup, versioned release build, and project closure notes.", "hours": 3.5}
   ],
   "notes": "All hours were recorded against SOW 261912. Travel time is not included."
 }

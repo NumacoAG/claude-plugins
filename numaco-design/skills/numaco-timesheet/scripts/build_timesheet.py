@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """Render a Numaco timesheet as a branded PDF from a JSON payload.
 
-Presentation is the LOCKED Numaco Signature design, driven by the shared module
-at shared/signature/signature.py. Version 2 of the timesheet layout: page one is
-the navy Signature cover (title, doc type subtitle, meta band with client,
-engagement, period, report date, prepared by, contact, and reference when
-present). The content pages start on page two with the standard running header
-and footer: an overview section with an optional budget utilisation stat band
-and an always present hours chart (pure inline SVG, monthly or weekly buckets),
-then the activity log as one compact zebra striped table (month band rows and
-month subtotal rows when the period spans several months, closed by the navy
-total row), and a keep together approval block with the Numaco foot line. The
-two pass render (which bakes the true page count into the footer) and the
-CoreGraphics fidelity check both live in the shared module; this file only
-turns the timesheet payload into the module's helper calls. Fully self
-contained and offline. The final deliverable is the PDF.
+Presentation is the LOCKED Numaco Signal Stack design. The shared Signature
+module at shared/signature/signature.py provides document structure and the
+Signal Stack stylesheet provides the presentation. Page one is the navy cover
+with title, document subtitle, and engagement metadata. Content starts with an
+overview containing an optional budget utilisation band and an always present
+multicolour hours chart with strong labels and explicit axis titles. When the
+payload defines four to eight categories, a dedicated Work mix section explains
+the colour system and calculates hours and percentage per category. The
+chronological activity log remains grouped by month while each row carries its
+category colour. A keep together approval block closes the document. The two
+pass render, true page count footer, and CoreGraphics fidelity check live in the
+shared module. This file turns the timesheet payload into those shared helpers.
+The document is fully self contained and offline. The final deliverable is the
+PDF.
 
 Usage:
     python3 build_timesheet.py payload.json output.pdf
@@ -69,14 +69,33 @@ Payload schema:
                                      // timesheets or the finance overview);
                                      // omitting it would make the utilisation
                                      // figures mislead.
+  "categories": [
+    {"key": "coordination", "name": "Coordination and project management",
+     "description": "Planning, alignment, reporting, and stakeholder coordination.",
+     "color": "#3f65a6"},
+    {"key": "design", "name": "Technical design and advisory",
+     "description": "Architecture, analysis, solution design, and technical advice.",
+     "color": "#c98a14"},
+    {"key": "development", "name": "Development and enhancement",
+     "description": "Implementation of new capabilities and material improvements.",
+     "color": "#1f7a8c"},
+    {"key": "validation", "name": "Testing, validation and handover",
+     "description": "Verification, release preparation, documentation, and handover.",
+     "color": "#5b8f7b"}
+  ],
+                                     // OPTIONAL. Supply four to eight categories.
+                                     // The renderer calculates the Work mix and
+                                     // applies colours to the chronological log.
   "entries": [
     {"date": "2026-04-03", "description": "Kick-off and scoping.", "hours": 3.5,
-     "by": "Petra M."}
+     "by": "Petra M.", "category": "coordination"}
                                      // "by" is OPTIONAL per entry: a short
                                      // consultant name. When any entry carries
                                      // "by", a By column renders between Date
                                      // and Description; when none do, the
                                      // column is omitted entirely.
+                                     // "category" is REQUIRED on every entry
+                                     // when top-level categories are supplied.
   ],
   "day_rate_chf":      100,          // OPTIONAL. When present, an Amount column
                                      // appears and each amount is computed as
@@ -97,7 +116,9 @@ Validation is strict and fails loudly: every entry date must parse as an ISO
 date and fall inside [period_start, period_end], every hours value must be
 greater than zero, budget_hours and day_rate_chf must be positive numbers when
 given, prior_hours must be a non negative number when given, report_date must
-be an ISO date when given, and the required fields must be present.
+be an ISO date when given, categories must contain four to eight unique keys,
+and every categorised entry must reference a defined key. Required fields must
+be present.
 
 The consultant default (when the payload omits "consultant") is read from the
 per-user defaults file at $NUMACO_DESIGN_DEFAULTS or
@@ -109,6 +130,7 @@ import html
 import json
 import math
 import os
+import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -121,6 +143,9 @@ sys.path.insert(0, str(ND / "shared" / "render"))
 sys.path.insert(0, str(ND / "shared" / "signature"))
 import numaco_render as R  # noqa: E402  (kept so tools can reach build_timesheet.R.*)
 import signature as S      # noqa: E402  (the LOCKED Numaco Signature design)
+
+TIMESHEET_CSS = (ND / "shared" / "signal-stack" / "signal-stack.css").read_text()
+TIMESHEET_WATERMARK_OPACITY = 0.085
 
 # ---- Numaco company constants (identical to build_sow.py; company-wide truths) ----
 NUMACO_FOOTER = ("Numaco AG &middot; Haldenstrasse 3c &middot; CH-8905 Islisberg "
@@ -142,6 +167,10 @@ _C_GREY = "#5c6474"
 _C_GREY2 = "#8a93a3"
 _C_HAIR = "#e3e7ee"
 _SVG_MONO = "JetBrains Mono, monospace"
+_CHART_COLORS = ("#183060", "#1f7a8c", "#c98a14", "#3f65a6",
+                 "#5b8f7b", "#b75c4d", "#7b61a8", "#5c6474")
+_CATEGORY_COLORS = ("#3f65a6", "#c98a14", "#b75c4d", "#1f7a8c",
+                    "#5b8f7b", "#7b61a8", "#8a6a48", "#56708f")
 
 
 # ---------------------------------------------------------------- defaults
@@ -218,8 +247,22 @@ def _parsed_entries(data):
         ({"date": _iso(e["date"], "date"),
           "description": str(e["description"]).strip(),
           "hours": float(e["hours"]),
-          "by": str(e.get("by") or "").strip()} for e in data["entries"]),
+          "by": str(e.get("by") or "").strip(),
+          "category": str(e.get("category") or "").strip()} for e in data["entries"]),
         key=lambda e: e["date"])
+
+
+def _categories(data):
+    """Normalised category definitions with stable fallback colours."""
+    return [
+        {
+            "key": str(category["key"]).strip(),
+            "name": str(category["name"]).strip(),
+            "description": str(category["description"]).strip(),
+            "color": str(category.get("color") or _CATEGORY_COLORS[i]).strip(),
+        }
+        for i, category in enumerate(data.get("categories") or [])
+    ]
 
 
 # ---------------------------------------------------------------- validation
@@ -248,6 +291,31 @@ def validate(data):
         except ValueError as e:
             problems.append(str(e))
 
+    raw_categories = data.get("categories")
+    category_keys = set()
+    if raw_categories is not None:
+        if not isinstance(raw_categories, list) or not 4 <= len(raw_categories) <= 8:
+            problems.append("'categories' must contain between 4 and 8 category objects")
+        else:
+            for i, category in enumerate(raw_categories, 1):
+                if not isinstance(category, dict):
+                    problems.append(f"category {i}: must be an object")
+                    continue
+                key = str(category.get("key") or "").strip()
+                if not key:
+                    problems.append(f"category {i}: missing 'key'")
+                elif key in category_keys:
+                    problems.append(f"category {i}: duplicate key {key!r}")
+                else:
+                    category_keys.add(key)
+                if not str(category.get("name") or "").strip():
+                    problems.append(f"category {i}: missing 'name'")
+                if not str(category.get("description") or "").strip():
+                    problems.append(f"category {i}: missing 'description'")
+                color = category.get("color")
+                if color and not re.fullmatch(r"#[0-9a-fA-F]{6}", str(color)):
+                    problems.append(f"category {i}: 'color' must be a six digit hex colour")
+
     entries = data.get("entries")
     if not isinstance(entries, list) or not entries:
         problems.append("'entries' must be a non-empty list")
@@ -272,6 +340,13 @@ def validate(data):
                     problems.append(f"entry {i}: 'hours' must be greater than 0")
             except (TypeError, ValueError):
                 problems.append(f"entry {i}: 'hours' is not a number")
+            entry_category = str(entry.get("category") or "").strip()
+            if category_keys and entry_category not in category_keys:
+                problems.append(
+                    f"entry {i}: category {entry_category!r} is not defined in 'categories'")
+            elif not category_keys and entry_category:
+                problems.append(
+                    f"entry {i}: carries a category but the payload has no 'categories' list")
 
     for key in ("day_rate_chf", "budget_hours"):
         if key in data and data[key] is not None:
@@ -352,15 +427,50 @@ _TS_CSS = (
     "table.data td.tsb{ white-space:nowrap; }\n"
     "/* chart block: legend row + inline SVG, kept on one page */\n"
     ".ts-chart{ margin-top:2mm; break-inside:avoid; }\n"
-    ".ts-legend{ display:flex; gap:6mm; align-items:center;"
-    " font-family:var(--font-mono); font-size:6.4pt; letter-spacing:.06em;"
-    " color:var(--grey); margin:3.5mm 0 1.5mm; }\n"
+    ".ts-legend{ display:flex; gap:7mm; align-items:center;"
+    " font-family:var(--font-mono); font-size:8pt; font-weight:600;"
+    " letter-spacing:.06em; color:#3f4a5f; margin:3.5mm 0 1.5mm; }\n"
     ".ts-legend .lg{ display:flex; align-items:center; gap:1.8mm; }\n"
     ".ts-legend .sw{ display:inline-block; }\n"
-    ".ts-legend .swb{ width:3mm; height:3mm; background:var(--navy); }\n"
+    ".ts-legend .swb{ width:9mm; height:3mm;"
+    " background:linear-gradient(90deg,#183060 0 20%,#1f7a8c 20% 40%,"
+    "#c98a14 40% 60%,#3f65a6 60% 80%,#b75c4d 80% 100%); }\n"
     ".ts-legend .swl{ width:4.5mm; height:0.6mm; background:var(--ink); }\n"
     ".ts-legend .swd{ width:4.5mm; height:0;"
     " border-top:0.5mm dashed var(--amber); }\n"
+    "/* Hours heading centred, numeric values right aligned with breathing room */\n"
+    "table.data th.num{ text-align:center !important;"
+    " padding-left:3.5mm !important; padding-right:3.5mm !important; }\n"
+    "table.data td.num{ text-align:right !important;"
+    " padding-right:4mm !important; }\n"
+    "/* optional Work mix insight page */\n"
+    ".work-mix-page{ break-before:page; break-after:page; }\n"
+    ".mix-lead strong{ color:var(--navy); }\n"
+    ".category-grid{ display:grid; grid-template-columns:1fr 1fr; gap:3mm;"
+    " margin:5mm 0 7mm; }\n"
+    ".category-card{ display:grid; grid-template-columns:4mm 1fr; gap:2.5mm;"
+    " padding:3.3mm 3.8mm; border:0.25mm solid #dfe5ed; background:#f7f9fc;"
+    " break-inside:avoid; }\n"
+    ".category-swatch{ width:3mm; height:3mm; margin-top:.8mm; border-radius:50%; }\n"
+    ".category-name{ color:var(--navy); font-weight:700; font-size:9.4pt;"
+    " line-height:1.25; }\n"
+    ".category-description{ margin-top:1mm; color:var(--grey); font-size:8.25pt;"
+    " line-height:1.36; }\n"
+    ".mix-table td:first-child{ font-weight:600; color:#273247; }\n"
+    ".mix-key{ display:inline-block; width:2.8mm; height:2.8mm; margin-right:2mm;"
+    " border-radius:50%; vertical-align:-.25mm; }\n"
+    ".share-wrap{ display:grid; grid-template-columns:1fr 10mm; gap:2mm;"
+    " align-items:center; }\n"
+    ".share-track{ height:2.2mm; background:#e8edf4; }\n"
+    ".share-track i{ display:block; height:100%; }\n"
+    ".share-value{ text-align:right; font-family:var(--font-mono); font-weight:600;"
+    " color:var(--navy); }\n"
+    "/* category markers preserve chronological order and month grouping */\n"
+    "table.category-log td.cat-edge{ padding-left:3.8mm !important;"
+    " box-shadow:inset 1.15mm 0 0 var(--cat); }\n"
+    ".entry-cat{ display:inline-block; width:2.2mm; height:2.2mm;"
+    " margin-right:1.6mm; border-radius:50%; background:var(--cat);"
+    " vertical-align:.1mm; }\n"
     "/* approval section: text and signature lines stay together */\n"
     ".ts-keep{ break-inside:avoid; }\n"
     "</style>"
@@ -444,7 +554,7 @@ def _fmt_tick(v):
 def _chart_svg(buckets, budget, prior=0.0):
     """The hours chart as a pure inline SVG string.
 
-    Navy bars per bucket with value labels, an ink cumulative line with round
+    Distinct brand palette bars per bucket with value labels, an ink cumulative line with round
     point markers and a terminal caption, and (when budget is given) a dashed
     amber budget line with a right aligned label. When prior hours are carried
     forward, the cumulative line starts from that baseline at the left plot
@@ -468,7 +578,7 @@ def _chart_svg(buckets, budget, prior=0.0):
     step = _nice_step(ymax)
     top = math.ceil(ymax / step - 1e-9) * step
 
-    width, height = 690.0, 252.0
+    width, height = 690.0, 278.0
     has_sub = any(b["sub"] for b in buckets)
     pad_l, pad_r, pad_t = 40.0, 10.0, 22.0
     pad_b = 40.0 if has_sub else 27.0
@@ -489,8 +599,8 @@ def _chart_svg(buckets, budget, prior=0.0):
     while t <= top + 1e-9:
         yy = ypos(t)
         p.append(f'<text x="{pad_l - 7}" y="{yy + 3.4:.1f}" text-anchor="end"'
-                 f' font-family="{_SVG_MONO}" font-size="10"'
-                 f' fill="{_C_GREY2}">{_fmt_tick(t)}</text>')
+                 f' font-family="{_SVG_MONO}" font-size="12.5" font-weight="600"'
+                 f' fill="{_C_GREY}">{_fmt_tick(t)}</text>')
         t += step
     base = ypos(0.0)
     p.append(f'<line x1="{pad_l}" y1="{base:.1f}" x2="{width - pad_r}"'
@@ -507,18 +617,19 @@ def _chart_svg(buckets, budget, prior=0.0):
             yb = ypos(b["hours"])
             p.append(f'<rect x="{cx - bar_w / 2:.1f}" y="{yb:.1f}"'
                      f' width="{bar_w:.1f}" height="{base - yb:.1f}"'
-                     f' fill="{_C_NAVY}"/>')
+                     f' fill="{_CHART_COLORS[i % len(_CHART_COLORS)]}"/>')
             p.append(f'<text x="{cx:.1f}" y="{yb - 6:.1f}" text-anchor="middle"'
-                     f' font-family="{_SVG_MONO}" font-size="10"'
-                     f' font-weight="600" fill="{_C_NAVY}">'
+                     f' font-family="{_SVG_MONO}" font-size="13.5"'
+                     f' font-weight="700" fill="{_C_NAVY}">'
                      f'{_hours(b["hours"])}</text>')
         p.append(f'<text x="{cx:.1f}" y="{base + 15:.1f}" text-anchor="middle"'
-                 f' font-family="{_SVG_MONO}" font-size="10"'
-                 f' fill="{_C_GREY}">{b["label"]}</text>')
+                 f' font-family="{_SVG_MONO}" font-size="12.5" font-weight="600"'
+                 f' fill="#3f4a5f">{b["label"]}</text>')
         if b["sub"]:
             p.append(f'<text x="{cx:.1f}" y="{base + 28:.1f}"'
                      f' text-anchor="middle" font-family="{_SVG_MONO}"'
-                     f' font-size="8.4" fill="{_C_GREY2}">{b["sub"]}</text>')
+                     f' font-size="10.5" font-weight="600" fill="{_C_GREY}">'
+                     f'{b["sub"]}</text>')
 
     budget_label_y = None
     if budget:
@@ -529,7 +640,7 @@ def _chart_svg(buckets, budget, prior=0.0):
                  f' stroke-dasharray="6 5"/>')
         p.append(f'<text x="{width - pad_r}" y="{budget_label_y:.1f}"'
                  f' text-anchor="end" font-family="{_SVG_MONO}"'
-                 f' font-size="10.5" font-weight="600" fill="{_C_AMBER}">'
+                 f' font-size="13" font-weight="700" fill="{_C_AMBER}">'
                  f'Budget {_hours_trim(budget)} h</text>')
 
     line_pts = list(zip(centers, cums))
@@ -537,17 +648,25 @@ def _chart_svg(buckets, budget, prior=0.0):
         line_pts.insert(0, (pad_l, prior))
     pts = " ".join(f"{cx:.1f},{ypos(c):.1f}" for cx, c in line_pts)
     p.append(f'<polyline points="{pts}" fill="none" stroke="{_C_INK}"'
-             ' stroke-width="2"/>')
+             ' stroke-width="2.8"/>')
     for cx, c in zip(centers, cums):
-        p.append(f'<circle cx="{cx:.1f}" cy="{ypos(c):.1f}" r="3.4"'
+        p.append(f'<circle cx="{cx:.1f}" cy="{ypos(c):.1f}" r="4.2"'
                  f' fill="{_C_INK}" stroke="#ffffff" stroke-width="1.2"/>')
 
     label_y = ypos(cums[-1]) - 9.0
     if budget_label_y is not None and abs(label_y - budget_label_y) < 14.0:
         label_y = ypos(cums[-1]) + 18.0
     p.append(f'<text x="{centers[-1]:.1f}" y="{label_y:.1f}" text-anchor="end"'
-             f' font-family="{_SVG_MONO}" font-size="11" font-weight="700"'
+             f' font-family="{_SVG_MONO}" font-size="14" font-weight="700"'
              f' fill="{_C_INK}">{_hours_trim(total)} h cumulative</text>')
+
+    axis_label = "WEEKS" if has_sub else "MONTHS"
+    p.append(f'<text x="{width / 2:.1f}" y="271" text-anchor="middle"'
+             f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
+             f' letter-spacing="1.2" fill="{_C_NAVY}">{axis_label}</text>')
+    p.append(f'<text x="-126" y="13" transform="rotate(-90)" text-anchor="middle"'
+             f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
+             f' letter-spacing="1.2" fill="{_C_NAVY}">HOURS</text>')
 
     return (f'<svg viewBox="0 0 {width:g} {height:g}"'
             ' xmlns="http://www.w3.org/2000/svg"'
@@ -612,6 +731,20 @@ def _entry_amount(hours, rate):
     return round(float(hours) / 8.0 * float(rate), 2)
 
 
+def _category_totals(data):
+    totals = {category["key"]: 0.0 for category in _categories(data)}
+    for entry in _parsed_entries(data):
+        totals[entry["category"]] += entry["hours"]
+    return totals
+
+
+def _category_css(data):
+    rules = []
+    for i, category in enumerate(_categories(data)):
+        rules.append(f'.cat-{i}{{--cat:{category["color"]};}}')
+    return "<style>" + "".join(rules) + "</style>" if rules else ""
+
+
 def _entries_table(data):
     rate = data.get("day_rate_chf")
     rate = float(rate) if rate is not None else None
@@ -623,6 +756,8 @@ def _entries_table(data):
 
     entries = _parsed_entries(data)
     with_by = any(e["by"] for e in entries)
+    categories = _categories(data)
+    category_index = {category["key"]: i for i, category in enumerate(categories)}
 
     cols = [("Date", False, "22mm")]
     if with_by:
@@ -654,10 +789,15 @@ def _entries_table(data):
         for j, e in enumerate(month_entries):
             sub_hours += e["hours"]
             z = " tsz" if j % 2 else ""       # explicit stripe, restarts per month
-            cells = [(_ddmmyyyy(e["date"]), "ref tse" + z)]
+            category_class = ""
+            marker = ""
+            if categories:
+                category_class = f" cat-edge cat-{category_index[e['category']]}"
+                marker = f'<span class="entry-cat cat-{category_index[e["category"]]}"></span>'
+            cells = [(_ddmmyyyy(e["date"]), "ref tse" + z + category_class)]
             if with_by:
                 cells.append((esc(e["by"]), "tsb tse" + z))
-            cells.append((esc(e["description"]), "tse" + z))
+            cells.append((marker + esc(e["description"]), "tse" + z))
             cells.append((_hours(e["hours"]), "num tse" + z))
             if with_amount:
                 amount = _entry_amount(e["hours"], rate)
@@ -691,7 +831,77 @@ def _entries_table(data):
             f"day rate of {S.chf(rate)} per working day, excluding Swiss VAT."
         )
 
-    return S.effort_table(cols, rows, total_row=total_row, footnote=footnote)
+    table_class = "data effort category-log" if categories else "data effort"
+    return S.effort_table(cols, rows, total_row=total_row, footnote=footnote,
+                          table_class=table_class)
+
+
+def _work_mix_section(data):
+    categories = _categories(data)
+    totals = _category_totals(data)
+    grand = sum(totals.values())
+    ranked = sorted(categories, key=lambda category: totals[category["key"]], reverse=True)
+    first, second = ranked[:2]
+    first_share = totals[first["key"]] / grand * 100.0
+    second_share = totals[second["key"]] / grand * 100.0
+
+    lead = (
+        f'The activity mix was led by <strong>{esc(first["name"])}</strong> at '
+        f'{_hours(totals[first["key"]])} h ({first_share:.1f}%), followed by '
+        f'<strong>{esc(second["name"])}</strong> at '
+        f'{_hours(totals[second["key"]])} h ({second_share:.1f}%). '
+        'Each entry is assigned to the category that best represents its primary purpose.'
+    )
+
+    cards = []
+    category_index = {category["key"]: i for i, category in enumerate(categories)}
+    for category in categories:
+        cls = f'cat-{category_index[category["key"]]}'
+        cards.append(
+            '<div class="category-card">'
+            f'<span class="category-swatch {cls}" style="background:var(--cat)"></span>'
+            '<div>'
+            f'<div class="category-name">{esc(category["name"])}</div>'
+            f'<div class="category-description">{esc(category["description"])}</div>'
+            '</div></div>'
+        )
+
+    rows = []
+    for category in ranked:
+        hours = totals[category["key"]]
+        share = hours / grand * 100.0
+        cls = f'cat-{category_index[category["key"]]}'
+        label = (
+            f'<span class="mix-key {cls}" style="background:var(--cat)"></span>'
+            f'{esc(category["name"])}'
+        )
+        share_html = (
+            '<div class="share-wrap">'
+            '<span class="share-track">'
+            f'<i class="{cls}" style="width:{share:.2f}%;background:var(--cat)"></i>'
+            '</span>'
+            f'<span class="share-value">{share:.1f}%</span>'
+            '</div>'
+        )
+        rows.append([(label, ""), (_hours(hours), "num"), (share_html, "")])
+
+    total_row = [(f'Total {esc(data["period_label"])}', "ws"),
+                 (_hours(grand), "num"), ("100.0%", "num amt")]
+    summary = S.effort_table(
+        [("Category", False, None), ("Hours", True, "18mm"),
+         ("Share", False, "48mm")],
+        rows,
+        total_row=total_row,
+        table_class="data effort mix-table",
+    )
+    body = (
+        f'<p class="lead mix-lead">{lead}</p>'
+        '<div class="category-grid">' + ''.join(cards) + '</div>'
+        + S.subhead("Hours by category") + summary
+    )
+    return '<div class="work-mix-page">' + S.section(
+        "02", "Work mix", "SERVICE CATEGORIES &middot; HOURS", body
+    ) + '</div>'
 
 
 # ---------------------------------------------------------------- sections
@@ -761,19 +971,11 @@ def _overview_section(data):
 
 
 def _entries_section(data):
-    with_amount = data.get("day_rate_chf") is not None
-    with_by = any(str(e.get("by") or "").strip()
-                  for e in data["entries"] if isinstance(e, dict))
-    tag = "DATE &middot; "
-    if with_by:
-        tag += "BY &middot; "
-    tag += "DESCRIPTION &middot; HOURS"
-    if with_amount:
-        tag += " &middot; AMOUNT"
     body = _entries_table(data)
     if data.get("notes"):
         body += S.note("Notes", esc(data["notes"]))
-    return S.section("02", "Recorded hours", tag, body)
+    number = "03" if data.get("categories") else "02"
+    return S.section(number, "Recorded hours", "", body)
 
 
 def _approval_section(data, consultant):
@@ -788,7 +990,8 @@ def _approval_section(data, consultant):
         ("Numaco AG &middot; Date, signature", esc(consultant) if consultant else "Numaco AG"),
         ("For the client &middot; Date, signature", esc(data["client_legal_name"])),
     ])
-    sec = S.section("03", "Approval", "REVIEW &middot; SIGN-OFF",
+    number = "04" if data.get("categories") else "03"
+    sec = S.section(number, "Approval", "REVIEW &middot; SIGN-OFF",
                     S.para(para) + sig + _footer_block())
     return '<div class="ts-keep">' + sec + "</div>"
 
@@ -796,11 +999,12 @@ def _approval_section(data, consultant):
 # ---------------------------------------------------------------- assembly
 def build_body(data):
     consultant = data.get("consultant") or _default_consultant()
-    return _cover(data, consultant) + S.main_body(
-        _overview_section(data),
-        _entries_section(data),
-        _approval_section(data, consultant),
-    ) + _TS_CSS
+    sections = [_overview_section(data)]
+    if data.get("categories"):
+        sections.append(_work_mix_section(data))
+    sections.extend((_entries_section(data), _approval_section(data, consultant)))
+    return (_cover(data, consultant) + S.main_body(*sections)
+            + _TS_CSS + _category_css(data))
 
 
 def render(data, output_path):
@@ -817,7 +1021,15 @@ def render(data, output_path):
     doc_no = str(data.get("reference") or data["period_label"])
     body = build_body(data)
     title = f"Numaco Timesheet {doc_no}"
-    S.render_pdf(title, body, output_path, "Timesheet", esc(doc_no))
+    S.render_pdf(
+        title,
+        body,
+        output_path,
+        "Timesheet",
+        esc(doc_no),
+        extra_css=TIMESHEET_CSS,
+        watermark_opacity=TIMESHEET_WATERMARK_OPACITY,
+    )
     html_path = os.path.splitext(output_path)[0] + ".html"
     return html_path, output_path
 
