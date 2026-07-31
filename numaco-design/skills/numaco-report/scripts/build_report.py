@@ -2,16 +2,17 @@
 """
 numaco-report engine: data-driven Markdown -> LOCKED Numaco Signature A4 PDF.
 
-Takes ONE Markdown document that carries a YAML-ish front-matter header, maps
-standard Markdown (plus a few Numaco-specific fenced blocks) onto the shared
-Numaco Signature presentation module (shared/signature/signature.py), and renders
-it to a self-contained, offline A4 PDF through the shared paged renderer, then
-runs the CoreGraphics fidelity check.
+Takes ONE Markdown document that carries a small YAML style front matter header,
+maps standard Markdown (plus a few Numaco specific fenced blocks) onto the shared
+Numaco Signature presentation module (shared/signature/signature.py), applies
+the Signal Stack report presentation layer, and renders it to a self contained,
+offline A4 PDF through the shared paged renderer, then runs the
+CoreGraphics fidelity check.
 
-The HTML is produced ENTIRELY through signature-module calls (cover, section,
-para, lead, subhead, subsubhead, block_eyebrow, scope_item, spec_list, effort_table,
-line_items_table, note, appendix). This engine never hand-writes branded HTML or
-a bespoke stylesheet; the locked look lives in the shared module.
+The HTML structure is produced entirely through Signature module calls (cover,
+section, para, lead, subhead, subsubhead, block_eyebrow, scope_item, spec_list,
+effort_table, line_items_table, note, appendix). The Signal Stack stylesheet
+changes presentation only; the shared module remains the structural contract.
 
 CLI (unchanged):
     build_report.py <input.md> <output.pdf>
@@ -64,6 +65,10 @@ sys.path.insert(0, str(ND / "shared/signature"))
 import signature as S  # noqa: E402  (pulls in the shared paged renderer itself)
 
 FOOTER_LINE = "Numaco AG &middot; CH-8905 Islisberg"
+REPORT_CSS = (
+    ND / "skills" / "numaco-report" / "assets" / "signal-stack.css"
+).read_text()
+REPORT_WATERMARK_OPACITY = 0.085
 
 
 # ---------------------------------------------------------------- utilities
@@ -530,7 +535,15 @@ def main():
     doc_kind_arg = kind_label if doc_no else None
     doc_no_arg = doc_no if doc_no else None
 
-    eng, n = S.render_pdf(title, body_html, str(pdf), doc_kind_arg, doc_no_arg)
+    eng, n = S.render_pdf(
+        title,
+        body_html,
+        str(pdf),
+        doc_kind_arg,
+        doc_no_arg,
+        extra_css=REPORT_CSS,
+        watermark_opacity=REPORT_WATERMARK_OPACITY,
+    )
     print(f"rendered -> {pdf} (engine {eng}, {n} pages)")
     print(f"wrote {pdf.with_suffix('.html')}")
 

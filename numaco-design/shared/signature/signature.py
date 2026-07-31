@@ -15,11 +15,14 @@ helpers their own content; every helper takes data and returns an HTML string.
 
 Public API
 ----------
-assemble(title, body_html, doc_kind=None, doc_no=None) -> str
+assemble(title, body_html, doc_kind=None, doc_no=None, extra_css="",
+         watermark_opacity=None) -> str
     Full self-contained HTML document. Inlines signature.css + Manrope + JetBrains
     Mono + the @page watermark, adds numaco_render.paged_head(), and (when doc_kind
-    and doc_no are given) the running header/footer running elements. body_html is
-    the caller's full body markup, typically cover(...) + main_body(...sections...).
+    and doc_no are given) the running header/footer running elements. Callers may
+    add a document family presentation layer and override the watermark opacity
+    without changing the shared Signature defaults. body_html is the caller's full
+    body markup, typically cover(...) + main_body(...sections...).
 
 cover(kind_label, doc_no, title, subtitle, meta_pairs, footer_line, tag=None) -> str
     Navy cover. meta_pairs is a list of (label, value[, subvalue]) tuples for the
@@ -56,7 +59,8 @@ Convenience helpers (also return HTML strings)
     lead(text), para(text), subhead(text), items(*rows), spec_list(bullets),
     num(n), chf(n).
 
-render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None) -> (engine, pages)
+render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None, extra_css="",
+           watermark_opacity=None) -> (engine, pages)
     Convenience two-pass render (bakes the true page count into the footer) via
     numaco_render.
 """
@@ -111,9 +115,14 @@ _MANROPE = (BRAND / "fonts" / "manrope.css").read_text()   # variable @font-face
 _CSS = (HERE / "signature.css").read_text()                # locked stylesheet
 
 
-def stylesheet():
-    """The full locked stylesheet with fonts + watermark inlined as data URIs."""
-    css = _CSS.replace("__JBM__", _JBM).replace("__WM__", _WM)
+def stylesheet(watermark_opacity=None):
+    """The Signature stylesheet, optionally with a document specific watermark."""
+    wm = (
+        _WM
+        if watermark_opacity is None
+        else _mono_variant("#183060", watermark_opacity)
+    )
+    css = _CSS.replace("__JBM__", _JBM).replace("__WM__", wm)
     return _MANROPE + "\n" + css
 
 
@@ -151,14 +160,16 @@ def running_elements(doc_kind, doc_no):
     )
 
 
-def assemble(title, body_html, doc_kind=None, doc_no=None):
+def assemble(title, body_html, doc_kind=None, doc_no=None, extra_css="",
+             watermark_opacity=None):
     """Full self-contained HTML document (offline, PDFKit-safe)."""
     run = running_elements(doc_kind, doc_no) if (doc_kind and doc_no) else ""
+    presentation = f"\n{extra_css}" if extra_css else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">\n'
         f"<title>{_esc(title)}</title>\n"
         f"{R.paged_head()}\n"
-        f"<style>{stylesheet()}</style>\n"
+        f"<style>{stylesheet(watermark_opacity)}{presentation}</style>\n"
         "</head><body>\n"
         f"{run}\n{body_html}\n"
         "</body></html>"
@@ -407,8 +418,16 @@ def signature_block(fields):
 # ---------------------------------------------------------------------------
 # Convenience render (two-pass: bake the true page count into the footer)
 # ---------------------------------------------------------------------------
-def render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None):
-    html = assemble(title, body_html, doc_kind, doc_no)
+def render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None,
+               extra_css="", watermark_opacity=None):
+    html = assemble(
+        title,
+        body_html,
+        doc_kind,
+        doc_no,
+        extra_css=extra_css,
+        watermark_opacity=watermark_opacity,
+    )
     pdf_path = Path(pdf_path)
     tmp = pdf_path.with_suffix(".html")
     tmp.write_text(html.replace("counter(pages)", '"0"'))

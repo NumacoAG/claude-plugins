@@ -1,0 +1,319 @@
+/* Signal Stack
+   Report presentation layer. The shared Signature core remains the
+   structural and brand foundation used by every Numaco document family. */
+
+@page {
+  margin: 22mm 18mm 21mm 18mm;
+  background-size: 100mm auto, 174mm .25mm;
+  background-position: right -5mm top -5.5mm, 18mm 281.5mm;
+}
+
+@page:first {
+  margin: 0;
+  background: none;
+}
+
+body {
+  color: #273247;
+  font-size: 11.2pt;
+  line-height: 1.53;
+}
+
+p {
+  text-align: left;
+  orphans: 3;
+  widows: 3;
+}
+
+.sec-body > p {
+  max-width: none;
+}
+
+.sec-body > p + p {
+  margin-top: 2.8mm;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  color: var(--navy);
+  background: #f3f6fb;
+  border-radius: .7mm;
+  padding: .15mm 1mm;
+  overflow-wrap: anywhere;
+}
+
+.cover {
+  background:
+    linear-gradient(135deg, rgba(15,31,61,.1), rgba(15,31,61,.8)),
+    #183060;
+}
+
+.cv-glow {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 61%,
+      rgba(201,138,20,.13) 61% 62%,
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 70% at 92% 12%,
+      rgba(31,122,140,.34),
+      transparent 60%
+    );
+}
+
+.cv-wordmark {
+  width: 43mm;
+  left: 18mm;
+  top: 21mm;
+}
+
+.cv-rule {
+  left: 18mm;
+  right: 18mm;
+  top: 39mm;
+}
+
+.cv-tag {
+  right: 18mm;
+  top: 21mm;
+}
+
+.cv-lockup {
+  left: 18mm;
+  right: 18mm;
+  top: 88mm;
+}
+
+.cv-title {
+  font-size: 44pt;
+  max-width: 155mm;
+}
+
+.cv-sub {
+  font-size: 13pt;
+  max-width: 126mm;
+}
+
+.cv-n {
+  right: -24mm;
+  top: 126mm;
+  width: 183mm;
+  height: 183mm;
+  opacity: .075;
+}
+
+.cv-meta {
+  left: 18mm;
+  right: 18mm;
+  bottom: 36mm;
+  grid-template-columns: 1.2fr 1fr 1fr;
+}
+
+.cv-foot {
+  left: 18mm;
+  right: 18mm;
+}
+
+.note {
+  margin: 5mm 0 7mm;
+  padding: 4mm 5mm;
+  border-left: 1mm solid #c98a14;
+  background: #101f3c;
+  color: rgba(255,255,255,.80);
+  font-size: 9.5pt;
+  line-height: 1.48;
+  break-inside: avoid;
+}
+
+.note .nk {
+  color: #e0ad4d;
+}
+
+.sec {
+  margin-top: 10mm;
+}
+
+.sec.first {
+  margin-top: 0;
+}
+
+.sec-head {
+  display: block;
+  box-sizing: border-box;
+  min-height: 18mm;
+  padding: 4.5mm 5mm;
+  border: 0;
+  background: #183060;
+  color: #fff;
+}
+
+.sec-no {
+  left: 5mm;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #e0ad4d;
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.sec-htext {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 9mm;
+  width: 100%;
+  padding-left: 0;
+  text-align: center;
+}
+
+.sec-h {
+  color: #fff;
+  font-size: 18pt;
+  line-height: 1.08;
+  text-align: center;
+}
+
+.sec-tag {
+  color: rgba(255,255,255,.66);
+  text-align: center;
+}
+
+.sec-body {
+  margin-top: 5mm;
+  padding-left: 0;
+}
+
+.lead {
+  font-size: 11.65pt;
+  line-height: 1.5;
+}
+
+h3.sub {
+  margin-top: 7.5mm;
+  padding-bottom: 1.8mm;
+  border-bottom: .55mm solid #183060;
+  color: #183060;
+  font-size: 10.5pt;
+}
+
+h4.subsub {
+  margin-top: 6mm;
+  color: #5f6c81;
+  font-size: 9pt;
+  letter-spacing: .07em;
+}
+
+.sec.first .items {
+  margin: 4mm 0 5mm;
+}
+
+.sec.first .item {
+  grid-template-columns: 14mm 1fr;
+  margin-top: 2.5mm;
+  padding: 3.7mm 4mm;
+  border: .25mm solid #dfe5ed;
+  border-left: 1.4mm solid #1f7a8c;
+  background: #f7f9fc;
+}
+
+.sec.first .item:nth-child(2) {
+  border-left-color: #c98a14;
+}
+
+.sec.first .item:nth-child(3) {
+  border-left-color: #b3261e;
+}
+
+.sec.first .item .code {
+  font-size: 12pt;
+}
+
+.sec.first .item .isum {
+  font-size: 10.15pt;
+  line-height: 1.45;
+}
+
+ul.spec li {
+  margin-top: 1.8mm;
+  padding: 2.6mm 3mm 2.6mm 8mm;
+  border-bottom: .25mm solid #e2e7ef;
+  background: #f7f9fc;
+  font-size: 10.1pt;
+  line-height: 1.48;
+}
+
+ul.spec li::before {
+  left: 2.8mm;
+  top: 4.4mm;
+  width: 2.2mm;
+  height: 2.2mm;
+  border-radius: 50%;
+  background: #c98a14;
+}
+
+table.data {
+  border: .25mm solid #d9e0e9;
+  break-inside: auto;
+}
+
+table.data thead {
+  display: table-header-group;
+}
+
+table.data tr {
+  break-inside: avoid;
+}
+
+table.data th,
+table.data td {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+table.data th {
+  padding: 2.4mm 2.2mm;
+  border-bottom: 0;
+  background: #183060;
+  color: #fff;
+  font-size: 7.2pt;
+  vertical-align: middle;
+}
+
+table.data td {
+  padding: 2.4mm 2.2mm;
+  font-size: 9.2pt;
+  line-height: 1.4;
+}
+
+table.data tbody tr:nth-child(even) td {
+  background: #f4f7fb;
+}
+
+table.data:has(th:nth-child(5)) {
+  table-layout: fixed;
+}
+
+table.data:has(th:nth-child(5)) th:nth-child(1),
+table.data:has(th:nth-child(5)) td:nth-child(1) {
+  width: 6mm;
+}
+
+table.data:has(th:nth-child(5)) th:nth-child(2),
+table.data:has(th:nth-child(5)) td:nth-child(2) {
+  width: 20mm;
+}
+
+table.data:has(th:nth-child(5)) th:nth-child(3),
+table.data:has(th:nth-child(5)) td:nth-child(3) {
+  width: 28mm;
+}
+
+table.data:has(th:nth-child(5)) th:nth-child(4),
+table.data:has(th:nth-child(5)) td:nth-child(4) {
+  width: 44mm;
+}

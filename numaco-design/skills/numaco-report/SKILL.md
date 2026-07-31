@@ -1,8 +1,6 @@
 ---
 name: numaco-report
 description: Produce a Numaco AG branded document as a PDF, from a single Markdown file, through the shared HTML to PDF pipeline. Use whenever the user asks for a document "in Numaco's template", "with Numaco branding", "in the Numaco style", or by default for ANY standalone branded report, memo, one-pager, architecture overview, handover, solution design, or letter for Numaco, unless they explicitly ask for something unbranded. Successor to the old numaco-docx skill (same visual identity, PDF-native instead of Word). This is the general branded-document engine and the future home for timesheets, quotations, purchase orders, and invoices.
-status: beta
-version: 0.1.0
 ---
 
 # Numaco branded report skill (HTML to PDF)
@@ -10,10 +8,13 @@ version: 0.1.0
 The general-purpose branded-document engine for Numaco AG. Where `numaco-sow` is
 shaped tightly around Statements of Work, this skill produces any body document
 that should wear Numaco's visual identity: reports, memos, one-pagers,
-architecture overviews, handovers, solution designs, letters. It is the future
-home for the transactional document family too (timesheets, quotations, purchase
-orders, invoices), which is why the engine already ships a first-class line-items
-table with computed totals.
+architecture overviews, handovers, solution designs, letters. Reports use the
+Signal Stack presentation: a dark technical cover, centred navy section bands,
+large readable body type, strong numbered subsection rules, stacked evidence
+cards, and high contrast data tables. It is the future home for the transactional
+document family too (timesheets, quotations, purchase orders, invoices), which
+is why the engine already ships a first-class line-items table with computed
+totals.
 
 This is the renamed, HTML-pipeline successor to `numaco-docx`. Same navy and teal
 identity, same cover, same block vocabulary; the difference is that the
@@ -154,37 +155,46 @@ Swiss-style (`CHF 1'500.00`).
 seam along which the future quotation, purchase-order, and invoice document types
 will be built.
 
-## Visual conventions (inherited from the shared brand core)
+## Visual conventions (Signal Stack on the shared brand core)
 
-- **Page**: A4 portrait, 20 mm top / 18 mm sides / 22 mm bottom margins.
-- **Font**: Manrope throughout (embedded, offline), justified body text.
-- **Colours**: navy `#0E2841` for the title, H1 rules, total rows; teal
-  `#156082` for the doc number, H2 sub-headings, and table headers; subtle grey
-  `#F2F2F2` zebra stripes.
-- **Cover**: centred wordmark (~68 mm), navy 30pt title, teal doc number, italic
-  subtitle, then the "Prepared for" and "Date" meta block.
-- **Watermark**: light-grey Numaco monogram anchored top-right of every content
-  page, suppressed on the cover.
+- **Page**: A4 portrait, 22 mm top, 18 mm sides, and 21 mm bottom margins.
+- **Font**: Manrope throughout (embedded, offline), with 11.2 pt left aligned
+  body text and 10.5 pt numbered subsection headings.
+- **Colours**: Numaco navy `#183060` for centred main section bands and table
+  headers; amber for section numbers and action markers; teal and red only for
+  semantic emphasis; subtle navy tinted surfaces for cards and zebra rows.
+- **Cover**: dark navy technical cover, 44 pt title, compact wordmark, quiet
+  geometric monogram, and a three-column metadata band.
+- **Watermark**: 100 mm Numaco monogram anchored at the top right of every
+  content page at 8.5% opacity, suppressed on the cover.
+- **Hierarchy**: centred 18 pt main section titles with 12 pt amber section
+  numbers; ruled, uppercase 10.5 pt subsection headings.
+- **Tables**: navy headers, repeated headings on page breaks, controlled column
+  geometry for technical tables with five columns, and 9.2 pt body text.
 - **Footer**: `Numaco AG · Haldenstrasse 3c · CH-8905 Islisberg · numaco.ch`,
   with `Page N of M` on the right, on every content page.
 
 ## Rules and conventions
 
 1. Author documents in English unless the user explicitly asks for another language.
-2. Body text is justified by default; do not fight it.
+2. Body text is left aligned by default.
 3. Keep everything self-contained and offline: the engine inlines all CSS and
    embeds every image as a data URI. Never link an external file or a CDN.
 4. Do not hand-write branded HTML or a bespoke stylesheet. Drive the engine with
-   Markdown. If a component is missing, extend `build_report.py` and
-   `shared/brand-core/numaco-doc.css` rather than bypassing them, so the whole
-   Numaco document family stays consistent.
-5. Verify the PDF through CoreGraphics or Preview, not a Chromium-only preview.
+   Markdown. If a report component is missing, extend `build_report.py` and the
+   report presentation layer at `assets/signal-stack.css`. Change the shared
+   Signature module only for structural capabilities needed by more than one
+   document family.
+5. Verify the PDF through CoreGraphics or Preview, not a preview produced only
+   by Chromium.
 
 ## Files
 
 ```
 numaco-report/
 ├── SKILL.md                     ← you are here
+├── assets/
+│   └── signal-stack.css         ← report presentation layer
 ├── scripts/
 │   └── build_report.py          ← the data-driven Markdown -> branded PDF engine
 └── sample/
