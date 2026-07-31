@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Render a Numaco Statement of Work as a branded PDF from a JSON payload.
 
-Presentation is the LOCKED Numaco Signature design, driven entirely by the shared
-module at shared/signature/signature.py: a navy full-bleed cover, a sober light
-interior (brand navy plus one amber accent), Manrope for display/body and
-JetBrains Mono for reference codes, a faint corner watermark and a running
-header/footer. The two-pass render (which bakes the true page count into the
-footer) and the CoreGraphics fidelity check both live in that module; this file
-only turns the SOW payload into the module's helper calls. Fully self-contained
-and offline. The final deliverable is the PDF.
+Presentation uses the shared Signal Stack design on the Numaco Signature
+structure: a dark technical cover, centred navy section bands, large readable
+body type, strong numbered subsection rules, clear commercial tables, a large
+faint corner watermark, and a running header and footer. The two pass render
+(which bakes the true page count into the footer) and the CoreGraphics fidelity
+check live in the shared modules. This file turns the SOW payload into the
+Signature component calls and applies Signal Stack. The result is fully self
+contained and offline. The final deliverable is the PDF.
 
 Usage:
     python3 build_sow.py payload.json output.pdf
@@ -58,9 +58,13 @@ ND = Path(__file__).resolve().parents[3]                 # .../numaco-design
 sys.path.insert(0, str(ND / "shared" / "render"))
 sys.path.insert(0, str(ND / "shared" / "signature"))
 import numaco_render as R  # noqa: E402  (kept so tools can reach build_sow.R.*)
-import signature as S      # noqa: E402  (the LOCKED Numaco Signature design)
+import signature as S      # noqa: E402  (shared structure and components)
 
 REFERENCES = SKILL_DIR / "references"
+SOW_CSS = (
+    ND / "shared" / "signal-stack" / "signal-stack.css"
+).read_text()
+SOW_WATERMARK_OPACITY = 0.085
 
 # ---- Numaco company constants (do not change without the user's explicit approval) ----
 # Address and VAT are true company constants, identical for every colleague, so
@@ -473,7 +477,15 @@ def render(data, output_path):
         os.makedirs(out_dir, exist_ok=True)
     body = build_body(data)
     title = f"Numaco SOW {data['sow_number']}"
-    S.render_pdf(title, body, output_path, "Statement of Work", data["sow_number"])
+    S.render_pdf(
+        title,
+        body,
+        output_path,
+        "Statement of Work",
+        data["sow_number"],
+        extra_css=SOW_CSS,
+        watermark_opacity=SOW_WATERMARK_OPACITY,
+    )
     html_path = os.path.splitext(output_path)[0] + ".html"
     return html_path, output_path
 

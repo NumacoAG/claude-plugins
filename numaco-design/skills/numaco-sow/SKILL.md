@@ -2,8 +2,6 @@
 name: numaco-sow
 description: >-
   Draft, iterate on, and generate a Numaco AG Statement of Work (SOW) as a branded PDF for approval. Use whenever the user asks to write, draft, prepare, or quote an SOW, proposal, quotation, or offer for any customer, even if the customer name is given casually (e.g. "write an SOW for Acme", "quote 10 days for a system migration"). Also use when editing, revising, or extending an existing SOW (change requests). The skill runs as an interactive conversation: it gathers inputs, drafts sections in chat for approval, opens a live budget artifact for iteration, renders the branded PDF, and only finalises once the user confirms. Do not generate an SOW in a single step without running the conversation protocol below.
-status: beta
-version: 0.1.0
 ---
 
 # Numaco SOW skill (HTML pipeline)
@@ -12,7 +10,9 @@ version: 0.1.0
 
 Produces Numaco-branded Statements of Work end to end, via an interactive conversation. The user should be able to say *"write an SOW for &lt;customer&gt;, &lt;short scope&gt;, &lt;rough effort&gt;"* and end up with a finished branded PDF saved to the right customer folder, without ever editing a document by hand.
 
-This is the HTML pipeline rewrite of the SOW skill: instead of python-docx, the final PDF is assembled as self-contained branded HTML (Manrope + the shared `numaco-doc.css`) and rendered through the shared `numaco_render` paged pipeline (puppeteer-core plus Paged.js). The final deliverable is the PDF.
+The final PDF is assembled as self contained branded HTML in the shared Signal
+Stack presentation and rendered through the shared `numaco_render` paged
+pipeline with Paged.js. The final deliverable is the PDF.
 
 ## Golden rules
 
@@ -150,7 +150,7 @@ Only after the user says yes:
    ```bash
    python3 scripts/build_sow.py payload.json "/abs/path/SOW <number> - <customer> - <project>.pdf"
    ```
-   `build_sow.py` writes a self-contained HTML sidecar next to the PDF and renders the PDF through the shared `numaco_render` paged pipeline. The PDF carries the Numaco cover, the light-grey monogram watermark on content pages (suppressed on the cover), the running footer with address and VAT, page numbers, the parties table, the effort table, and the T&Cs appendix.
+   `build_sow.py` writes a self contained HTML sidecar next to the PDF and renders the PDF through the shared `numaco_render` paged pipeline. The PDF carries the dark Signal Stack cover, the large faint monogram watermark on content pages (suppressed on the cover), the running footer with address and VAT, page numbers, the parties table, the effort table, and the T&Cs appendix.
 5. **Verify the PDF through CoreGraphics, not Chrome.** Run `numaco_render.pdfcheck(pdf, name, pages="1,2,3")` (and the last page) and eyeball the rasterised pages. This is the macOS Preview engine; never trust a Chromium-only preview or `qlmanage -t`.
 6. Present the PDF to the user and ask them to review. When the user asks for edits, update the payload, re-render, re-check, present again. Loop until the user says *approve*.
 
@@ -220,28 +220,44 @@ Default target: the customer's project folder, in a `SOW/` subfolder.
 
 Fixed section order, enforced by `scripts/build_sow.py`.
 
-1. **Cover** (`.doc-cover`): wordmark, "Statement of Work" title, `# <sow_number>`, italic project title, "Prepared for &lt;client&gt;", issue date. The watermark is suppressed on the cover.
-2. **Parties table** (`table.parties`): teal headers "The Client" / "The Supplier". The supplier cell is hardcoded to the Numaco address, VAT, and the two named contacts.
+1. **Cover** (`.cover`): dark technical cover, wordmark, SOW number, project
+   title, short context, four metadata columns, and a quiet geometric monogram.
+2. **Parties block** (`.parties`): two light panels for the client and supplier.
+   The supplier panel uses the Numaco address, VAT, and configured contacts.
 3. **1. Context**: 1 to 2 short paragraphs.
 4. **2. Scope** with sub-blocks, each item labelled with a letter-prefixed number that stays stable across revisions:
    - *What we deliver*: items labelled **S1, S2, S3, ...**
    - *What we do not deliver*: items labelled **N1, N2, N3, ...**
    - *Assumptions*: items labelled **A1, A2, A3, ...**
    - *Optional add-ons*: headings labelled **O1, O2, O3, ...** (navy, bold), each with a business-impact body. **Do NOT write days or price inside the Scope section**; effort and amount live in the effort table only. In the payload, each deliverable/exclusion/assumption item is either a plain string or a dict `{"summary": "...", "body": "..."}`. Numbering is stable across revisions.
-5. **3. Effort estimate**: a single `table.doc` (Workstream ~70%, Days ~12%, Amount ~18%). Base rows show `days x day_rate_chf`. If add-ons are present, a merged separator row reads *"Optional add-ons (priced separately, not included in the total below)"*, then the add-on rows render in grey italic. The navy total row shows the **base engagement total only**, never the all-items sum. A small footnote covers billing on time actually worked and the PO amendment for add-ons.
+5. **3. Effort estimate**: a single `table.data` with Workstream, Days, and
+   Amount columns. Base rows show `days x day_rate_chf`. If add-ons are present,
+   a merged separator introduces them, then the optional rows render quietly.
+   The navy total row shows the **base engagement total only**, never the sum of
+   every item. A small footnote covers billing on time actually worked and the
+   purchase order amendment for add-ons.
 6. **4. Commercial terms**: the T&M intro, then labelled terms Day rate, Work outside standard hours, Travel, Total estimated amount, Payment, Acceptance. When a customer discount applies, pass `day_rate_narrative` to show the full calculation (list rate, discount, effective rate).
 7. **5. Activation**: single paragraph. The SOW activates on a PO referencing this document, no formal signatures.
 8. **Appendix: Terms and Conditions**: full text at ~8pt, page break before, verbatim from `references/tcs_body.md`.
 
-## Visual conventions (enforced by `numaco-doc.css` + `scripts/build_sow.py`)
+## Visual conventions (Signal Stack)
 
-- **Font**: Manrope, embedded via the shared brand core.
-- **Colour palette**: navy `#0E2841` for section headings and the effort-table grand-total; teal `#156082` for the parties-table header, the effort-table header, and sub-headings. Same blue family on purpose.
-- **Body text is justified**. Headings, cover titles, and the footer are not justified.
-- **Parties table**: two columns (Client, Supplier), teal header, body cells top-aligned so both addresses start at the same baseline.
-- **Effort table**: teal header, subtle zebra on base rows, grey italic add-on rows, a light-grey separator above add-ons, navy base-engagement total at the bottom.
-- **Watermark**: light-grey Numaco monogram anchored top-right of every content page, injected by `build_sow.py` as an `@page` background from the embedded watermark data URI; the cover page suppresses it.
-- **Ligatures are disabled** in the body so the literal `(c)` in the commercial boilerplate does not render as a copyright glyph.
+- **Page**: A4 portrait, with 22 mm top, 18 mm side, and 21 mm bottom margins.
+- **Font**: Manrope throughout, embedded through the shared brand core. Body text
+  is 11.2 pt, left aligned, with a 1.53 line height.
+- **Cover**: dark navy technical cover with a 44 pt title, compact wordmark,
+  quiet geometric monogram, and a four column metadata band.
+- **Main sections**: centred white 18 pt titles inside navy bands. Amber section
+  numbers are 12 pt.
+- **Subsections**: uppercase 10.5 pt headings with strong navy rules.
+- **Tables**: navy headers, subtle zebra rows, 9.2 pt body text, repeated headings
+  after page breaks, and protected row integrity.
+- **Parties**: two quiet light panels for the client and supplier, followed by
+  the first navy section band.
+- **Watermark**: 100 mm Numaco monogram anchored at the top right of every
+  content page at 8.5% opacity. The cover suppresses it.
+- **Ligatures**: disable them in the body so the literal `(c)` in the commercial
+  boilerplate does not render as a copyright glyph.
 
 ## Text library — reusable boilerplate
 
@@ -285,7 +301,10 @@ When add-ons are present, the footnote continues:
 - `scripts/generate_sow_number.py`: produces the next unused SOW number by scanning a configurable data dir for collisions.
 - `references/tcs_body.md`: the full *Terms and Conditions for IT Business Consulting Services*, embedded as the appendix at small font, verbatim.
 - `sample/build_sample.py` and `sample/sample_sow.pdf`: a rendered reference SOW (fake Acme Labs customer) to preview the visual baseline.
-- Shared brand core (`shared/brand-core/`): `numaco-doc.css`, embedded Manrope, wordmark and watermark PNGs. Consumed by `build_sow.py`.
+- Shared Signal Stack (`shared/signal-stack/signal-stack.css`): the presentation
+  used by both SOWs and technical reports.
+- Shared Signature core (`shared/signature/`): structural components, embedded
+  fonts, wordmark, monogram, running elements, and two pass PDF assembly.
 
 ## Change requests (CR SOWs)
 

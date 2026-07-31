@@ -66,7 +66,7 @@ import signature as S  # noqa: E402  (pulls in the shared paged renderer itself)
 
 FOOTER_LINE = "Numaco AG &middot; CH-8905 Islisberg"
 REPORT_CSS = (
-    ND / "skills" / "numaco-report" / "assets" / "signal-stack.css"
+    ND / "shared" / "signal-stack" / "signal-stack.css"
 ).read_text()
 REPORT_WATERMARK_OPACITY = 0.085
 

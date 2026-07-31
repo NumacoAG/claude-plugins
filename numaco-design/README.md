@@ -18,7 +18,8 @@ The plugin ships four skills that all sit on the same renderer and brand core:
 - **numaco-sow**: an interactive Statement of Work skill. It gathers inputs,
   drafts each section in chat for approval, iterates the budget in a live
   artifact, then renders the branded PDF from a JSON payload (effort table,
-  parties block, commercial terms, and a Terms and Conditions appendix).
+  parties block, commercial terms, and a Terms and Conditions appendix) in the
+  Signal Stack presentation.
 - **numaco-timesheet**: a branded timesheet (hours report) skill. It renders a
   JSON payload of time entries into a Signature styled hours document: one
   entries table grouped by month with subtotals, hours-only by default with an
@@ -108,7 +109,8 @@ numaco-design/
 ├── shared/
 │   ├── brand-core/                design tokens, embedded Manrope, logos, doc CSS
 │   ├── render/                    Paged.js renderer (puppeteer-core), pdfcheck
-│   └── signature/                 the locked Signature presentation module
+│   ├── signal-stack/              shared report and SOW presentation
+│   └── signature/                 shared document structure and components
 └── skills/
     ├── numaco-report/             Markdown to branded PDF engine
     ├── numaco-sow/                Statement of Work engine

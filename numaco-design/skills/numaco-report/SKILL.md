@@ -182,9 +182,9 @@ will be built.
    embeds every image as a data URI. Never link an external file or a CDN.
 4. Do not hand-write branded HTML or a bespoke stylesheet. Drive the engine with
    Markdown. If a report component is missing, extend `build_report.py` and the
-   report presentation layer at `assets/signal-stack.css`. Change the shared
-   Signature module only for structural capabilities needed by more than one
-   document family.
+   shared presentation layer at `shared/signal-stack/signal-stack.css`. Change
+   the shared Signature module only for structural capabilities needed by more
+   than one document family.
 5. Verify the PDF through CoreGraphics or Preview, not a preview produced only
    by Chromium.
 
@@ -193,8 +193,6 @@ will be built.
 ```
 numaco-report/
 ├── SKILL.md                     ← you are here
-├── assets/
-│   └── signal-stack.css         ← report presentation layer
 ├── scripts/
 │   └── build_report.py          ← the data-driven Markdown -> branded PDF engine
 └── sample/
@@ -206,7 +204,8 @@ numaco-report/
 The engine reuses the shared renderer at
 `shared/render/numaco_render.py` (paged mode, CoreGraphics check) and the shared
 stylesheet and assets at `shared/brand-core/`. It never invents a new render
-path.
+path. The Signal Stack presentation shared with SOWs lives at
+`shared/signal-stack/signal-stack.css`.
 
 ## Relationship to the other skills
 
