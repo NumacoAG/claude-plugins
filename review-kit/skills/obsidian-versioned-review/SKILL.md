@@ -1,7 +1,7 @@
 ---
 name: obsidian-versioned-review
 description: >-
-  Collaboratively draft, iterate on, review, and lock a markdown document in your Obsidian vault using the green-mark versioned-review regime. Use whenever the user wants to co-author or review a vault doc over multiple rounds — triggers include "let's draft/write X in the vault", "review this doc", "iterate on it", "incorporate my comments", "bump the version", "lock the doc", or working on any file that carries a `**vN.y**` version line under its title. Covers the full loop: versioning, green-marking changes with inline color spans, the review cadence, Obsidian rendering gotchas, the git worktree → commit → push → merge flow, and enshrining conventions.
+  Collaboratively draft, iterate on, review, and lock a markdown document in your Obsidian vault using the green-mark versioned-review regime. Use whenever the user wants to co-author or review a vault doc over multiple rounds — triggers include "let's draft/write X in the vault", "review this doc", "iterate on it", "incorporate my comments", "bump the version", "lock the doc", finding `>>` or `>?` review comments in a doc, or working on any file that carries a `**vN.y**` version line under its title. Covers the full loop: versioning, green-marking changes with inline color spans, the review cadence, Obsidian rendering gotchas, the git worktree → commit → push → merge flow, and enshrining conventions.
 status: stable
 version: "1.4 (2026-06-30: no hard line wraps inside a paragraph or bullet, one logical line equals one physical line; see § D)"
 ---
@@ -31,12 +31,20 @@ Green-marking is done **only** with inline spans:
 
 No CSS snippet is required — inline `style="color: …"` renders natively in Obsidian. (The old `.obsidian/snippets/versioned-doc-review.css` callout snippet is obsolete and has been removed; don't recreate it.)
 
+Three colors, three meanings, all inline spans:
+
+| Color | Span | Meaning |
+|---|---|---|
+| green | `<span style="color: mediumseagreen">` | Claude's changes this revision |
+| purple | `<span style="color: mediumpurple">` | a user comment kept for discussion (a `>?` question, or a `>>` that asked for something already done) |
+| red | `<span style="color: crimson">` | Claude's answer to the purple text above it |
+
 ## A. Versioning
 
 - Put `**vN.y**` directly under the H1 title.
 - Each Claude revision for review bumps `y` by 1 (`0.3` → `0.4`).
 - **In-revision fixes do not bump `y`.** If you must correct your own output (broken render, typo, missed change) *before* the user has reviewed the current revision, fix in place and keep the same `y`.
-- **Lock:** when the user says "lock", bump to `(N+1).0`, strip all green (delete the `<span …>` tags, keep their inner text), put a 🔒 next to the version line (`**v1.0** 🔒`), and add a 🔒 footer at the very end (`🔒 **Locked — vX.0 (YYYY-MM-DD).**`).
+- **Lock:** when the user says "lock", bump to `(N+1).0`, strip all green (delete the `<span …>` tags, keep their inner text), **delete every purple/red Q&A pair entirely** (questions and answers do not survive a lock), put a 🔒 next to the version line (`**v1.0** 🔒`), and add a 🔒 footer at the very end (`🔒 **Locked — vX.0 (YYYY-MM-DD).**`).
 
 ## B. Green-marking — only what changed this round, with spans
 
@@ -59,11 +67,16 @@ Rules:
 
 1. Claude makes its changes, bumps `y`, green-spans them, and opens the file for the user with a one-click bash command (see § File opening).
 2. The user reads the green parts.
-3. The user responds. **Detecting the user's comments:** the user writes plain `>` blockquote comments (no marker) — **diff their current doc against the exact version you last released and treat every change they made (their `>` notes, edits, additions, deletions) as their instructions.** Keep a copy/memory of what you released so you can compute that diff. (`>mp` is retired; plain `>` is the convention. Their review blockquotes are their own channel and are unaffected by the green-marking rules.) **Strikethrough = delete:** text the user wraps in `~~…~~` means *remove it* — drop that text (and the `~~` markup) in the next revision.
-4. Claude incorporates the user's comments and direct edits, removes the previous round's green, green-spans the new round, bumps `y`. Go to 2.
+3. The user responds through **two comment channels** (`>mp` and plain `>` are retired):
+   - **`>>` — call to action comment.** An instruction. Incorporate it into the doc (or execute it) and remove the comment line in the next revision.
+   - **`>?` — discussion comment.** A question. It **never triggers any action**: no doc change beyond the Q&A transformation below, no code change, no dispatch, nothing. Action on a discussed topic happens only when the user later confirms it with a `>>`.
+   Also **diff the user's current doc against the exact version you last released** and treat every direct edit, addition, and deletion they made as instructions; keep a copy/memory of what you released so you can compute that diff. **Strikethrough = delete:** text the user wraps in `~~…~~` means *remove it* — drop that text (and the `~~` markup) in the next revision.
+4. Claude iterates:
+   - **`>>` handling:** incorporate the instruction; the incorporated result becomes plain (accepted) text — reserve green for content that is genuinely new to review. **Already-done rule:** when a `>>` asks for something already implemented elsewhere in the document or the code, do **not** do it again and do not add superfluous components — replace the comment with its text in purple, and answer in red beneath the place where the thing already exists, pointing at it.
+   - **`>?` handling:** answer the question **in the chat**, and in the doc replace the `>?` line with the question in **purple** followed by the answer in **red** (`Q:` purple span, then `A:` crimson span, each its own line), kept in place so the user can re-read it in the next revision.
+   - **Purple/red cleanup:** any Q&A pair from the previous round that drew **no follow-up** comment or question is fully deleted this round. All purple and red is always stripped at lock.
+   - Then remove the previous round's green, green-span the new round, bump `y`. Go to 2.
 5. Repeat until the user says "lock", then run the lock procedure (§ A).
-
-Note: incorporating the user's own comments usually means they become **plain** (accepted) text; reserve green for content that is genuinely new for them to review. When the user says "incorporate and remove the marking", de-green the incorporated parts.
 
 ## D. Obsidian rendering gotchas (do not relearn these)
 
@@ -101,8 +114,11 @@ Always absolute, always double-quoted.
 - [ ] Used inline color spans only — **no `[!new]` / callout blocks** (forbidden)
 - [ ] Removed previous round's green (deleted old `<span>` tags, kept the text)
 - [ ] Greened **only** this round's changes; left an all-new v0.1 doc plain
+- [ ] Every `>>` call to action incorporated and its comment line removed — or, if already done elsewhere, converted to a purple comment with a red answer at the existing implementation
+- [ ] Every `>?` discussion comment answered in chat and converted to purple `Q:` + red `A:` in place — and **nothing else done about it** (no doc, code, or dispatch action without a confirming `>>`)
+- [ ] Previous round's purple/red pairs with no follow-up deleted
 - [ ] Escaped `&lt;` / `&gt;` for every literal `<` / `>` inside a span
 - [ ] No hard line wraps inside paragraphs, bullets, or table rows (one logical line equals one physical line)
 - [ ] Bumped `y` (or kept it for an in-revision fix)
 - [ ] Opened the file for the user with a bash-fence command
-- [ ] On lock: bumped to `(N+1).0`, stripped all spans, added 🔒 by the version and a 🔒 footer
+- [ ] On lock: bumped to `(N+1).0`, stripped all spans including purple/red, added 🔒 by the version and a 🔒 footer

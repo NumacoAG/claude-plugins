@@ -21,7 +21,7 @@
     {
       "name": "review-kit",
       "source": "./review-kit",
-      "version": "0.1.1",
+      "version": "0.2.0",
       "description": "Markdown review trio (green-mark co-authoring, release QA) plus a dual-vault-sync engine for laptop and mobile Obsidian.",
       "author": {
         "name": "Numaco AG",
