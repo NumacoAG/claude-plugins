@@ -58,6 +58,45 @@ jobs:
           print("\n".join(bad) if bad else "all versions agree")
           sys.exit(1 if bad else 0)
           PY
+      - name: A changed plugin must bump its own version
+        # The failure this catches, seen live 2026-08-02: commit fad0d46 edited
+        # numaco-hub/skills/numaco-setup/SKILL.md but bumped only numaco-design.
+        # numaco-hub stayed 0.1.5, so every installed copy compared 0.1.5 against
+        # 0.1.5, decided it was current, and served the stale skill forever. The
+        # version-agreement check above passed green throughout, because
+        # marketplace.json and plugin.json were consistently wrong together.
+        # Content changed, version did not: that is the hole, and this closes it.
+        run: |
+          git fetch --no-tags --depth=2 origin "${{ github.event.pull_request.base.sha || github.event.before }}" 2>/dev/null || true
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "no usable base commit, skipping (first push or shallow clone)"; exit 0
+          fi
+          python3 - "$BASE" <<'PY'
+          import json, pathlib, subprocess, sys
+          base = sys.argv[1]
+          changed = subprocess.run(["git","diff","--name-only",base,"HEAD"],
+                                   capture_output=True, text=True, check=True).stdout.split()
+          plugins = [p.name for p in pathlib.Path(".").iterdir()
+                     if (p / ".claude-plugin" / "plugin.json").exists()]
+          bad = []
+          for name in plugins:
+              touched = [f for f in changed if f.startswith(name + "/")]
+              if not touched:
+                  continue
+              manifest = f"{name}/.claude-plugin/plugin.json"
+              old = subprocess.run(["git","show",f"{base}:{manifest}"],
+                                   capture_output=True, text=True)
+              old_v = json.loads(old.stdout)["version"] if old.returncode == 0 else None
+              new_v = json.load(open(manifest))["version"]
+              if old_v is not None and old_v == new_v:
+                  bad.append(f"{name}: {len(touched)} file(s) changed but version stayed {new_v} "
+                             f"(e.g. {touched[0]}). Installed copies are keyed by version, so this "
+                             f"edit would never reach anyone. Bump it.")
+          print("\n".join(bad) if bad else "every changed plugin bumped its version")
+          sys.exit(1 if bad else 0)
+          PY
+
       - name: Every skill must have parseable frontmatter and a description
         run: |
           python3 - <<'PY'
