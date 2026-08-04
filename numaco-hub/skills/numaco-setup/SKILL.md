@@ -23,9 +23,9 @@ Before configuring anything, make the trust model explicit. Four points:
    packet acts on accounts and workspaces that you own and connect yourself.
    Nothing is pre-wired to anyone else's data.
 2. **Your mail, files, and calendar never pass through a Numaco server.**
-   `mcp-mail`, `numaco-design`, and `review-kit` run on the user's machine, or
-   talk straight to the user's own provider from that machine. Nobody at Numaco,
-   including the author, can see any of it.
+   `mcp-mail`, `numaco-design`, `review-kit`, and `dev-process-kit` run on the
+   user's machine, or talk straight to the user's own provider from that machine.
+   Nobody at Numaco, including the author, can see any of it.
 3. **`clockify-mcp` is the one exception, and you must say so unprompted.** It
    does not reach Clockify directly. It calls a Numaco-operated MCP server on
    Google Cloud Run, which carries the user's Clockify API key encrypted inside
@@ -33,12 +33,13 @@ Before configuring anything, make the trust model explicit. Four points:
    It keeps no database of their entries, but the key goes to that server rather
    than into their keychain, and their time entries do pass through it. Say this
    plainly BEFORE offering to connect Clockify, so the choice is informed. If
-   they would rather not use it, the honest answer is that the three engine
-   plugins (`numaco-design`, `review-kit`, `mcp-mail`) install and work fine on
-   their own, but they have to skip `numaco-hub` as well, because the hub
-   declares `clockify-mcp` as a dependency and fails to load without it. Do not
-   tell them they can install the other four and drop this one: uninstalling
-   `clockify-mcp` afterwards takes this skill and `/numaco-update` offline.
+   they would rather not use it, the honest answer is that the four engine
+   plugins (`numaco-design`, `review-kit`, `mcp-mail`, `dev-process-kit`) install
+   and work fine on their own, but they have to skip `numaco-hub` as well,
+   because the hub declares `clockify-mcp` as a dependency and fails to load
+   without it. Do not tell them they can install the other five and drop this
+   one: uninstalling `clockify-mcp` afterwards takes this skill and
+   `/numaco-update` offline.
 4. **Where data does travel.** Whatever Claude reads for the user travels to
    Anthropic as part of the conversation, under their own Claude agreement,
    exactly as any file they open in Claude Code does. Beyond that these plugins
@@ -61,10 +62,10 @@ claude plugin marketplace add NumacoAG/claude-plugins
 claude plugin install numaco-hub@numaco
 ```
 
-The second reports `+ 4 dependencies: numaco-design, review-kit, mcp-mail,
-clockify-mcp`. Run these as shell commands. The `/plugin ...` slash forms do the
-same thing when a person types them, but they cannot be executed from a pasted
-prompt.
+The second reports `+ 5 dependencies: numaco-design, review-kit, mcp-mail,
+clockify-mcp, dev-process-kit`. Run these as shell commands. The `/plugin ...`
+slash forms do the same thing when a person types them, but they cannot be
+executed from a pasted prompt.
 
 **Automatic updates.** New plugin versions should arrive on their own, so the
 user is never stuck on a stale build. Auto update is a per-user setting under
@@ -178,6 +179,19 @@ independent; do them in any order and pause after each one.
   Mobile sync is optional and stays dormant until you opt in: to mirror a doc
   between your laptop and your phone vault, track it with `/dvsync-track`. Until
   you track a doc, nothing is synced anywhere.
+- **dev-process-kit** (the specification and acceptance process): nothing to
+  configure, and nothing to install. It carries the contract architecture a
+  Numaco project is specified against: what a Tier 1 document is and is not, how
+  a project splits into components, the requirement and journey identifier
+  scheme with its frozen registry, and a Python gate that fails closed when an
+  identifier loses its owner. There is no account, no key, and no local config
+  file for it; the only file it needs lives inside the project being specified,
+  and it writes that file itself. The plugin is inert until you point it at a
+  project: run `/contract-init` inside that project's repository to stand up its
+  contract folder, and `/contract-check` to run the gate. It depends on
+  review-kit, which is already installed with the packet, because every review
+  round and every lock on a contract document belongs to review-kit's
+  `obsidian-versioned-review` skill rather than to this plugin.
 - **numaco-design** (branded slide decks, statements of work, reports,
   timesheets, quotations, order confirmations, delivery notes, and invoices):
   nothing to preinstall; the renderer toolchain installs itself.
@@ -242,6 +256,8 @@ the user to that plugin's own documentation:
 - **mcp-mail**: its `README.md` and `INSTALL.md` (provider by provider
   walkthrough, troubleshooting, security notes).
 - **review-kit**: its `README.md` and the `review-kit` orientation skill.
+- **dev-process-kit**: its `README.md` and the `dev-process-kit` orientation
+  skill.
 - **numaco-design**: its `README.md`.
 - **clockify-mcp**: its `README.md`.
 

@@ -7,8 +7,8 @@ against your own credentials; see the privacy section below.
 
 ## What is in the packet
 
-Five plugins ship under the `numaco` marketplace. Four live in this repository;
-`clockify-mcp` is referenced from its own GitHub repository.
+Six plugins ship under the `numaco` marketplace, and all six live in this
+repository.
 
 - **numaco-design** (branded output engine). Turns Markdown or a JSON payload
   into Numaco branded, print ready PDFs through one shared renderer and one brand
@@ -26,6 +26,17 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
   folded-in dual-vault-sync engine that reconciles a small tier 1 set of docs
   between your laptop and your phone's iCloud Obsidian vault. The sync stays
   dormant until you track a doc.
+- **dev-process-kit** (the specification and acceptance process). The contract
+  architecture a project is specified against: what a Tier 1 document is and is
+  not, how a project splits into components, the requirement and journey
+  identifier scheme with a frozen registry, clause splitting to one testable
+  proposition, and the Definition of Done written as complete operator journeys.
+  It ships a Python gate that fails closed, and whose first check runs from the
+  declared registry to the documents rather than the other way round, so a
+  requirement cannot vanish out of the contract while every other check still
+  passes. It acts only inside a project you point it at and configures nothing on
+  your machine. Review rounds and locks belong to review-kit, which it depends on
+  and never restates.
 - **mcp-mail** (your own mail, calendar, and files). A self-hosted MCP server
   that gives Claude read and write control across Microsoft 365, Gmail or Google
   Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and others). 55
@@ -42,8 +53,7 @@ Five plugins ship under the `numaco` marketplace. Four live in this repository;
   that onboards you through whatever you installed, and a `/numaco-update` command
   for on-demand updates. Carries no engine of its own.
 - **clockify-mcp** (time tracking). Talks to your own Clockify workspace with your
-  own authorization to log and reconcile time entries. Sourced from
-  `NumacoAG/clockify-mcp` on GitHub.
+  own authorization to log and reconcile time entries.
 
 ## One-time install
 
@@ -54,9 +64,9 @@ claude plugin marketplace add NumacoAG/claude-plugins
 claude plugin install numaco-hub@numaco
 ```
 
-numaco-hub declares the other four as dependencies, so the second command pulls
-numaco-design, review-kit, mcp-mail and clockify-mcp in with it and reports
-`+ 4 dependencies`. Inside a running Claude Code session the slash forms
+numaco-hub declares the other five as dependencies, so the second command pulls
+numaco-design, review-kit, mcp-mail, clockify-mcp and dev-process-kit in with it
+and reports `+ 5 dependencies`. Inside a running Claude Code session the slash forms
 `/plugin marketplace add …` and `/plugin install …` do the same thing; the CLI
 forms are what a pasted onboarding prompt can actually run.
 
@@ -68,7 +78,7 @@ disabled:
 claude plugin list
 ```
 
-All five should read `✔ enabled`. Then restart Claude Code and say "set up the
+All six should read `✔ enabled`. Then restart Claude Code and say "set up the
 numaco plugins" (or "numaco setup") to trigger the `numaco-setup` skill from
 numaco-hub. It states the privacy promise, turns on automatic updates, and routes
 you through the per-user setup that only you can do: signing in to your own mail
@@ -101,12 +111,12 @@ This packet is built so that your data stays yours.
   Clockify for you. It stores no database of your entries, but the key is handed
   to that server rather than kept in your OS keychain, and your time entries do
   pass through it. Nothing else in the packet works this way. If you would rather
-  not use it, install the three engine plugins on their own and skip the hub,
+  not use it, install the four engine plugins on their own and skip the hub,
   which currently declares clockify-mcp as a dependency:
 
   ```bash
   claude plugin marketplace add NumacoAG/claude-plugins
-  for p in numaco-design review-kit mcp-mail; do claude plugin install $p@numaco; done
+  for p in numaco-design review-kit mcp-mail dev-process-kit; do claude plugin install $p@numaco; done
   ```
 
   Without numaco-hub you do not get the guided `numaco-setup` skill or the
@@ -188,6 +198,9 @@ New plugin versions arrive on their own once you enable auto update for the
 - **review-kit**: works out of the box. Mobile sync stays dormant until you opt in:
   track a doc with `/dvsync-track` to mirror it between your laptop and your phone
   vault. See the plugin's `README.md` and its orientation skill.
+- **dev-process-kit**: nothing to configure. Run `/contract-init` inside a
+  project's repository when you want to stand up its Tier 1 contract folder;
+  until then the plugin is inert. See the plugin's `README.md`.
 - **mcp-mail**: run the plugin's `mcp-mail-setup` skill (or read `INSTALL.md`) for
   the provider by provider walkthrough. Configure only the accounts you want;
   every secret goes to your OS credential store. Two local files carry the
@@ -213,25 +226,26 @@ Install these on the machine for the plugins you use.
   each account you connect.
 - **review-kit**: Python 3 for the review and sync scripts. No third-party
   packages.
+- **dev-process-kit**: Python 3 for the contract gate. No third-party packages.
 - **numaco-hub**: no runtime dependencies.
-- **clockify-mcp**: see its own repository.
+- **clockify-mcp**: nothing to install locally; it talks to a hosted MCP server. See
+  the plugin's own `README.md`.
 
 ## Layout
 
 ```
 numaco-claude-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json     the numaco marketplace manifest (five plugins)
+│   └── marketplace.json     the numaco marketplace manifest (six plugins)
 ├── numaco-design/           branded output engine (reports, SOWs, trading documents, decks)
 ├── review-kit/              markdown review trio plus dual-vault sync
+├── dev-process-kit/         the Tier 1 contract process and its gate
 ├── mcp-mail/                self-hosted mail MCP server
 ├── numaco-hub/              front door: setup skill and update command
+├── clockify-mcp/            time tracking against your own Clockify workspace
 ├── LICENSE                  MIT, Numaco AG
 └── README.md                this file
 ```
-
-clockify-mcp is not vendored here; the marketplace references it from
-`NumacoAG/clockify-mcp` on GitHub.
 
 ## License
 

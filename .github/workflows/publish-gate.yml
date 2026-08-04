@@ -119,6 +119,8 @@ jobs:
         run: python3 -m unittest numaco-design/skills/numaco-timesheet/tests/test_template_contract.py
       - name: Trading document template contract stays deterministic
         run: python3 -m unittest numaco-design/skills/numaco-trading-documents/tests/test_template_contract.py
+      - name: Contract gate stays fail closed
+        run: python3 -m unittest dev-process-kit/tests/test_contract_gate.py
 
   smoke-install:
     runs-on: ubuntu-latest
@@ -146,7 +148,7 @@ jobs:
           claude plugin install numaco-hub@numaco < /dev/null
           claude plugin list > /tmp/plugins.txt
           cat /tmp/plugins.txt
-          expected=5
+          expected=6
           got=$(grep -c '✔ enabled' /tmp/plugins.txt || true)
           if [ "$got" -ne "$expected" ]; then
             echo "expected $expected enabled plugins, got $got"

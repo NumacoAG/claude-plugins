@@ -11,14 +11,16 @@ things, a guided setup skill and an update command.
   or against your own credentials, no one else can see your data, secrets live in
   your OS credential store), confirms that automatic updates are enabled, then
   routes you through per-plugin setup for whatever you installed (mcp-mail,
-  review-kit, numaco-design, clockify-mcp). For numaco-design nothing needs to
-  be preinstalled: the setup runs the renderer doctor, which installs the render
-  dependencies and finds or downloads a browser by itself (only a missing
-  Node.js is installed via your package manager), and then creates your personal
-  defaults file (copy `defaults.toml.example` from the numaco-design plugin root
-  to `~/.config/numaco-design/defaults.toml`); the SOW skill asks and offers to
-  write it if it is missing. It ends by pointing at each plugin's own README and
-  INSTALL for the depth.
+  review-kit, numaco-design, dev-process-kit, clockify-mcp). For numaco-design
+  nothing needs to be preinstalled: the setup runs the renderer doctor, which
+  installs the render dependencies and finds or downloads a browser by itself
+  (only a missing Node.js is installed via your package manager), and then
+  creates your personal defaults file (copy `defaults.toml.example` from the
+  numaco-design plugin root to `~/.config/numaco-design/defaults.toml`); the SOW
+  skill asks and offers to write it if it is missing. For dev-process-kit there
+  is nothing to configure at all: it stays inert until you run `/contract-init`
+  inside a project. It ends by pointing at each plugin's own README and INSTALL
+  for the depth.
 - **A one-paste onboarding prompt** (`onboarding-paste-prompt.md`). One block you
   can put in an email: the recipient pastes it into Claude Code and it installs
   the packet, merges the auto-update setting into their settings without dropping
@@ -58,5 +60,5 @@ numaco-hub/
 
 The hub is deliberately thin. For anything beyond first setup, read the target
 plugin's own documentation: mcp-mail's `README.md` and `INSTALL.md`,
-review-kit's `README.md`, numaco-design's `README.md`, and
-clockify-mcp's `README.md`.
+review-kit's `README.md`, numaco-design's `README.md`, dev-process-kit's
+`README.md`, and clockify-mcp's `README.md`.

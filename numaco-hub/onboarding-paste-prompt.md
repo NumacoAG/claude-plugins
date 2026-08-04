@@ -100,9 +100,9 @@ reports 3.11 or newer.
 STEP 1, install the packet. Exactly these two commands, in this order:
   claude plugin marketplace add NumacoAG/claude-plugins
   claude plugin install numaco-hub@numaco
-The second should report "+ 4 dependencies: numaco-design, review-kit, mcp-mail,
-clockify-mcp". Then run "claude plugin list" and confirm five plugins are present
-and each one reads enabled.
+The second should report "+ 5 dependencies: numaco-design, review-kit, mcp-mail,
+clockify-mcp, dev-process-kit". Then run "claude plugin list" and confirm six
+plugins are present and each one reads enabled.
 
 STEP 2, turn on automatic updates by MERGING one key.
 The target file is settings.json inside $CLAUDE_CONFIG_DIR when that variable is
@@ -117,7 +117,7 @@ end state is:
     "source": { "source": "github", "repo": "NumacoAG/claude-plugins" },
     "autoUpdate": true
   }
-Then run "claude plugin list" again and confirm all five still read enabled. Do
+Then run "claude plugin list" again and confirm all six still read enabled. Do
 not use "claude plugin marketplace list" as the check: it reports success even
 when everything is disabled. If any plugin now reads disabled, repair it by
 re-running "claude plugin marketplace add NumacoAG/claude-plugins", which merges
@@ -225,7 +225,7 @@ this chat.
 
 STEP 5, verify and summarise.
 Run "claude plugin list" one last time and show me the output. Then tell me, in a
-short list: which five plugins are installed and at which versions, that
+short list: which six plugins are installed and at which versions, that
 automatic updates are on, and which config files you created or left untouched.
 
 STEP 6, hand back to me.

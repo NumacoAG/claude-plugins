@@ -1,0 +1,33 @@
+{
+  "config_version": 1,
+  "project": "<project-name>",
+  "strictness": "report",
+
+  "contract_dir": "docs/specs/tier-1",
+  "spec_glob": "spec-*.md",
+  "acceptance_doc": "definition-of-done.md",
+  "registry": "machine-readable/id-map.json",
+  "output": "machine-readable/contract-crosswalk.json",
+
+  "requirement": { "prefix": "UR", "component": "[A-Z]{2}", "digits": 2 },
+  "journey": { "prefix": "DJ", "digits": 2, "heading_level": 3 },
+  "constraint_tag": "constraint",
+  "action_glyph": "",
+  "retired": [],
+
+  "budget": {
+    "requirements_per_spec": [10, 25],
+    "words_per_requirement": { "median": 55, "max": 110 },
+    "journey_fan_suspect_at": 7,
+    "words_per_journey": 120,
+    "acceptance_base_words": 200,
+    "words_per_page": 400
+  },
+
+  "lock_footer": "🔒 **Locked: {version} ({date}).**",
+
+  "locked_baselines": [],
+  "clause_harvests": [],
+  "allow": [],
+  "proving": {}
+}
