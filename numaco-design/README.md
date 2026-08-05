@@ -82,8 +82,18 @@ How the self-install works:
   starting the executable; a partially extracted build is repaired with the
   system unzip or tar automatically.
 - **Doctor.** `python3 shared/render/numaco_render.py doctor` preflights the
-  whole chain (Node, npm, dependencies, browser), prints every resolved path,
-  and exits 0 only when a render could succeed on the machine.
+  whole chain (Node, npm, dependencies, browser, engine patches), prints every
+  resolved path, and exits 0 only when a render could succeed on the machine.
+- **Repeating table headers.** Paged.js itself never recreates a `<thead>` when a
+  table crosses a page: it hand-builds each continuation fragment by shallow
+  cloning the ancestor chain, so the header group is simply dropped, and
+  `display:table-header-group` is inert. `shared/render/repeat_table_header.js`
+  registers a Paged.js handler that puts the header back on every continuation
+  fragment of a `table.data`, taking it from the parsed source rather than from
+  the previous page. It runs in the `layout` hook, immediately before Paged.js
+  measures the page, so the repeated header's height is accounted for in the same
+  pass and no re-pagination is triggered. Engine patches live outside `vendor/`
+  so the vendored polyfill stays a pristine drop-in.
 - **Python 3.11 or newer.** The five build engines (`build_report.py`,
   `build_sow.py`, `build_timesheet.py`, `build_trading_document.py`,
   `build_deck.py`) are plain Python with
@@ -121,6 +131,7 @@ numaco-design/
 ├── shared/
 │   ├── brand-core/                design tokens, embedded Manrope, logos, doc CSS
 │   ├── render/                    Paged.js renderer (puppeteer-core), pdfcheck
+│   │                              incl. repeat_table_header.js (see below)
 │   ├── signal-stack/              shared report and SOW presentation
 │   └── signature/                 shared document structure and components
 └── skills/

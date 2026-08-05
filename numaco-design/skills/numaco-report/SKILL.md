@@ -99,6 +99,7 @@ Standard Markdown maps onto the branded components. The mapping:
 | Markdown table | `table.doc` (teal header, zebra rows) |
 | `\| =Total \| ... \|` | a row whose first cell starts with `=` becomes the navy total row |
 | `---:` alignment | right-aligns that column and its numbers |
+| ` ``` ` fenced block | `pre.code-block` verbatim listing (monospace, whitespace preserved, no inline markdown) |
 | `> quote` | `.small` fine print |
 | `:::small ... :::` | `.small` fine print (multi-line) |
 | `:::note ... :::` | italic `.footnote` note |

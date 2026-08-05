@@ -242,6 +242,19 @@ def render_section_body(lines, lead_used, first_section):
             i += 1
             continue
 
+        # fenced code block  ``` ... ```   (checked first: nothing inside a
+        # listing may be re-read as a table, a list, or a heading)
+        if stripped.startswith("```"):
+            flush_para()
+            i += 1
+            buf = []
+            while i < n and not lines[i].strip().startswith("```"):
+                buf.append(lines[i])
+                i += 1
+            i += 1  # consume closing fence
+            out.append(code_block(buf))
+            continue
+
         # fenced blocks  :::name ...
         if stripped.startswith(":::"):
             flush_para()
@@ -367,6 +380,22 @@ def fineprint(html):
             'margin-top:2mm">' + html + "</p>")
 
 
+def code_block(buf):
+    """``` fenced block -> verbatim monospace listing.
+
+    Escaped only, never passed through inline(): the whole point of a listing is
+    that backticks, asterisks, pipes and backslashes stand for themselves. Blank
+    leading and trailing lines are trimmed so the fence style in the source does
+    not leak into the rendered block.
+    """
+    lines = list(buf)
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return '<pre class="code-block">' + esc("\n".join(lines)) + "</pre>"
+
+
 # ---------------------------------------------------------------- appendix
 def build_appendix(inner_lines):
     """:::appendix ... ::: -> Signature appendix().
@@ -438,8 +467,29 @@ def build_body_parts(body_lines):
                 parts.append(html)
             preamble.clear()
 
+    def consume_code_fence(idx, sink):
+        """Copy a ``` fenced block verbatim into sink; return the index after it.
+
+        The splitter must not read the inside of a listing: a shell or ini line
+        beginning with '#' is a comment, not a new H1 section.
+        """
+        sink.append(body_lines[idx])
+        idx += 1
+        while idx < n and not body_lines[idx].strip().startswith("```"):
+            sink.append(body_lines[idx])
+            idx += 1
+        if idx < n:
+            sink.append(body_lines[idx])
+            idx += 1
+        return idx
+
     while i < n:
         stripped = body_lines[i].strip()
+
+        # a listing at top level belongs to the preamble, verbatim
+        if stripped.startswith("```"):
+            i = consume_code_fence(i, preamble)
+            continue
 
         # appendix fence (consumed whole)
         if stripped.startswith(":::appendix"):
@@ -462,6 +512,9 @@ def build_body_parts(body_lines):
             i += 1
             while i < n:
                 t = body_lines[i].strip()
+                if t.startswith("```"):
+                    i = consume_code_fence(i, inner)
+                    continue
                 if re.match(r"^#\s+", t) or t.startswith(":::appendix"):
                     break
                 inner.append(body_lines[i])

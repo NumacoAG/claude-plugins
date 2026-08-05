@@ -295,26 +295,74 @@ table.data tbody tr:nth-child(even) td {
   background: #f4f7fb;
 }
 
-table.data:has(th:nth-child(5)) {
+/* The tuned geometry below is calibrated for the five-column effort table and
+   must stay scoped to exactly five columns. Applied to a six-column table it
+   pins the second column at 20mm and shreds whichever column carries the prose,
+   so anything wider falls back to content-driven auto layout. */
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) {
   table-layout: fixed;
 }
 
-table.data:has(th:nth-child(5)) th:nth-child(1),
-table.data:has(th:nth-child(5)) td:nth-child(1) {
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(1),
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(1) {
   width: 6mm;
 }
 
-table.data:has(th:nth-child(5)) th:nth-child(2),
-table.data:has(th:nth-child(5)) td:nth-child(2) {
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(2),
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(2) {
   width: 20mm;
 }
 
-table.data:has(th:nth-child(5)) th:nth-child(3),
-table.data:has(th:nth-child(5)) td:nth-child(3) {
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(3),
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(3) {
   width: 28mm;
 }
 
-table.data:has(th:nth-child(5)) th:nth-child(4),
-table.data:has(th:nth-child(5)) td:nth-child(4) {
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(4),
+table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(4) {
   width: 44mm;
+}
+
+/* Six columns or more: let the content decide the widths, and buy the room
+   back with tighter padding and a step down in type. */
+table.data:has(th:nth-child(6)) {
+  table-layout: auto;
+}
+
+table.data:has(th:nth-child(6)) th,
+table.data:has(th:nth-child(6)) td {
+  padding: 1.9mm 1.7mm;
+}
+
+table.data:has(th:nth-child(6)) td {
+  font-size: 8.2pt;
+  line-height: 1.35;
+}
+
+table.data:has(th:nth-child(6)) th {
+  font-size: 6.6pt;
+}
+
+/* Verbatim listing (``` fenced block): monospace, whitespace preserved. Long
+   data lines wrap rather than run off the page. */
+pre.code-block {
+  margin: 3mm 0 4.5mm;
+  padding: 3mm 3.4mm;
+  background: #f4f7fb;
+  border-left: .9mm solid #183060;
+  border-radius: .6mm;
+  font-family: var(--font-mono);
+  font-size: 7.4pt;
+  line-height: 1.55;
+  color: #273247;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  break-inside: avoid;
+  /* keep a listing with the sentence that introduces it */
+  break-before: avoid;
+}
+
+pre.code-block code {
+  font: inherit;
+  color: inherit;
 }

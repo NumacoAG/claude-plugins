@@ -37,6 +37,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 BRAND_CORE = HERE.parent / "brand-core"
 PAGED_POLYFILL = HERE / "vendor" / "paged.polyfill.js"
+# Paged.js handlers we add on top of the untouched vendored polyfill. Inlined by
+# paged_head() after the polyfill, in order. Keeping them out of vendor/ means the
+# polyfill stays a pristine drop-in that can be re-vendored without losing patches.
+PAGED_PATCHES = [HERE / "repeat_table_header.js"]
 
 CHROME_FLAGS = ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--no-first-run"]
 
@@ -368,11 +372,24 @@ def doc_watermark_css(size_mm=98, image="numaco_watermark_light.png"):
 
 
 def paged_head():
-    """Inlined Paged.js polyfill + a completion sentinel, for the document <head>."""
+    """Inlined Paged.js polyfill + our handlers + a completion sentinel, for <head>.
+
+    Order is load-bearing. The handler script must come AFTER the polyfill body,
+    because `window.Paged` only exists once the polyfill has executed, and BEFORE
+    pagination starts. Both hold here: our script is a synchronous, parser-blocking
+    <script> in <head>, so it runs while document.readyState is still "loading",
+    which is before the polyfill's own readyState-gated auto-run resolves. Paged.js
+    reads registeredHandlers later still, inside Previewer.preview(), so a push at
+    head-parse time is always picked up.
+    """
     poly = PAGED_POLYFILL.read_text()
     cfg = ("<script>window.PagedConfig={auto:true,after:function(){"
            "try{document.documentElement.setAttribute('data-paged-done','1');}catch(e){}}};</script>")
-    return cfg + "\n<script>" + poly + "</script>"
+    head = cfg + "\n<script>" + poly + "</script>"
+    for patch in PAGED_PATCHES:
+        if patch.exists():
+            head += "\n<script>" + patch.read_text() + "</script>"
+    return head
 
 
 # ---------- render: fixed-page (slide decks) ----------
@@ -562,7 +579,9 @@ def doctor():
         print(f"deps       -> MISSING ({NODE_MODULES})")
         if not (node and npm):
             failures.append("The Node render dependencies are not installed; install Node.js first, then rerun the doctor.")
-    for label, p in (("script", HERE / "render_paged.js"), ("polyfill", PAGED_POLYFILL)):
+    assets = [("script", HERE / "render_paged.js"), ("polyfill", PAGED_POLYFILL)]
+    assets += [("patch", p) for p in PAGED_PATCHES]
+    for label, p in assets:
         if p.exists():
             print(f"{label:<10} -> {p}")
         else:
