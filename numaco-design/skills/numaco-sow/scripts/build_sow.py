@@ -38,6 +38,27 @@ Payload schema (unchanged contract):
   "output_path":            "/absolute/path/to/final.pdf"  // optional; else argv[2]
 }
 
+Every block of prose in sections 4 and 5 is overridable from the payload, so no
+wording is trapped in this file. A key that is absent uses the default below; a
+key supplied as "" or [] or null renders nothing at all. Prose keys accept a
+string (split on blank lines) or a list of paragraphs.
+
+  "commercial_intro":        "..."   // replaces the time-and-material opener
+  "commercial_overrun":      "..."   // replaces the stop-at-overrun paragraph
+  "extra_commercial_intro":  [...]   // further paragraphs before the term list
+  "outside_hours_narrative": "..."   // the "Work outside standard hours" term
+  "travel_narrative":        "..."   // the "Travel" term
+  "payment_narrative":       "..."   // the "Payment" term
+  "acceptance_narrative":    "..."   // the timesheet term's body
+  "acceptance_label":        "..."   // its label (default "Acceptance")
+  "commercial_terms":        [{"label": ..., "body": ...}, ...]  // replaces ALL terms
+  "extra_commercial_terms":  [{"label": ..., "body": ...}, ...]  // appended after
+  "activation_narrative":    "..."   // replaces the section 5 paragraph
+  "activation_extra":        [...]   // further section 5 paragraphs (e.g. precedence)
+  "show_signature_block":    true    // set false to omit it
+  "addon_scope_note":        "..."   // the note above the optional add-ons
+  "addon_separator_label":   "..."   // the merged row in the effort table
+
 The supplier side of the Parties block (the two Numaco contacts) is not part of
 the payload: it is read from the per-user defaults file at
 $NUMACO_DESIGN_DEFAULTS or ~/.config/numaco-design/defaults.toml (template:
@@ -147,8 +168,71 @@ COMMERCIAL_INTRO = (
     "terminated without further action."
 )
 
+COMMERCIAL_OVERRUN = (
+    "Should Numaco establish that the estimated effort will be exceeded, "
+    "Numaco will provide the client with a written report stating the "
+    "overrun, the reasons for it and the effort still required to complete "
+    "the work, and will suspend further work until the client has decided "
+    "how to proceed, either by taking the remaining work over or by agreeing "
+    "a new SOW. Numaco does not continue billable work beyond the estimate "
+    "without that decision."
+)
+
+OUTSIDE_HOURS_NARRATIVE = (
+    "Evenings, weekends, and Swiss bank holidays require a separate written "
+    "agreement and are billed at a surcharge to be agreed at the time."
+)
+
+TRAVEL_NARRATIVE = (
+    "Any travel outside Numaco offices or the customer's Switzerland "
+    "premises is to be agreed in advance and billed separately."
+)
+
+ACCEPTANCE_NARRATIVE = (
+    "All services are recorded in a timesheet with a detailed description "
+    "of the service. The client may inspect the timesheet at any time. At "
+    "the end of the performance period Numaco sends the timesheet to the "
+    "client for review and approval; once approved, it serves as the basis "
+    "for invoicing."
+)
+
 
 # ---------- helpers ----------
+def _paras(value):
+    """Normalise a paragraph source to a list of non-empty strings.
+
+    Accepts None (nothing), a string (blank-line separated), or a list of
+    strings. Lets every prose block in the document be supplied by the payload
+    without the caller having to know how it is rendered.
+    """
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [p.strip() for p in value.split("\n\n") if p.strip()]
+    return [str(p).strip() for p in value if str(p).strip()]
+
+
+def _term(item):
+    """Normalise one labelled term to a (label, body) pair.
+
+    Accepts {"label": ..., "body": ...} or a two-item sequence, so payloads can
+    use whichever reads better.
+    """
+    if isinstance(item, dict):
+        return (item.get("label", ""), item.get("body", ""))
+    label, body = item
+    return (label, body)
+
+
+def _resolve(data, key, default):
+    """Payload value for `key`, where an explicit empty value suppresses.
+
+    Distinguishes "not supplied" (use the default) from "supplied as empty"
+    (render nothing), which is what makes a hardcoded block genuinely optional.
+    """
+    return default if key not in data else data[key]
+
+
 def esc(text):
     """Escape for HTML body context (quotes left intact for readable apostrophes)."""
     return html.escape(str(text), quote=False)
@@ -244,7 +328,7 @@ def _scope_body(data):
                 _multi(addon.get("body", "")), tag="Priced separately"))
         parts.append(
             S.subhead("Optional add-ons")
-            + S.para(esc(ADDON_SCOPE_NOTE))
+            + S.para(esc(_resolve(data, "addon_scope_note", ADDON_SCOPE_NOTE)))
             + S.items(*rows)
         )
 
@@ -273,7 +357,7 @@ def _effort_body(data):
 
     addon_rows = None
     if addons:
-        addon_rows = [[("", "ref"), (ADDON_SEP_LABEL, "ws"), ("", "num"), ("", "num")]]
+        addon_rows = [[("", "ref"), (_resolve(data, "addon_separator_label", ADDON_SEP_LABEL), "ws"), ("", "num"), ("", "num")]]
         for i, addon in enumerate(addons, 1):
             number = addon.get("number", i)
             d = float(addon.get("days", 0))
@@ -321,44 +405,59 @@ def _commercial_body(data):
         f"{S.chf(total_amount)} (excluding Swiss VAT)."
     )
 
-    terms = [
+    default_terms = [
         ("Day rate", day_rate_narrative),
         ("Work outside standard hours",
-         "Evenings, weekends, and Swiss bank holidays require a separate written "
-         "agreement and are billed at a surcharge to be agreed at the time."),
-        ("Travel",
-         "Any travel outside Numaco offices or the customer's Switzerland "
-         "premises is to be agreed in advance and billed separately."),
+         _resolve(data, "outside_hours_narrative", OUTSIDE_HOURS_NARRATIVE)),
+        ("Travel", _resolve(data, "travel_narrative", TRAVEL_NARRATIVE)),
         ("Total estimated amount", total_amount_narrative),
         ("Payment",
-         f"{payment_days} days net from date of invoice. The invoice for the "
-         "total amount is sent at the end of the performance."),
-        ("Acceptance",
-         "All services are recorded in a timesheet with a detailed description "
-         "of the service. The client may inspect the timesheet at any time. At "
-         "the end of the performance period Numaco sends the timesheet to the "
-         "client for review and approval; once approved, it serves as the basis "
-         "for invoicing."),
+         _resolve(data, "payment_narrative",
+                  f"{payment_days} days net from date of invoice. The invoice "
+                  "for the total amount is sent at the end of the performance.")),
+        ("Acceptance label placeholder",
+         _resolve(data, "acceptance_narrative", ACCEPTANCE_NARRATIVE)),
     ]
+    # The timesheet term's label is itself overridable: calling it "Acceptance"
+    # next to a deliverable-acceptance clause starts the warranty clock on the
+    # wrong document.
+    default_terms[-1] = (
+        _resolve(data, "acceptance_label", "Acceptance"),
+        default_terms[-1][1],
+    )
+
+    if "commercial_terms" in data:
+        terms = [_term(t) for t in (data["commercial_terms"] or [])]
+    else:
+        terms = [(k, v) for k, v in default_terms if v]
+    terms += [_term(t) for t in data.get("extra_commercial_terms", [])]
+
+    intro = _paras(_resolve(data, "commercial_intro", COMMERCIAL_INTRO))
+    intro += _paras(_resolve(data, "commercial_overrun", COMMERCIAL_OVERRUN))
+    intro += _paras(data.get("extra_commercial_intro"))
+
     return (
-        S.para(esc(COMMERCIAL_INTRO))
+        "".join(S.para(esc(p)) for p in intro)
         + S.term_list([(k, esc(v)) for k, v in terms])
     )
 
 
 def _activation_body(data):
-    para = (
+    default = (
         f"This SOW is agreed between {data['client_legal_name']} and Numaco AG. "
         "It is valid without formal signatures and comes into operation with a "
         "commercial purchase order that includes a reference to this document."
     )
-    return (
-        S.para(esc(para))
-        + S.signature_block([
+    paras = _paras(_resolve(data, "activation_narrative", default))
+    paras += _paras(data.get("activation_extra"))
+
+    out = "".join(S.para(esc(p)) for p in paras)
+    if data.get("show_signature_block", True):
+        out += S.signature_block([
             ("For the client", esc(data["client_legal_name"])),
             ("For the supplier", "Numaco AG"),
         ])
-    )
+    return out
 
 
 def _appendix(data):
