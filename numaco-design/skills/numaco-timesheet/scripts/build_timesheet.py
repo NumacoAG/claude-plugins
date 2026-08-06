@@ -97,7 +97,16 @@ Payload schema:
                                      // "category" is REQUIRED on every entry
                                      // when top-level categories are supplied.
   ],
-  "day_rate_chf":      100,          // OPTIONAL. When present, an Amount column
+  "hourly_rate_chf":   12.50,        // OPTIONAL. The billing rate per hour, and
+                                     // the preferred way to price a sheet: a
+                                     // timesheet records hours, so the note
+                                     // states an hourly rate. Takes precedence
+                                     // over day_rate_chf. The 12.50 here is a
+                                     // deliberately absurd placeholder.
+  "rate_note":         "...",        // OPTIONAL. Replaces the footnote under the
+                                     // log table outright; "" removes it.
+  "day_rate_chf":      100,          // OPTIONAL, legacy. Divided by 8 to get the
+                                     // hourly rate. When present, an Amount column
                                      // appears and each amount is computed as
                                      // hours / 8 * rate. When absent the sheet
                                      // is hours-only. The 100 here is a
@@ -348,7 +357,7 @@ def validate(data):
                 problems.append(
                     f"entry {i}: carries a category but the payload has no 'categories' list")
 
-    for key in ("day_rate_chf", "budget_hours"):
+    for key in ("day_rate_chf", "hourly_rate_chf", "budget_hours"):
         if key in data and data[key] is not None:
             try:
                 if not float(data[key]) > 0:
@@ -733,8 +742,23 @@ def _stat_band(budget, period_total, prior, period_start):
 
 
 # ---------------------------------------------------------------- table
+def _hourly_rate(data):
+    """The billing rate per hour, or None for an hours-only sheet.
+
+    Accepts `hourly_rate_chf` directly, or derives it from `day_rate_chf` on the
+    eight hour working day the SOW defines. Everything downstream reasons in
+    hours, because that is the unit the timesheet actually records.
+    """
+    if data.get("hourly_rate_chf") is not None:
+        return float(data["hourly_rate_chf"])
+    if data.get("day_rate_chf") is not None:
+        return float(data["day_rate_chf"]) / 8.0
+    return None
+
+
 def _entry_amount(hours, rate):
-    return round(float(hours) / 8.0 * float(rate), 2)
+    """Amount for one entry, where `rate` is per hour."""
+    return round(float(hours) * float(rate), 2)
 
 
 def _category_totals(data):
@@ -752,8 +776,7 @@ def _category_css(data):
 
 
 def _entries_table(data):
-    rate = data.get("day_rate_chf")
-    rate = float(rate) if rate is not None else None
+    rate = _hourly_rate(data)
     with_amount = rate is not None
 
     start = _iso(data["period_start"], "period_start")
@@ -830,12 +853,15 @@ def _entries_table(data):
     else:
         total_row += [(_hours(total_hours), "num amt")]
 
-    footnote = "Hours are stated in decimal form: 0.5 equals 30 minutes."
-    if with_amount:
-        footnote += (
-            " Amounts are computed as hours divided by 8, multiplied by the "
-            f"day rate of {S.chf(rate)} per working day, excluding Swiss VAT."
-        )
+    if "rate_note" in data:
+        footnote = str(data["rate_note"] or "")
+    else:
+        footnote = "Hours are stated in decimal form: 0.5 equals 30 minutes."
+        if with_amount:
+            footnote += (
+                " Amounts are computed as hours multiplied by the hourly rate of "
+                f"{S.chf(rate)} per hour, excluding Swiss VAT."
+            )
 
     table_class = "data effort category-log" if categories else "data effort"
     return S.effort_table(cols, rows, total_row=total_row, footnote=footnote,
