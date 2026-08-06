@@ -156,17 +156,10 @@ def running_elements(doc_kind, doc_no, confidential="Confidential", page_word="P
     # The "Page n of m" string lives in the stylesheet, so a non-English document
     # overrides it here rather than forking the CSS.
     page_css = ""
-    if (page_word, of_word) != ("Page", "of"):
-        page_css = (
-            '<style>@page{@bottom-right{'
-            f'content:"{page_word} " counter(page) " {of_word} " counter(pages);'
-            "}}</style>"
-        )
     return (
         f'<div class="rhL">Numaco AG&nbsp;&nbsp;/&nbsp;&nbsp;<b>{doc_kind}</b></div>\n'
         f'<div class="rhR">{doc_no}&nbsp;&nbsp;&middot;&nbsp;&nbsp;<em>{confidential}</em></div>\n'
         f'<div class="rfL">numaco.ch&nbsp;&nbsp;&middot;&nbsp;&nbsp;<b>{doc_no}</b></div>'
-        f"{page_css}"
     )
 
 
@@ -178,9 +171,20 @@ def assemble(title, body_html, doc_kind=None, doc_no=None, extra_css="",
     dict of {confidential, page_word, of_word} so a non-English document can
     translate the running header and the page counter.
     """
-    rl = running_labels or {}
+    rl = dict(running_labels or {})
+    page_word = rl.pop("page_word", "Page")
+    of_word = rl.pop("of_word", "of")
     run = (running_elements(doc_kind, doc_no, **rl)
            if (doc_kind and doc_no) else "")
+    # The "Page n of m" string lives in the stylesheet, and Paged.js resolves
+    # @page rules from the head before the body is laid out, so a translated
+    # counter has to be appended here rather than emitted with the running divs.
+    if (page_word, of_word) != ("Page", "of"):
+        extra_css = (extra_css or "") + (
+            "@page{@bottom-right{"
+            f'content:"{page_word} " counter(page) " {of_word} " counter(pages);'
+            "}}"
+        )
     presentation = f"\n{extra_css}" if extra_css else ""
     return (
         f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">\n'
