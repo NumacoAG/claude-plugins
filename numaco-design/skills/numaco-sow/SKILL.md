@@ -265,6 +265,8 @@ Fixed section order, enforced by `scripts/build_sow.py`.
 
 > The work provided under this SOW is based on time and material. Numaco charges only labor effectively accomplished, not the full amount in the estimation. Numaco will inform the client as soon as possible if there is a risk that the estimated costs are exceeded. It is then the client's responsibility to decide whether (a) further work hours under this SOW can be done, (b) a new SOW must be signed, or (c) this SOW will be terminated without further action.
 >
+> Should Numaco establish that the estimated effort will be exceeded, Numaco will provide the client with a written report stating the overrun, the reasons for it and the effort still required to complete the work, and will suspend further work until the client has decided how to proceed, either by taking the remaining work over or by agreeing a new SOW. Numaco does not continue billable work beyond the estimate without that decision.
+>
 > **Day rate**: CHF {{DAY_RATE}} per working day. A working day means 8 hours performed during standard working hours, defined as 08:00 to 17:00 CET on Swiss business days.
 >
 > **Work outside standard hours**: Evenings, weekends, and Swiss bank holidays require a separate written agreement and are billed at a surcharge to be agreed at the time.
