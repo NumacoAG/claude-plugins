@@ -223,8 +223,8 @@ DEFAULT_CONFIG = {
     "contract_dir": "docs/specs/tier-1",
     "spec_glob": "spec-*.md",
     "acceptance_doc": "definition-of-done.md",
-    "registry": "machine-readable/id-map.json",
-    "output": "machine-readable/contract-crosswalk.json",
+    "registry": "../tier-2/machine-readable/id-map.json",
+    "output": "../tier-2/machine-readable/contract-crosswalk.json",
     "requirement": {"prefix": "UR", "component": "[A-Z]{2}", "digits": 2},
     "journey": {"prefix": "DJ", "digits": 2, "heading_level": 3},
     "constraint_tag": "constraint",
@@ -1850,7 +1850,7 @@ def verb_init(args):
     root = Path(args.directory or Path.cwd()).expanduser().resolve()
     config_path = root / "contract.config.json"
     contract_dir = resolve_path(root, args.contract_dir)
-    registry_path = contract_dir / "machine-readable" / "id-map.json"
+    registry_path = resolve_path(contract_dir, DEFAULT_CONFIG["registry"])
     readme_path = contract_dir / "README.md"
     proving_dir = resolve_path(root, args.proving_dir)
 
@@ -1871,7 +1871,7 @@ def verb_init(args):
     config["action_glyph"] = args.action_glyph or ""
 
     contract_dir.mkdir(parents=True, exist_ok=True)
-    (contract_dir / "machine-readable").mkdir(parents=True, exist_ok=True)
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
     proving_dir.mkdir(parents=True, exist_ok=True)
 
     written = []

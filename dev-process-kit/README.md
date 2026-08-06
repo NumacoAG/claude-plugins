@@ -10,12 +10,20 @@ depends on it, and it restates nothing that review-kit already says.
 
 ## What it gives you
 
+- **docs-vault.** The docs tree every project shares: five buckets organised by
+  audience and purpose, the tier 1 and tier 2 split, the front-door README, and
+  the approval-gated regime for migrating an existing messy vault into the
+  system without losing a load-bearing document.
 - **tier-1-contract** (the working skill). Everything a writer needs while
   typing: what a Tier 1 document is and is not, how a project splits into
   components, the specification anatomy, the acceptance journeys, clause
   splitting to one testable proposition, the identifier scheme and its
-  immutability rules, and every gate check. A second skill, **dev-process-kit**,
-  is the orientation front door for a colleague asking what this plugin is.
+  immutability rules, and every gate check.
+- **project-plan.** The living Project Status doc: Milestones, Deliverables, and
+  at most one Decision point, held future only and nearest first, so the past
+  lives in git history rather than in the plan.
+- A fourth skill, **dev-process-kit**, is the orientation front door for a
+  colleague asking what this plugin is.
 - **The contract gate** (`scripts/contract.py`). Python standard library only,
   three verbs, three exit codes, no network, no toolchain. It reads a project's
   own `contract.config.json` and writes a crosswalk that accounts for every
@@ -82,11 +90,11 @@ project declares an action glyph, then writes:
 ├── contract.config.json                the contract's settings, reviewable in a pull request
 └── docs/
     └── specs/
-        ├── tier-1/
-        │   ├── README.md               the contract front door
-        │   └── machine-readable/
-        │       └── id-map.json         the identifier registry, empty
-        └── tier-2/
+        ├── tier-1/                  reviewed and locked, the contract itself
+        │   └── README.md               the contract front door
+        └── tier-2/                  tool written, never reviewed
+            ├── machine-readable/
+            │   └── id-map.json         the identifier registry, empty
             └── proving/                reserved, with a stub saying what it will hold
 ```
 
@@ -130,6 +138,8 @@ dev-process-kit/
 │   └── plugin.json                       plugin manifest
 ├── skills/
 │   ├── dev-process-kit/SKILL.md          orientation: the parts, and who owns each
+│   ├── docs-vault/SKILL.md               the docs tree: buckets, tiers, migration
+│   ├── project-plan/SKILL.md             the living Project Status doc
 │   └── tier-1-contract/SKILL.md          the working skill: write, split, identify, gate
 ├── commands/
 │   ├── contract-init.md                  /contract-init, stand up a contract folder
@@ -167,8 +177,8 @@ never touches a project at session start.
 - **The release QA log.** review-kit's `qa-audit`.
 - **Mirroring a locked document to a phone.** review-kit's `/dvsync-track`, one
   document at a time.
-- **Where documents live in a vault.** The bucket taxonomy and any vault
-  migration belong to a separate skill that is not part of this marketplace.
+- **Writing code, tests, fixtures, or harnesses.** The contract says what the
+  product must do; proving it is the test suite's job.
 
 ## The proving layer, reserved
 

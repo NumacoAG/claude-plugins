@@ -964,7 +964,7 @@ class Initialisation(unittest.TestCase):
         self.assertEqual(code, 0, out + err)
         config_path = self.tmp / "contract.config.json"
         self.assertTrue(config_path.is_file())
-        registry_path = self.tmp / "docs/specs/tier-1/machine-readable/id-map.json"
+        registry_path = self.tmp / "docs/specs/tier-2/machine-readable/id-map.json"
         self.assertTrue(registry_path.is_file())
         self.assertTrue((self.tmp / "docs/specs/tier-1/README.md").is_file())
         self.assertTrue((self.tmp / "docs/specs/tier-2/proving/README.md").is_file())
@@ -989,7 +989,7 @@ class Initialisation(unittest.TestCase):
         self.run_engine("init", "--directory", str(self.tmp), "--adopted", "2026-01-01")
         written_config = json.loads((self.tmp / "contract.config.json").read_text())
         written_registry = json.loads(
-            (self.tmp / "docs/specs/tier-1/machine-readable/id-map.json").read_text()
+            (self.tmp / "docs/specs/tier-2/machine-readable/id-map.json").read_text()
         )
         templates = SCRIPT.parent.parent / "templates"
         template_config = json.loads((templates / "contract.config.json").read_text())

@@ -39,7 +39,7 @@ document never breaks a citation.
 
 ## How to read a requirement line
 
-Every identifier names its kind and its home. `UR-XX-03` is a requirement living in the component whose code is XX; the tag after it, such as `(DJ-04)`, names the [Definition of Done](definition-of-done.md) journey that proves it; `(constraint)` marks a standing rule verified by the engineering gate and the product owner's approval rather than by an operator journey. An asterisk after an identifier marks a clause inherited from a prior locked contract; the mapping lives in `machine-readable/id-map.json`, never in the prose.
+Every identifier names its kind and its home. `UR-XX-03` is a requirement living in the component whose code is XX; the tag after it, such as `(DJ-04)`, names the [Definition of Done](definition-of-done.md) journey that proves it; `(constraint)` marks a standing rule verified by the engineering gate and the product owner's approval rather than by an operator journey. An asterisk after an identifier marks a clause inherited from a prior locked contract; the mapping lives in `../tier-2/machine-readable/id-map.json`, never in the prose.
 
 <!--
 DELETE THE ASTERISK SENTENCE IF NOTHING IS INHERITED. When the registry declares
@@ -53,7 +53,7 @@ it. It is defined exactly once, anywhere in the set, and used bare forever.
 
 ## House rules
 
-Requirement identifiers are immutable once locked; before a lock, a renumber needs the product owner's explicit say so. Every requirement traces to a Definition of Done journey or is a declared standing constraint. The generated crosswalk in `machine-readable/` accounts for every identifier and fails the build if one goes missing. Locks happen document by document; the crosswalk records the live state.
+Requirement identifiers are immutable once locked; before a lock, a renumber needs the product owner's explicit say so. Every requirement traces to a Definition of Done journey or is a declared standing constraint. The generated crosswalk in `../tier-2/machine-readable/` accounts for every identifier and fails the build if one goes missing. Locks happen document by document; the crosswalk records the live state.
 
 <!--
 AT LOCK, add the glyph to the version line and append:

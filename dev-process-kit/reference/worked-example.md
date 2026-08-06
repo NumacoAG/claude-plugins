@@ -21,7 +21,8 @@ divergences at the end so nobody copies a local decision as a law.
 | Documents locked | all 12, one at a time |
 
 The set lives at `docs/specs/tier-1/`, with the registry and the generated
-crosswalk under `machine-readable/` beside it. Documents run from about 700 to
+crosswalk under `docs/specs/tier-2/machine-readable/`, outside the locked folder
+because a tool writes them and no one reviews them. Documents run from about 700 to
 1,900 words, median close to 1,050.
 
 ## Example: the front door closure clause

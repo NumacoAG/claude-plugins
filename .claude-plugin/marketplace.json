@@ -45,8 +45,8 @@
     {
       "name": "dev-process-kit",
       "source": "./dev-process-kit",
-      "version": "0.1.0",
-      "description": "The product specification and acceptance process as a reusable contract architecture: one specification per component plus one Definition of Done, stable requirement identifiers traced to acceptance journeys, a frozen identifier registry, and a fail closed gate that checks the declared registry against the documents.",
+      "version": "0.2.0",
+      "description": "The development process as a reusable contract architecture: the shared docs tree (docs-vault), the Tier 1 product specification and Definition of Done with a fail-closed identifier gate, and the living project plan.",
       "author": {
         "name": "Numaco AG",
         "url": "https://numaco.ch"
