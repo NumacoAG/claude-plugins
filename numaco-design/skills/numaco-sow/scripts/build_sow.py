@@ -91,7 +91,7 @@ SOW_WATERMARK_OPACITY = 0.085
 # ---- Numaco company constants (do not change without the user's explicit approval) ----
 # Address and VAT are true company constants, identical for every colleague, so
 # they stay hardcoded here.
-NUMACO_ADDRESS = ["Haldenstrasse 3c", "CH-8905 Islisberg", "Switzerland"]
+NUMACO_ADDRESS = ["Haldenstrasse 3c", "CH-8905 Islisberg"]
 NUMACO_VAT = "CHE-107.980.861 MWST"
 
 # Placeholder supplier contacts, used only when no per-user defaults file
@@ -213,7 +213,7 @@ LABELS = {
         "in_confidence": "Commercial in confidence", "rev": "Rev A",
         "parties_eyebrow": "Contracting parties", "client": "Client",
         "supplier": "Supplier", "key_contacts": "Key contacts",
-        "contacts_vat": "Contacts &middot; VAT ",
+        "contacts_vat": "Contacts &middot; ",
         "apx_title": "Terms and Conditions", "apx_tag": "Standard terms",
         "sec_context": "Context", "tag_context": "BACKGROUND &middot; PROBLEM STATEMENT",
         "sec_scope": "Scope",
@@ -222,7 +222,7 @@ LABELS = {
         "sec_commercial": "Commercial terms",
         "tag_commercial": "RATES &middot; INVOICING &middot; VALIDITY",
         "sec_activation": "Activation", "tag_activation": "AGREEMENT &middot; PURCHASE ORDER",
-        "deliver": "What we deliver", "not_deliver": "What we do not deliver",
+        "deliver": "Deliverables", "not_deliver": "Exclusions",
         "assumptions": "Assumptions", "addons": "Optional add-ons",
         "priced_separately": "Priced separately",
         "col_ref": "Ref", "col_workstream": "Workstream", "col_days": "Days",
@@ -232,16 +232,24 @@ LABELS = {
         "term_day_rate": "Day rate", "term_outside": "Work outside standard hours",
         "term_travel": "Travel", "term_total": "Total estimated amount",
         "term_payment": "Payment", "term_acceptance": "Acceptance",
+        "country": "Switzerland", "apx_label": "APX",
+        "addon_scope_note": ADDON_SCOPE_NOTE, "addon_sep_label": ADDON_SEP_LABEL,
+        "acceptance_body": ACCEPTANCE_NARRATIVE,
+        "payment_body": "{days} days net from date of invoice. The invoice for the total amount is sent at the end of the performance.",
+        "activation_body": "This SOW is agreed between {client} and Numaco AG. It is valid without formal signatures and comes into operation with a commercial purchase order that includes a reference to this document.",
+        "billing_body": "Billing is for time actually worked, not the estimate above. Optional add-ons are excluded from the base engagement total and are activated by a purchase order amendment that references this SOW.",
+        "effort_footnote": "All effort above is an estimation. Billing is based on time actually worked, as described in section 4 below.",
+        "effort_footnote_addons": " Add-ons are optional and priced separately; if the client selects any, its days and amount are added to the total via a PO amendment.",
     },
     "de": {
         "doc_kind": "Leistungsbeschrieb", "confidential": "Vertraulich",
         "page_word": "Seite", "of_word": "von",
         "prepared_for": "Erstellt für", "prepared_by": "Erstellt von",
         "issued": "Ausgestellt", "reference": "Referenz",
-        "in_confidence": "Vertraulich, geschäftlich", "rev": "Rev. A",
+        "in_confidence": "Vertraulich", "rev": "Rev. A",
         "parties_eyebrow": "Vertragsparteien", "client": "Kunde",
         "supplier": "Lieferant", "key_contacts": "Ansprechpartner",
-        "contacts_vat": "Kontakte &middot; MWST ",
+        "contacts_vat": "Kontakte &middot; ",
         "apx_title": "Allgemeine Geschäftsbedingungen", "apx_tag": "Standardbedingungen",
         "sec_context": "Ausgangslage", "tag_context": "HINTERGRUND &middot; PROBLEMSTELLUNG",
         "sec_scope": "Leistungsumfang",
@@ -250,9 +258,9 @@ LABELS = {
         "sec_commercial": "Kommerzielle Bedingungen",
         "tag_commercial": "SÄTZE &middot; RECHNUNGSSTELLUNG &middot; GÜLTIGKEIT",
         "sec_activation": "Inkraftsetzung", "tag_activation": "VEREINBARUNG &middot; BESTELLUNG",
-        "deliver": "Was Numaco liefert", "not_deliver": "Was Numaco nicht liefert",
+        "deliver": "Liefergegenstände", "not_deliver": "Abgrenzungen",
         "assumptions": "Annahmen", "addons": "Optionale Zusatzleistungen",
-        "priced_separately": "Separat bepreist",
+        "priced_separately": "Separat offeriert",
         "col_ref": "Pos.", "col_workstream": "Arbeitspaket", "col_days": "Tage",
         "col_amount": "Betrag CHF", "total": "Total Grundleistung",
         "billing_basis": "Verrechnungsgrundlage",
@@ -260,6 +268,15 @@ LABELS = {
         "term_day_rate": "Tagessatz", "term_outside": "Arbeit ausserhalb der Normalarbeitszeit",
         "term_travel": "Reisekosten", "term_total": "Geschätzter Gesamtbetrag",
         "term_payment": "Zahlung", "term_acceptance": "Abnahme",
+        "country": "Schweiz", "apx_label": "ANH",
+        "addon_scope_note": "Die nachstehenden Positionen sind nicht Teil der Grundleistung. Jede ist in der Aufwandschätzung separat bepreist; jede Kombination kann vor oder während des Auftrags nach Wahl des Kunden über eine Bestelländerung mit Bezug auf diesen Leistungsbeschrieb hinzugefügt werden.",
+        "addon_sep_label": "Optionale Zusatzleistungen (separat bepreist, im Total unten nicht enthalten)",
+        "acceptance_body": "Sämtliche Leistungen werden in einem Arbeitsrapport mit detaillierter Leistungsbeschreibung erfasst. Der Kunde kann den Arbeitsrapport jederzeit einsehen. Nach Abschluss der Leistungsperiode stellt Numaco dem Kunden den Arbeitsrapport zur Prüfung und Genehmigung zu; nach der Genehmigung dient er als Grundlage für die Rechnungsstellung.",
+        "payment_body": "{days} Tage netto ab Rechnungsdatum. Die Rechnung über den Gesamtbetrag wird nach Abschluss der Leistung gestellt.",
+        "activation_body": "Dieser Leistungsbeschrieb wird zwischen {client} und Numaco AG vereinbart. Er ist ohne förmliche Unterschriften gültig und tritt mit einer kommerziellen Bestellung in Kraft, die auf dieses Dokument Bezug nimmt.",
+        "billing_body": "Verrechnet wird die tatsächlich geleistete Zeit, nicht die Schätzung oben. Optionale Zusatzleistungen sind im Total der Grundleistung nicht enthalten und werden über eine Bestelländerung mit Bezug auf diesen Leistungsbeschrieb ausgelöst.",
+        "effort_footnote": "Sämtliche Aufwände oben sind Schätzungen. Verrechnet wird die tatsächlich geleistete Zeit gemäss Abschnitt 4.",
+        "effort_footnote_addons": " Zusatzleistungen sind optional und separat bepreist; wählt der Kunde eine davon, werden deren Tage und Betrag über eine Bestelländerung zum Total hinzugefügt.",
     },
 }
 
@@ -395,7 +412,7 @@ def _scope_body(data):
         for i, item in enumerate(deliverables, 1):
             title, body = _pair(item)
             rows.append(S.scope_item(f"S{i}", esc(title), esc(body)))
-        parts.append(S.subhead("Deliverables") + S.items(*rows))
+        parts.append(S.subhead(L(data, "deliver")) + S.items(*rows))
 
     exclusions = data.get("exclusions", [])
     if exclusions:
@@ -403,7 +420,7 @@ def _scope_body(data):
         for i, item in enumerate(exclusions, 1):
             title, body = _pair(item)
             rows.append(S.scope_item(f"N{i}", esc(title), esc(body), excl=True))
-        parts.append(S.subhead("Exclusions") + S.items(*rows))
+        parts.append(S.subhead(L(data, "not_deliver")) + S.items(*rows))
 
     assumptions = data.get("assumptions", [])
     if assumptions:
@@ -423,7 +440,7 @@ def _scope_body(data):
                 _multi(addon.get("body", "")), tag=L(data, "priced_separately")))
         parts.append(
             S.subhead(L(data, "addons"))
-            + S.para(esc(_resolve(data, "addon_scope_note", ADDON_SCOPE_NOTE)))
+            + S.para(esc(_resolve(data, "addon_scope_note", L(data, "addon_scope_note"))))
             + S.items(*rows)
         )
 
@@ -446,13 +463,13 @@ def _effort_body(data):
         ])
 
     total_row = [
-        ("", ""), ("Base engagement total", "ws"),
+        ("", ""), (L(data, "total"), "ws"),
         (_days(base_days), "num"), (S.num(base_days * rate), "num amt"),
     ]
 
     addon_rows = None
     if addons:
-        addon_rows = [[("", "ref"), (_resolve(data, "addon_separator_label", ADDON_SEP_LABEL), "ws"), ("", "num"), ("", "num")]]
+        addon_rows = [[("", "ref"), (_resolve(data, "addon_separator_label", L(data, "addon_sep_label")), "ws"), ("", "num"), ("", "num")]]
         for i, addon in enumerate(addons, 1):
             number = addon.get("number", i)
             d = float(addon.get("days", 0))
@@ -461,27 +478,16 @@ def _effort_body(data):
                 (_days(d), "num"), (S.num(d * rate), "num"),
             ])
 
-    footnote = (
-        "All effort above is an estimation. Billing is based on time actually "
-        "worked, as described in section 4 below."
-    )
+    footnote = L(data, "effort_footnote")
     if addons:
-        footnote += (
-            " Add-ons are optional and priced separately; if the client selects "
-            "any, its days and amount are added to the total via a PO amendment."
-        )
+        footnote += L(data, "effort_footnote_addons")
 
     table = S.effort_table(
         [(L(data, "col_ref"), False, "12mm"), (L(data, "col_workstream"), False, None),
          (L(data, "col_days"), True, None), (L(data, "col_amount"), True, None)],
         rows, total_row=total_row, addon_rows=addon_rows, footnote=footnote,
     )
-    billing = S.callout(
-        L(data, "billing_basis"),
-        "Billing is for time actually worked, not the estimate above. Optional "
-        "add-ons are excluded from the base engagement total and are activated by "
-        "a purchase order amendment that references this SOW.",
-    )
+    billing = S.callout(L(data, "billing_basis"), L(data, "billing_body"))
     return table + billing
 
 
@@ -508,10 +514,9 @@ def _commercial_body(data):
         (L(data, "term_total"), total_amount_narrative),
         (L(data, "term_payment"),
          _resolve(data, "payment_narrative",
-                  f"{payment_days} days net from date of invoice. The invoice "
-                  "for the total amount is sent at the end of the performance.")),
+                  L(data, "payment_body").format(days=payment_days))),
         ("Acceptance label placeholder",
-         _resolve(data, "acceptance_narrative", ACCEPTANCE_NARRATIVE)),
+         _resolve(data, "acceptance_narrative", L(data, "acceptance_body"))),
     ]
     # The timesheet term's label is itself overridable: calling it "Acceptance"
     # next to a deliverable-acceptance clause starts the warranty clock on the
@@ -538,11 +543,7 @@ def _commercial_body(data):
 
 
 def _activation_body(data):
-    default = (
-        f"This SOW is agreed between {data['client_legal_name']} and Numaco AG. "
-        "It is valid without formal signatures and comes into operation with a "
-        "commercial purchase order that includes a reference to this document."
-    )
+    default = L(data, "activation_body").format(client=data["client_legal_name"])
     paras = _paras(_resolve(data, "activation_narrative", default))
     paras += _paras(data.get("activation_extra"))
 
@@ -589,7 +590,8 @@ def _appendix(data):
             buf.append(esc(line.strip()))
     if cur_marker is not None:
         clauses.append((cur_marker, cur_heading, "<br><br>".join(buf)))
-    return S.appendix(L(data, "apx_title"), clauses, tag=L(data, "apx_tag"))
+    return S.appendix(L(data, "apx_title"), clauses, tag=L(data, "apx_tag"),
+                      apx_label=L(data, "apx_label"))
 
 
 # ---------- assembly ----------
@@ -608,6 +610,8 @@ def build_body(data):
             (L(data, "reference"), esc(data["sow_number"]), L(data, "rev")),
         ],
         "Numaco AG &middot; CH-8905 Islisberg",
+        confidential=L(data, "confidential"),
+        rev_label=L(data, "rev"),
     )
 
     client = {
@@ -625,7 +629,7 @@ def build_body(data):
     supplier = {
         "role": L(data, "supplier"),
         "name": "Numaco AG",
-        "address": NUMACO_ADDRESS,
+        "address": NUMACO_ADDRESS + [L(data, "country")],
         "contacts_label": L(data, "contacts_vat") + NUMACO_VAT,
         "contacts": NUMACO_CONTACTS,
     }
@@ -672,7 +676,7 @@ def render(data, output_path):
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
     body = build_body(data)
-    title = f"Numaco SOW {data['sow_number']}"
+    title = f"Numaco {L(data, 'doc_kind')} {data['sow_number']}"
     lang = str(data.get("language", "en")).lower()
     S.render_pdf(
         title,
