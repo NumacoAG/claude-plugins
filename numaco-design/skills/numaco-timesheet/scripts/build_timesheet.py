@@ -689,11 +689,12 @@ def _chart_svg(buckets, budget, prior=0.0):
             + "".join(p) + "</svg>")
 
 
-def _legend(with_budget):
-    parts = ['<span class="lg"><span class="sw swb"></span>Hours</span>',
-             '<span class="lg"><span class="sw swl"></span>Cumulative</span>']
+def _legend(with_budget, data=None):
+    data = data or {}
+    parts = [f'<span class="lg"><span class="sw swb"></span>{TL(data, "lg_hours")}</span>',
+             f'<span class="lg"><span class="sw swl"></span>{TL(data, "lg_cumulative")}</span>']
     if with_budget:
-        parts.append('<span class="lg"><span class="sw swd"></span>Budget</span>')
+        parts.append(f'<span class="lg"><span class="sw swd"></span>{TL(data, "lg_budget")}</span>')
     return '<div class="ts-legend">' + "".join(parts) + "</div>"
 
 
@@ -771,6 +772,7 @@ TS_LABELS = {
         "approval": ("This timesheet records the services performed by Numaco AG for {client} on the "
                      "project stated above, during {period}. The client is asked to review and approve "
                      "the recorded hours; once approved, this timesheet serves as the basis for invoicing."),
+        "lg_hours": "Hours", "lg_cumulative": "Cumulative", "lg_budget": "Budget",
         "sig_numaco": "Numaco AG &middot; Date, signature",
         "sig_client": "For the client &middot; Date, signature",
     },
@@ -798,6 +800,7 @@ TS_LABELS = {
                      "Projekt erbrachten Leistungen im Zeitraum {period} fest. Der Kunde wird gebeten, "
                      "die erfassten Stunden zu prüfen und zu genehmigen; nach der Genehmigung dient "
                      "dieser Arbeitsrapport als Grundlage für die Rechnungsstellung."),
+        "lg_hours": "Stunden", "lg_cumulative": "Kumuliert", "lg_budget": "Budget",
         "sig_numaco": "Numaco AG &middot; Datum, Unterschrift",
         "sig_client": "Für den Kunden &middot; Datum, Unterschrift",
     },
@@ -1062,7 +1065,7 @@ def _overview_section(data):
     if budget:
         body += _stat_band(budget, total, prior, start)
     body += S.subhead(chart_title)
-    body += ('<div class="ts-chart">' + _legend(bool(budget))
+    body += ('<div class="ts-chart">' + _legend(bool(budget), data)
              + _chart_svg(buckets, budget, prior) + "</div>")
 
     tag = TL(data, "tag_overview")
