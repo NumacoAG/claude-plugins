@@ -16,7 +16,7 @@ description: >-
   deliverables, or decision points goes through the obsidian-versioned-review
   regime while routine maintenance is a direct edit.
 status: stable
-version: "1.1 (2026-08-06, folded in from the standalone personal skill; generic phrasing, dvsync via the review-kit command)"
+version: "1.1 (2026-08-06, generic phrasing, mobile tracking via the review-kit command)"
 ---
 
 # project-plan, the living Project Status doc

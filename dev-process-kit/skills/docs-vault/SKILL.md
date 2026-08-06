@@ -22,7 +22,7 @@ description: >-
   stub templates, and the migration safety regime. It shapes structure; it never
   writes product content.
 status: stable
-version: "1.0 (2026-08-06, folded in from the standalone docs-scaffold skill; five buckets, machine-readable docs absorbed into specs/tier-2)"
+version: "1.0 (2026-08-06, initial; five buckets, the machine-readable layer absorbed into specs/tier-2)"
 ---
 
 # docs-vault, the canonical project docs tree
