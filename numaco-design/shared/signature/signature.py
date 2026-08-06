@@ -151,22 +151,39 @@ def chf(n):
 # ---------------------------------------------------------------------------
 # Document shell
 # ---------------------------------------------------------------------------
-def running_elements(doc_kind, doc_no):
+def running_elements(doc_kind, doc_no, confidential="Confidential", page_word="Page", of_word="of"):
     """The @page running header/footer elements (mono whisper header + footer)."""
+    # The "Page n of m" string lives in the stylesheet, so a non-English document
+    # overrides it here rather than forking the CSS.
+    page_css = ""
+    if (page_word, of_word) != ("Page", "of"):
+        page_css = (
+            '<style>@page{@bottom-right{'
+            f'content:"{page_word} " counter(page) " {of_word} " counter(pages);'
+            "}}</style>"
+        )
     return (
         f'<div class="rhL">Numaco AG&nbsp;&nbsp;/&nbsp;&nbsp;<b>{doc_kind}</b></div>\n'
-        f'<div class="rhR">{doc_no}&nbsp;&nbsp;&middot;&nbsp;&nbsp;<em>Confidential</em></div>\n'
+        f'<div class="rhR">{doc_no}&nbsp;&nbsp;&middot;&nbsp;&nbsp;<em>{confidential}</em></div>\n'
         f'<div class="rfL">numaco.ch&nbsp;&nbsp;&middot;&nbsp;&nbsp;<b>{doc_no}</b></div>'
+        f"{page_css}"
     )
 
 
 def assemble(title, body_html, doc_kind=None, doc_no=None, extra_css="",
-             watermark_opacity=None):
-    """Full self-contained HTML document (offline, PDFKit-safe)."""
-    run = running_elements(doc_kind, doc_no) if (doc_kind and doc_no) else ""
+             watermark_opacity=None, lang="en", running_labels=None):
+    """Full self-contained HTML document (offline, PDFKit-safe).
+
+    `lang` sets the document language attribute; `running_labels` is an optional
+    dict of {confidential, page_word, of_word} so a non-English document can
+    translate the running header and the page counter.
+    """
+    rl = running_labels or {}
+    run = (running_elements(doc_kind, doc_no, **rl)
+           if (doc_kind and doc_no) else "")
     presentation = f"\n{extra_css}" if extra_css else ""
     return (
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">\n'
+        f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">\n'
         f"<title>{_esc(title)}</title>\n"
         f"{R.paged_head()}\n"
         f"<style>{stylesheet(watermark_opacity)}{presentation}</style>\n"
@@ -184,8 +201,8 @@ def main_body(*parts):
 # ---------------------------------------------------------------------------
 # Cover
 # ---------------------------------------------------------------------------
-def cover(kind_label, doc_no, title, subtitle, meta_pairs, footer_line, tag=None):
-    tag_html = tag if tag is not None else "Confidential<br>Rev A &middot; 2026"
+def cover(kind_label, doc_no, title, subtitle, meta_pairs, footer_line, tag=None, confidential="Confidential"):
+    tag_html = tag if tag is not None else f"{confidential}<br>Rev A &middot; 2026"
     cells = ""
     for pair in meta_pairs:
         label, value = pair[0], pair[1]
@@ -419,7 +436,8 @@ def signature_block(fields):
 # Convenience render (two-pass: bake the true page count into the footer)
 # ---------------------------------------------------------------------------
 def render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None,
-               extra_css="", watermark_opacity=None):
+               extra_css="", watermark_opacity=None, lang="en",
+               running_labels=None):
     html = assemble(
         title,
         body_html,
@@ -427,6 +445,8 @@ def render_pdf(title, body_html, pdf_path, doc_kind=None, doc_no=None,
         doc_no,
         extra_css=extra_css,
         watermark_opacity=watermark_opacity,
+        lang=lang,
+        running_labels=running_labels,
     )
     pdf_path = Path(pdf_path)
     tmp = pdf_path.with_suffix(".html")

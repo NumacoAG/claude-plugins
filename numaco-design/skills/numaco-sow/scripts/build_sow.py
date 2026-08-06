@@ -198,6 +198,78 @@ ACCEPTANCE_NARRATIVE = (
 )
 
 
+
+# ---------------------------------------------------------------------------
+# Language packs. Every English word this engine emits lives here, so a German
+# document is a payload switch rather than a fork. `language` selects the pack;
+# any individual string stays overridable from the payload as before.
+# ---------------------------------------------------------------------------
+LABELS = {
+    "en": {
+        "doc_kind": "Statement of Work", "confidential": "Confidential",
+        "page_word": "Page", "of_word": "of",
+        "prepared_for": "Prepared for", "prepared_by": "Prepared by",
+        "issued": "Issued", "reference": "Reference",
+        "in_confidence": "Commercial in confidence", "rev": "Rev A",
+        "parties_eyebrow": "Contracting parties", "client": "Client",
+        "supplier": "Supplier", "key_contacts": "Key contacts",
+        "contacts_vat": "Contacts &middot; VAT ",
+        "apx_title": "Terms and Conditions", "apx_tag": "Standard terms",
+        "sec_context": "Context", "tag_context": "BACKGROUND &middot; PROBLEM STATEMENT",
+        "sec_scope": "Scope",
+        "tag_scope": "DELIVERABLES &middot; EXCLUSIONS &middot; ASSUMPTIONS &middot; OPTIONS",
+        "sec_effort": "Effort estimate", "tag_effort": "BASE ENGAGEMENT &middot; DAY RATE ",
+        "sec_commercial": "Commercial terms",
+        "tag_commercial": "RATES &middot; INVOICING &middot; VALIDITY",
+        "sec_activation": "Activation", "tag_activation": "AGREEMENT &middot; PURCHASE ORDER",
+        "deliver": "What we deliver", "not_deliver": "What we do not deliver",
+        "assumptions": "Assumptions", "addons": "Optional add-ons",
+        "priced_separately": "Priced separately",
+        "col_ref": "Ref", "col_workstream": "Workstream", "col_days": "Days",
+        "col_amount": "Amount CHF", "total": "Base engagement total",
+        "billing_basis": "Billing basis",
+        "for_client": "For the client", "for_supplier": "For the supplier",
+        "term_day_rate": "Day rate", "term_outside": "Work outside standard hours",
+        "term_travel": "Travel", "term_total": "Total estimated amount",
+        "term_payment": "Payment", "term_acceptance": "Acceptance",
+    },
+    "de": {
+        "doc_kind": "Leistungsbeschrieb", "confidential": "Vertraulich",
+        "page_word": "Seite", "of_word": "von",
+        "prepared_for": "Erstellt für", "prepared_by": "Erstellt von",
+        "issued": "Ausgestellt", "reference": "Referenz",
+        "in_confidence": "Vertraulich, geschäftlich", "rev": "Rev. A",
+        "parties_eyebrow": "Vertragsparteien", "client": "Kunde",
+        "supplier": "Lieferant", "key_contacts": "Ansprechpartner",
+        "contacts_vat": "Kontakte &middot; MWST ",
+        "apx_title": "Allgemeine Geschäftsbedingungen", "apx_tag": "Standardbedingungen",
+        "sec_context": "Ausgangslage", "tag_context": "HINTERGRUND &middot; PROBLEMSTELLUNG",
+        "sec_scope": "Leistungsumfang",
+        "tag_scope": "LIEFERGEGENSTÄNDE &middot; ABGRENZUNGEN &middot; ANNAHMEN &middot; OPTIONEN",
+        "sec_effort": "Aufwandschätzung", "tag_effort": "GRUNDLEISTUNG &middot; TAGESSATZ ",
+        "sec_commercial": "Kommerzielle Bedingungen",
+        "tag_commercial": "SÄTZE &middot; RECHNUNGSSTELLUNG &middot; GÜLTIGKEIT",
+        "sec_activation": "Inkraftsetzung", "tag_activation": "VEREINBARUNG &middot; BESTELLUNG",
+        "deliver": "Was Numaco liefert", "not_deliver": "Was Numaco nicht liefert",
+        "assumptions": "Annahmen", "addons": "Optionale Zusatzleistungen",
+        "priced_separately": "Separat bepreist",
+        "col_ref": "Pos.", "col_workstream": "Arbeitspaket", "col_days": "Tage",
+        "col_amount": "Betrag CHF", "total": "Total Grundleistung",
+        "billing_basis": "Verrechnungsgrundlage",
+        "for_client": "Für den Kunden", "for_supplier": "Für den Lieferanten",
+        "term_day_rate": "Tagessatz", "term_outside": "Arbeit ausserhalb der Normalarbeitszeit",
+        "term_travel": "Reisekosten", "term_total": "Geschätzter Gesamtbetrag",
+        "term_payment": "Zahlung", "term_acceptance": "Abnahme",
+    },
+}
+
+
+def L(data, key):
+    """One label, in the payload's language, English if the pack lacks it."""
+    lang = str(data.get("language", "en")).lower()
+    return LABELS.get(lang, LABELS["en"]).get(key, LABELS["en"][key])
+
+
 # ---------- helpers ----------
 def _paras(value):
     """Normalise a paragraph source to a list of non-empty strings.
@@ -255,6 +327,19 @@ def _multi(text):
     """Escape a text block and join its blank-line paragraphs with breaks."""
     paras = [esc(p.strip()) for p in str(text or "").split("\n\n") if p.strip()]
     return "<br><br>".join(paras)
+
+
+def _cover_attn(data):
+    """The line under the client on the cover: the named addressee, else the city.
+
+    A proposal is addressed to a person. When the payload names contacts, the
+    first one goes on the cover so the recipient sees their own name; the city
+    is the fallback when it does not.
+    """
+    contacts = data.get("client_contacts") or []
+    if contacts and isinstance(contacts[0], dict) and contacts[0].get("name"):
+        return esc(contacts[0]["name"])
+    return _client_city(data)
 
 
 def _client_city(data):
@@ -326,7 +411,7 @@ def _scope_body(data):
         for i, item in enumerate(assumptions, 1):
             title, body = _pair(item)
             rows.append(S.scope_item(f"A{i}", esc(title), esc(body)))
-        parts.append(S.subhead("Assumptions") + S.items(*rows))
+        parts.append(S.subhead(L(data, "assumptions")) + S.items(*rows))
 
     addons = data.get("optional_addons") or []
     if addons:
@@ -335,9 +420,9 @@ def _scope_body(data):
             number = addon.get("number", i)
             rows.append(S.scope_item(
                 f"O{number}", esc(addon.get("title", "")),
-                _multi(addon.get("body", "")), tag="Priced separately"))
+                _multi(addon.get("body", "")), tag=L(data, "priced_separately")))
         parts.append(
-            S.subhead("Optional add-ons")
+            S.subhead(L(data, "addons"))
             + S.para(esc(_resolve(data, "addon_scope_note", ADDON_SCOPE_NOTE)))
             + S.items(*rows)
         )
@@ -387,12 +472,12 @@ def _effort_body(data):
         )
 
     table = S.effort_table(
-        [("Ref", False, "12mm"), ("Workstream", False, None),
-         ("Days", True, None), ("Amount CHF", True, None)],
+        [(L(data, "col_ref"), False, "12mm"), (L(data, "col_workstream"), False, None),
+         (L(data, "col_days"), True, None), (L(data, "col_amount"), True, None)],
         rows, total_row=total_row, addon_rows=addon_rows, footnote=footnote,
     )
     billing = S.callout(
-        "Billing basis",
+        L(data, "billing_basis"),
         "Billing is for time actually worked, not the estimate above. Optional "
         "add-ons are excluded from the base engagement total and are activated by "
         "a purchase order amendment that references this SOW.",
@@ -416,12 +501,12 @@ def _commercial_body(data):
     )
 
     default_terms = [
-        ("Day rate", day_rate_narrative),
-        ("Work outside standard hours",
+        (L(data, "term_day_rate"), day_rate_narrative),
+        (L(data, "term_outside"),
          _resolve(data, "outside_hours_narrative", OUTSIDE_HOURS_NARRATIVE)),
-        ("Travel", _resolve(data, "travel_narrative", TRAVEL_NARRATIVE)),
-        ("Total estimated amount", total_amount_narrative),
-        ("Payment",
+        (L(data, "term_travel"), _resolve(data, "travel_narrative", TRAVEL_NARRATIVE)),
+        (L(data, "term_total"), total_amount_narrative),
+        (L(data, "term_payment"),
          _resolve(data, "payment_narrative",
                   f"{payment_days} days net from date of invoice. The invoice "
                   "for the total amount is sent at the end of the performance.")),
@@ -432,7 +517,7 @@ def _commercial_body(data):
     # next to a deliverable-acceptance clause starts the warranty clock on the
     # wrong document.
     default_terms[-1] = (
-        _resolve(data, "acceptance_label", "Acceptance"),
+        _resolve(data, "acceptance_label", L(data, "term_acceptance")),
         default_terms[-1][1],
     )
 
@@ -464,15 +549,19 @@ def _activation_body(data):
     out = "".join(S.para(esc(p)) for p in paras)
     if data.get("show_signature_block", True):
         out += S.signature_block([
-            ("For the client", esc(data["client_legal_name"])),
-            ("For the supplier", "Numaco AG"),
+            (L(data, "for_client"), esc(data["client_legal_name"])),
+            (L(data, "for_supplier"), "Numaco AG"),
         ])
     return out
 
 
 def _appendix(data):
     """Parse tcs_body.md into (marker, heading, text) clauses, verbatim."""
-    md = (REFERENCES / "tcs_body.md").read_text(encoding="utf-8")
+    lang = str(data.get("language", "en")).lower()
+    tcs = REFERENCES / (f"tcs_body_{lang}.md" if lang != "en" else "tcs_body.md")
+    if not tcs.exists():
+        tcs = REFERENCES / "tcs_body.md"
+    md = tcs.read_text(encoding="utf-8")
     clauses = []
     cur_marker = None
     cur_heading = None
@@ -500,7 +589,7 @@ def _appendix(data):
             buf.append(esc(line.strip()))
     if cur_marker is not None:
         clauses.append((cur_marker, cur_heading, "<br><br>".join(buf)))
-    return S.appendix("Terms and Conditions", clauses, tag="Standard terms")
+    return S.appendix(L(data, "apx_title"), clauses, tag=L(data, "apx_tag"))
 
 
 # ---------- assembly ----------
@@ -508,24 +597,24 @@ def build_body(data):
     rate = float(data["day_rate_chf"])
 
     cover = S.cover(
-        "Statement of Work",
+        L(data, "doc_kind"),
         esc(data["sow_number"]),
         esc(data["project_title"]),
         _subtitle(data),
         [
-            ("Prepared for", esc(data["client_legal_name"]), _client_city(data)),
-            ("Prepared by", "Numaco AG", "CH-8905 Islisberg"),
-            ("Issued", esc(data["issue_date"]), "Commercial in confidence"),
-            ("Reference", esc(data["sow_number"]), "Rev A"),
+            (L(data, "prepared_for"), esc(data["client_legal_name"]), _cover_attn(data)),
+            (L(data, "prepared_by"), "Numaco AG", "CH-8905 Islisberg"),
+            (L(data, "issued"), esc(data["issue_date"]), L(data, "in_confidence")),
+            (L(data, "reference"), esc(data["sow_number"]), L(data, "rev")),
         ],
         "Numaco AG &middot; CH-8905 Islisberg",
     )
 
     client = {
-        "role": "Client",
+        "role": L(data, "client"),
         "name": esc(data["client_legal_name"]),
         "address": [esc(line) for line in data.get("client_address", [])],
-        "contacts_label": "Key contacts",
+        "contacts_label": L(data, "key_contacts"),
         "contacts": [
             {"name": esc(c.get("name", "")),
              "role": esc(c.get("role", "") or ""),
@@ -534,30 +623,28 @@ def build_body(data):
         ],
     }
     supplier = {
-        "role": "Supplier",
+        "role": L(data, "supplier"),
         "name": "Numaco AG",
         "address": NUMACO_ADDRESS,
-        "contacts_label": "Contacts &middot; VAT " + NUMACO_VAT,
+        "contacts_label": L(data, "contacts_vat") + NUMACO_VAT,
         "contacts": NUMACO_CONTACTS,
     }
-    parties = S.block_eyebrow("Contracting parties") + S.parties(client, supplier)
+    parties = S.block_eyebrow(L(data, "parties_eyebrow")) + S.parties(client, supplier)
 
     sec_context = S.section(
-        "01", "Context", "BACKGROUND &middot; PROBLEM STATEMENT",
+        "01", L(data, "sec_context"), L(data, "tag_context"),
         _context_body(data), first=True)
     sec_scope = S.section(
-        "02", "Scope",
-        "DELIVERABLES &middot; EXCLUSIONS &middot; ASSUMPTIONS &middot; OPTIONS",
+        "02", L(data, "sec_scope"), L(data, "tag_scope"),
         _scope_body(data))
     sec_effort = S.section(
-        "03", "Effort estimate",
-        "BASE ENGAGEMENT &middot; DAY RATE " + S.chf(rate),
+        "03", L(data, "sec_effort"), L(data, "tag_effort") + S.chf(rate),
         _effort_body(data))
     sec_commercial = S.section(
-        "04", "Commercial terms", "RATES &middot; INVOICING &middot; VALIDITY",
+        "04", L(data, "sec_commercial"), L(data, "tag_commercial"),
         _commercial_body(data))
     sec_activation = S.section(
-        "05", "Activation", "AGREEMENT &middot; PURCHASE ORDER",
+        "05", L(data, "sec_activation"), L(data, "tag_activation"),
         _activation_body(data))
     apx = _appendix(data)
 
@@ -586,14 +673,19 @@ def render(data, output_path):
         os.makedirs(out_dir, exist_ok=True)
     body = build_body(data)
     title = f"Numaco SOW {data['sow_number']}"
+    lang = str(data.get("language", "en")).lower()
     S.render_pdf(
         title,
         body,
         output_path,
-        "Statement of Work",
+        L(data, "doc_kind"),
         data["sow_number"],
         extra_css=SOW_CSS,
         watermark_opacity=SOW_WATERMARK_OPACITY,
+        lang=lang,
+        running_labels={"confidential": L(data, "confidential"),
+                        "page_word": L(data, "page_word"),
+                        "of_word": L(data, "of_word")},
     )
     html_path = os.path.splitext(output_path)[0] + ".html"
     return html_path, output_path

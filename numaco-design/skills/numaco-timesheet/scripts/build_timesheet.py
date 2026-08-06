@@ -742,6 +742,74 @@ def _stat_band(budget, period_total, prior, period_start):
 
 
 # ---------------------------------------------------------------- table
+
+# ---------------------------------------------------------------------------
+# Language packs. Every word this engine emits lives here, prose templates
+# included, so a German timesheet is a payload switch rather than a fork.
+# ---------------------------------------------------------------------------
+TS_LABELS = {
+    "en": {
+        "doc_kind": "Timesheet", "confidential": "Confidential",
+        "page_word": "Page", "of_word": "of",
+        "client": "Client", "engagement": "Engagement", "period": "Period",
+        "report_date": "Report date", "prepared_by": "Prepared by",
+        "contact": "Contact", "reference": "Reference", "to": "to",
+        "sec_overview": "Overview", "tag_overview": "HOURS &middot; CUMULATIVE",
+        "tag_budget": " &middot; BUDGET",
+        "sec_workmix": "Work mix", "tag_workmix": "SERVICE CATEGORIES &middot; HOURS",
+        "sec_entries": "Recorded hours", "sec_approval": "Approval",
+        "tag_approval": "REVIEW &middot; SIGN-OFF",
+        "col_date": "Date", "col_by": "By", "col_desc": "Description",
+        "col_hours": "Hours", "col_amount": "Amount CHF", "col_category": "Category",
+        "total": "Total", "hours_by_category": "Hours by category",
+        "notes": "Notes",
+        "chart_monthly": "Monthly hours and cumulative usage",
+        "chart_weekly": "Weekly hours and cumulative usage",
+        "chart_vs_budget": " vs budget",
+        "subtitle": "Timesheet for {period}. Hours recorded by Numaco AG for {client}.",
+        "lead": "Hours recorded by Numaco AG for {client} on the project {project}, covering {period}.",
+        "approval": ("This timesheet records the services performed by Numaco AG for {client} on the "
+                     "project stated above, during {period}. The client is asked to review and approve "
+                     "the recorded hours; once approved, this timesheet serves as the basis for invoicing."),
+        "sig_numaco": "Numaco AG &middot; Date, signature",
+        "sig_client": "For the client &middot; Date, signature",
+    },
+    "de": {
+        "doc_kind": "Arbeitsrapport", "confidential": "Vertraulich",
+        "page_word": "Seite", "of_word": "von",
+        "client": "Kunde", "engagement": "Auftrag", "period": "Zeitraum",
+        "report_date": "Rapportdatum", "prepared_by": "Erstellt von",
+        "contact": "Kontakt", "reference": "Referenz", "to": "bis",
+        "sec_overview": "Übersicht", "tag_overview": "STUNDEN &middot; KUMULIERT",
+        "tag_budget": " &middot; BUDGET",
+        "sec_workmix": "Leistungsarten", "tag_workmix": "LEISTUNGSKATEGORIEN &middot; STUNDEN",
+        "sec_entries": "Erfasste Stunden", "sec_approval": "Genehmigung",
+        "tag_approval": "PRÜFUNG &middot; FREIGABE",
+        "col_date": "Datum", "col_by": "Mitarbeiter", "col_desc": "Beschreibung",
+        "col_hours": "Stunden", "col_amount": "Betrag CHF", "col_category": "Kategorie",
+        "total": "Total", "hours_by_category": "Stunden nach Kategorie",
+        "notes": "Bemerkungen",
+        "chart_monthly": "Stunden pro Monat und kumulierter Verlauf",
+        "chart_weekly": "Stunden pro Woche und kumulierter Verlauf",
+        "chart_vs_budget": " im Vergleich zum Budget",
+        "subtitle": "Arbeitsrapport für {period}. Von der Numaco AG für {client} erfasste Stunden.",
+        "lead": "Von der Numaco AG für {client} im Projekt {project} erfasste Stunden, Zeitraum {period}.",
+        "approval": ("Dieser Arbeitsrapport hält die von der Numaco AG für {client} im oben genannten "
+                     "Projekt erbrachten Leistungen im Zeitraum {period} fest. Der Kunde wird gebeten, "
+                     "die erfassten Stunden zu prüfen und zu genehmigen; nach der Genehmigung dient "
+                     "dieser Arbeitsrapport als Grundlage für die Rechnungsstellung."),
+        "sig_numaco": "Numaco AG &middot; Datum, Unterschrift",
+        "sig_client": "Für den Kunden &middot; Datum, Unterschrift",
+    },
+}
+
+
+def TL(data, key):
+    """One label or prose template, in the payload's language."""
+    lang = str(data.get("language", "en")).lower()
+    return TS_LABELS.get(lang, TS_LABELS["en"]).get(key, TS_LABELS["en"][key])
+
+
 def _hourly_rate(data):
     """The billing rate per hour, or None for an hours-only sheet.
 
@@ -788,13 +856,13 @@ def _entries_table(data):
     categories = _categories(data)
     category_index = {category["key"]: i for i, category in enumerate(categories)}
 
-    cols = [("Date", False, "22mm")]
+    cols = [(TL(data, "col_date"), False, "22mm")]
     if with_by:
-        cols.append(("By", False, "26mm"))
-    cols.append(("Description", False, None))
-    cols.append(("Hours", True, "14mm" if with_amount else "16mm"))
+        cols.append((TL(data, "col_by"), False, "26mm"))
+    cols.append((TL(data, "col_desc"), False, None))
+    cols.append((TL(data, "col_hours"), True, "14mm" if with_amount else "16mm"))
     if with_amount:
-        cols.append(("Amount CHF", True, "24mm"))
+        cols.append((TL(data, "col_amount"), True, "24mm"))
     ncols = len(cols)
 
     rows = []
@@ -844,7 +912,7 @@ def _entries_table(data):
                 sub.append((S.num(sub_amount), "num tsq"))
             rows.append(sub)
 
-    total_label = f"Total {esc(data['period_label'])}"
+    total_label = f"{TL(data, 'total')} {esc(data['period_label'])}"
     lead_blanks = ncols - 2 - (1 if with_amount else 0)
     total_row = [("", "")] * lead_blanks + [(total_label, "ws")]
     if with_amount:
@@ -920,7 +988,7 @@ def _work_mix_section(data):
     total_row = [(f'Total {esc(data["period_label"])}', "ws"),
                  (_hours(grand), "num"), ("100.0%", "num amt")]
     summary = S.effort_table(
-        [("Category", False, None), ("Hours", True, "18mm"),
+        [(TL(data, "col_category"), False, None), (TL(data, "col_hours"), True, "18mm"),
          ("Share", False, "48mm")],
         rows,
         total_row=total_row,
@@ -929,10 +997,10 @@ def _work_mix_section(data):
     body = (
         f'<p class="lead mix-lead">{lead}</p>'
         '<div class="category-grid">' + ''.join(cards) + '</div>'
-        + S.subhead("Hours by category") + summary
+        + S.subhead(TL(data, "hours_by_category")) + summary
     )
     return '<div class="pagebreak"></div><div class="work-mix-page">' + S.section(
-        "02", "Work mix", "SERVICE CATEGORIES &middot; HOURS", body
+        "02", TL(data, "sec_workmix"), TL(data, "tag_workmix"), body
     ) + '</div><div class="pagebreak"></div>'
 
 
@@ -945,8 +1013,8 @@ def _cover(data, consultant):
     doc_no = esc(str(data.get("reference") or data["period_label"]))
 
     title = esc(data["project_title"])
-    subtitle = (f"Timesheet for {esc(data['period_label'])}. Hours recorded by "
-                f"Numaco AG for {esc(data['client_legal_name'])}.")
+    subtitle = TL(data, "subtitle").format(
+        period=esc(data["period_label"]), client=esc(data["client_legal_name"]))
 
     addr = data.get("client_address") or []
     if isinstance(addr, str):
@@ -954,19 +1022,20 @@ def _cover(data, consultant):
     addr_line = ", ".join(esc(line) for line in addr)
 
     meta = [
-        ("Client", esc(data["client_legal_name"]), addr_line),
-        ("Engagement", esc(data.get("engagement") or data["project_title"])),
-        ("Period", esc(data["period_label"]),
-         f"{_ddmmyyyy(start)} to {_ddmmyyyy(end)}"),
-        ("Report date", _ddmmyyyy(report_d)),
-        ("Prepared by", "Numaco AG",
+        (TL(data, "client"), esc(data["client_legal_name"]), addr_line),
+        (TL(data, "engagement"), esc(data.get("engagement") or data["project_title"])),
+        (TL(data, "period"), esc(data["period_label"]),
+         f"{_ddmmyyyy(start)} {TL(data, 'to')} {_ddmmyyyy(end)}"),
+        (TL(data, "report_date"), _ddmmyyyy(report_d)),
+        (TL(data, "prepared_by"), "Numaco AG",
          esc(consultant) if consultant else "CH-8905 Islisberg"),
-        ("Contact", "numaco.ch", "Haldenstrasse 3c &middot; CH-8905 Islisberg"),
+        (TL(data, "contact"), "numaco.ch", "Haldenstrasse 3c &middot; CH-8905 Islisberg"),
     ]
     if data.get("reference"):
-        meta.append(("Reference", esc(data["reference"])))
+        meta.append((TL(data, "reference"), esc(data["reference"])))
 
-    return S.cover("Timesheet", doc_no, title, subtitle, meta, COVER_FOOTER_LINE)
+    return S.cover(TL(data, "doc_kind"), doc_no, title, subtitle, meta, COVER_FOOTER_LINE,
+                   confidential=TL(data, "confidential"))
 
 
 def _overview_section(data):
@@ -979,15 +1048,15 @@ def _overview_section(data):
     prior = float(data.get("prior_hours") or 0.0)
     total = sum(e["hours"] for e in entries)
 
-    lead = (f"Hours recorded by Numaco AG for {esc(data['client_legal_name'])} "
-            f"on the project {esc(data['project_title'])}, covering "
-            f"{esc(data['period_label'])}.")
+    lead = TL(data, "lead").format(
+        client=esc(data["client_legal_name"]), project=esc(data["project_title"]),
+        period=esc(data["period_label"]))
 
     buckets, mode = _bucket_entries(entries, start, end)
-    chart_title = ("Monthly hours and cumulative usage" if mode == "monthly"
-                   else "Weekly hours and cumulative usage")
+    chart_title = (TL(data, "chart_monthly") if mode == "monthly"
+                   else TL(data, "chart_weekly"))
     if budget:
-        chart_title += " vs budget"
+        chart_title += TL(data, "chart_vs_budget")
 
     body = S.lead(lead)
     if budget:
@@ -996,34 +1065,29 @@ def _overview_section(data):
     body += ('<div class="ts-chart">' + _legend(bool(budget))
              + _chart_svg(buckets, budget, prior) + "</div>")
 
-    tag = "HOURS &middot; CUMULATIVE"
+    tag = TL(data, "tag_overview")
     if budget:
-        tag += " &middot; BUDGET"
-    return S.section("01", "Overview", tag, body, first=True)
+        tag += TL(data, "tag_budget")
+    return S.section("01", TL(data, "sec_overview"), tag, body, first=True)
 
 
 def _entries_section(data):
     body = _entries_table(data)
     if data.get("notes"):
-        body += S.note("Notes", esc(data["notes"]))
+        body += S.note(TL(data, "notes"), esc(data["notes"]))
     number = "03" if data.get("categories") else "02"
-    return S.section(number, "Recorded hours", "", body)
+    return S.section(number, TL(data, "sec_entries"), "", body)
 
 
 def _approval_section(data, consultant):
-    para = (
-        f"This timesheet records the services performed by Numaco AG for "
-        f"{esc(data['client_legal_name'])} on the project stated above, during "
-        f"{esc(data['period_label'])}. The client is asked to review and "
-        "approve the recorded hours; once approved, this timesheet serves as "
-        "the basis for invoicing."
-    )
+    para = TL(data, "approval").format(
+        client=esc(data["client_legal_name"]), period=esc(data["period_label"]))
     sig = S.signature_block([
-        ("Numaco AG &middot; Date, signature", esc(consultant) if consultant else "Numaco AG"),
-        ("For the client &middot; Date, signature", esc(data["client_legal_name"])),
+        (TL(data, "sig_numaco"), esc(consultant) if consultant else "Numaco AG"),
+        (TL(data, "sig_client"), esc(data["client_legal_name"])),
     ])
     number = "04" if data.get("categories") else "03"
-    sec = S.section(number, "Approval", "REVIEW &middot; SIGN-OFF",
+    sec = S.section(number, TL(data, "sec_approval"), TL(data, "tag_approval"),
                     S.para(para) + sig + _footer_block())
     return '<div class="ts-keep">' + sec + "</div>"
 
@@ -1057,10 +1121,14 @@ def render(data, output_path):
         title,
         body,
         output_path,
-        "Timesheet",
+        TL(data, "doc_kind"),
         esc(doc_no),
         extra_css=TIMESHEET_CSS,
         watermark_opacity=TIMESHEET_WATERMARK_OPACITY,
+        lang=str(data.get("language", "en")).lower(),
+        running_labels={"confidential": TL(data, "confidential"),
+                        "page_word": TL(data, "page_word"),
+                        "of_word": TL(data, "of_word")},
     )
     html_path = os.path.splitext(output_path)[0] + ".html"
     return html_path, output_path
