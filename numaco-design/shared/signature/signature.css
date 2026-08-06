@@ -358,3 +358,19 @@ tr.total td.num{ font-size:var(--fs-total_fig,11.5pt); }
 .party .ce{ font-size:calc(var(--fs-party_detail,10pt) * 0.96104); }
 .note{ font-size:var(--fs-fineprint,8pt); }
 .clause .ct{ font-size:calc(var(--fs-fineprint,8pt) * 0.98864); }
+
+/* --- Optional-add-on selection boxes (signature page) --------------------- */
+.optbox{ margin-top:7mm; break-inside:avoid; }
+.optbox .obl{ font-family:var(--font-mono); font-size:5.8pt; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--grey2); margin-bottom:2.5mm; }
+.optbox .obg{ display:grid; grid-template-columns:1fr 1fr; gap:2.5mm 6mm; }
+.optbox .ob{ display:flex; gap:3mm; align-items:flex-start;
+  border-bottom:0.25mm solid var(--hair2); padding:2mm 0; break-inside:avoid; }
+.optbox .obx{ flex:0 0 auto; width:4.2mm; height:4.2mm; margin-top:0.6mm;
+  border:0.35mm solid var(--navy); border-radius:0.4mm; }
+.optbox .obt{ flex:1 1 auto; }
+.optbox .obc{ font-family:var(--font-mono); font-size:6pt; letter-spacing:.08em;
+  color:var(--amber); font-weight:700; }
+.optbox .obn{ font-size:8.6pt; color:var(--ink); font-weight:600; line-height:1.3; }
+.optbox .obm{ font-family:var(--font-mono); font-size:6.4pt; color:var(--grey2); margin-top:0.6mm; }
+.optbox .obn2{ font-size:8.2pt; color:var(--grey2); margin-top:3mm; line-height:1.45; }
