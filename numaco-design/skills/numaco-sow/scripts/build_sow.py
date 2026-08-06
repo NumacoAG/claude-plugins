@@ -33,6 +33,7 @@ Payload schema (unchanged contract):
   "optional_addons":   [                                  // optional; omit or []
     {"number": 2, "title": "CSV schema validation", "days": 1.0, "body": "..."}
   ],
+  "cover_subtitle":         "...",   // the cover line; write it, do not let it truncate
   "day_rate_narrative":     "...",   // optional override (e.g. list rate then discount)
   "total_amount_narrative": "...",   // optional override
   "output_path":            "/absolute/path/to/final.pdf"  // optional; else argv[2]
@@ -268,7 +269,16 @@ def _client_city(data):
 
 
 def _subtitle(data):
-    """A one-line subtitle: the first sentence of the context, else a fallback."""
+    """The cover subtitle.
+
+    Prefer an explicit `cover_subtitle`: a cover line should be written to be a
+    cover line. Falling back to the context's first sentence is a convenience,
+    and it truncates with an ellipsis when that sentence is long, which reads as
+    a defect on a document a customer is about to sign. Supply the key.
+    """
+    explicit = str(data.get("cover_subtitle") or "").strip()
+    if explicit:
+        return esc(explicit)
     ctx = str(data.get("context") or "").strip()
     if ctx:
         first = ctx.split("\n\n")[0].strip()
