@@ -57,6 +57,11 @@ string (split on blank lines) or a list of paragraphs.
   "activation_narrative":    "..."   // replaces the section 5 paragraph
   "activation_extra":        [...]   // further section 5 paragraphs (e.g. precedence)
   "show_signature_block":    true    // set false to omit it
+  "show_option_boxes":       true    // tick-boxes on the signature page, one per
+                                     // optional add-on plus a "none" row, so the
+                                     // client chooses options where they sign.
+                                     // Automatic whenever optional_addons exist;
+                                     // set false only to suppress them.
   "addon_scope_note":        "..."   // the note above the optional add-ons
   "addon_separator_label":   "..."   // the merged row in the effort table
 
@@ -232,6 +237,12 @@ LABELS = {
         "term_day_rate": "Day rate", "term_outside": "Work outside standard hours",
         "term_travel": "Travel", "term_total": "Total estimated amount",
         "term_payment": "Payment", "term_acceptance": "Acceptance",
+        "opt_select_label": "Optional add-ons selected",
+        "opt_select_note": ("Tick any optional add-on the client wishes to activate, then return this page with "
+                            "the purchase order. Ticked items are added to the total at the rates in section 3. "
+                            "Leaving every box empty orders the base engagement only."),
+        "opt_none": "None, base engagement only",
+        "opt_meta": "{days} d &middot; {amount}",
         "country": "Switzerland", "apx_label": "APX",
         "addon_scope_note": ADDON_SCOPE_NOTE, "addon_sep_label": ADDON_SEP_LABEL,
         "acceptance_body": ACCEPTANCE_NARRATIVE,
@@ -268,6 +279,13 @@ LABELS = {
         "term_day_rate": "Tagessatz", "term_outside": "Arbeit ausserhalb der Normalarbeitszeit",
         "term_travel": "Reisekosten", "term_total": "Geschätzter Gesamtbetrag",
         "term_payment": "Zahlung", "term_acceptance": "Abnahme",
+        "opt_select_label": "Gewählte optionale Zusatzleistungen",
+        "opt_select_note": ("Kreuzen Sie jede gewünschte optionale Zusatzleistung an und senden Sie diese Seite "
+                            "zusammen mit der Bestellung zurück. Angekreuzte Positionen werden zu den Ansätzen "
+                            "aus Abschnitt 3 zum Total hinzugefügt. Bleiben alle Felder leer, wird ausschliesslich "
+                            "die Grundleistung bestellt."),
+        "opt_none": "Keine, nur die Grundleistung",
+        "opt_meta": "{days} T &middot; {amount}",
         "country": "Schweiz", "apx_label": "ANH",
         "addon_scope_note": "Die nachstehenden Positionen sind nicht Teil der Grundleistung. Jede ist in der Aufwandschätzung separat bepreist; jede Kombination kann vor oder während des Auftrags nach Wahl des Kunden über eine Bestelländerung mit Bezug auf diesen Leistungsbeschrieb hinzugefügt werden.",
         "addon_sep_label": "Optionale Zusatzleistungen (separat bepreist, im Total unten nicht enthalten)",
@@ -548,6 +566,21 @@ def _activation_body(data):
     paras += _paras(data.get("activation_extra"))
 
     out = "".join(S.para(esc(p)) for p in paras)
+
+    # A SOW that offers options must let the signer choose them here, on the page
+    # they sign, rather than in a covering email where the choice gets lost.
+    addons = data.get("optional_addons") or []
+    if addons and data.get("show_option_boxes", True):
+        rate = float(data["day_rate_chf"])
+        items = []
+        for i, addon in enumerate(addons, 1):
+            days = float(addon.get("days", 0) or 0)
+            meta = L(data, "opt_meta").format(days=_days(days), amount=S.chf(days * rate))
+            items.append((f"O{addon.get('number', i)}", esc(addon.get("title", "")), meta))
+        items.append(("&mdash;", esc(L(data, "opt_none")), ""))
+        out += S.option_boxes(items, label=L(data, "opt_select_label"),
+                              note=esc(L(data, "opt_select_note")))
+
     if data.get("show_signature_block", True):
         out += S.signature_block([
             (L(data, "for_client"), esc(data["client_legal_name"])),

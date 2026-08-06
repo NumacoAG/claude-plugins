@@ -53,6 +53,9 @@ appendix(title, clauses, tag="Representative extract", pagebreak=True, apx_label
     Appendix section; clauses is a list of (marker, heading, text).
 note(label, text) -> str               Amber side note.
 signature_block(fields) -> str         Signature grid; fields is a list of (label, name).
+option_boxes(items, label=None, note=None) -> str
+    Tick-box selection grid for optional add-ons, rendered on the signature page.
+    items is a list of (code, title, meta) triples.
 
 Convenience helpers (also return HTML strings)
     running_elements(doc_kind, doc_no), main_body(*parts), block_eyebrow(text),
@@ -429,6 +432,28 @@ def appendix(title, clauses, tag="Representative extract", pagebreak=True, apx_l
   </div>
   <div class="sec-body"><div class="clauses">{cl}</div></div>
 </section>"""
+
+
+def option_boxes(items, label=None, note=None):
+    """A tick-box selection grid, one box per selectable option.
+
+    `items` is a list of (code, title, meta) triples: the code renders inside
+    the box's corner, the title is what the signer reads, and meta carries the
+    effort and price. Exists so a customer can choose options on the signature
+    page itself rather than in a covering email, which is where an option
+    selection otherwise gets lost.
+    """
+    rows = ""
+    for code, title, meta in items:
+        meta_html = f'<div class="obm">{meta}</div>' if meta else ""
+        rows += (
+            '<div class="ob"><div class="obx"></div>'
+            f'<div class="obt"><div class="obc">{code}</div>'
+            f'<div class="obn">{title}</div>{meta_html}</div></div>'
+        )
+    head = f'<div class="obl">{label}</div>' if label else ""
+    foot = f'<div class="obn2">{note}</div>' if note else ""
+    return f'<div class="optbox">{head}<div class="obg">{rows}</div>{foot}</div>'
 
 
 def signature_block(fields):
