@@ -626,6 +626,7 @@ def _chart_svg(buckets, budget, prior=0.0, data=None):
     slot = plot_w / n
     bar_w = min(slot * 0.5, 36.0)
     centers = []
+    bar_labels = []
     for i, b in enumerate(buckets):
         cx = pad_l + slot * (i + 0.5)
         centers.append(cx)
@@ -634,10 +635,16 @@ def _chart_svg(buckets, budget, prior=0.0, data=None):
             p.append(f'<rect x="{cx - bar_w / 2:.1f}" y="{yb:.1f}"'
                      f' width="{bar_w:.1f}" height="{base - yb:.1f}"'
                      f' fill="{_CHART_COLORS[i % len(_CHART_COLORS)]}"/>')
-            p.append(f'<text x="{cx:.1f}" y="{yb - 6:.1f}" text-anchor="middle"'
-                     f' font-family="{_SVG_MONO}" font-size="13.5"'
-                     f' font-weight="700" fill="{_C_NAVY}">'
-                     f'{_hours(b["hours"])}</text>')
+            # Held back and appended last, with a white halo: the cumulative
+            # polyline is drawn after the bars and would otherwise strike
+            # through the value on the tallest bucket, which is the one number
+            # a reader looks at.
+            bar_labels.append(
+                f'<text x="{cx:.1f}" y="{yb - 9:.1f}" text-anchor="middle"'
+                f' font-family="{_SVG_MONO}" font-size="13.5"'
+                f' font-weight="700" paint-order="stroke" stroke="#ffffff"'
+                f' stroke-width="6" stroke-linejoin="round" fill="{_C_NAVY}">'
+                f'{_hours(b["hours"])}</text>')
         p.append(f'<text x="{cx:.1f}" y="{base + 15:.1f}" text-anchor="middle"'
                  f' font-family="{_SVG_MONO}" font-size="12.5" font-weight="600"'
                  f' fill="#3f4a5f">{b["label"]}</text>')
@@ -685,6 +692,8 @@ def _chart_svg(buckets, budget, prior=0.0, data=None):
              f' text-anchor="middle"'
              f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
              f' letter-spacing="1.2" fill="{_C_NAVY}">{TL(data or {}, "axis_hours")}</text>')
+
+    p.extend(bar_labels)
 
     return (f'<svg viewBox="0 0 {width:g} {height:g}"'
             ' xmlns="http://www.w3.org/2000/svg"'

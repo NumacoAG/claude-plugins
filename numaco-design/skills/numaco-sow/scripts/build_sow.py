@@ -34,6 +34,8 @@ Payload schema (unchanged contract):
     {"number": 2, "title": "CSV schema validation", "days": 1.0, "body": "..."}
   ],
   "cover_subtitle":         "...",   // the cover line; write it, do not let it truncate
+  "effort_intro":           "...",   // prose above the effort table (staffing, basis of
+                                     // estimate). Without it section 3 opens on the table.
   "day_rate_narrative":     "...",   // optional override (e.g. list rate then discount)
   "total_amount_narrative": "...",   // optional override
   "output_path":            "/absolute/path/to/final.pdf"  // optional; else argv[2]
@@ -155,7 +157,7 @@ NUMACO_CONTACTS = _supplier_contacts()
 
 # ---- Verbatim boilerplate (preserve exactly; commercial + activation + separator) ----
 ADDON_SEP_LABEL = ("Optional add-ons (priced separately, not included in the "
-                   "total below)")
+                   "total above)")
 
 ADDON_SCOPE_NOTE = (
     "The items below are not part of the base engagement. Each is priced "
@@ -288,7 +290,7 @@ LABELS = {
         "opt_meta": "{days} T &middot; {amount}",
         "country": "Schweiz", "apx_label": "ANH",
         "addon_scope_note": "Die nachstehenden Positionen sind nicht Teil der Grundleistung. Jede ist in der Aufwandschätzung separat bepreist; jede Kombination kann vor oder während des Auftrags nach Wahl des Kunden über eine Bestelländerung mit Bezug auf diesen Leistungsbeschrieb hinzugefügt werden.",
-        "addon_sep_label": "Optionale Zusatzleistungen (separat bepreist, im Total unten nicht enthalten)",
+        "addon_sep_label": "Optionale Zusatzleistungen (separat bepreist, im Total oben nicht enthalten)",
         "acceptance_body": "Sämtliche Leistungen werden in einem Arbeitsrapport mit detaillierter Leistungsbeschreibung erfasst. Der Kunde kann den Arbeitsrapport jederzeit einsehen. Nach Abschluss der Leistungsperiode stellt Numaco dem Kunden den Arbeitsrapport zur Prüfung und Genehmigung zu; nach der Genehmigung dient er als Grundlage für die Rechnungsstellung.",
         "payment_body": "{days} Tage netto ab Rechnungsdatum. Die Rechnung über den Gesamtbetrag wird nach Abschluss der Leistung gestellt.",
         "activation_body": "Dieser Leistungsbeschrieb wird zwischen {client} und Numaco AG vereinbart. Er ist ohne förmliche Unterschriften gültig und tritt mit einer kommerziellen Bestellung in Kraft, die auf dieses Dokument Bezug nimmt.",
@@ -466,6 +468,7 @@ def _scope_body(data):
 
 
 def _effort_body(data):
+    intro = "".join(S.para(esc(p)) for p in _paras(data.get("effort_intro")))
     rate = float(data["day_rate_chf"])
     workstreams = data.get("workstreams", [])
     addons = data.get("optional_addons") or []
@@ -504,9 +507,10 @@ def _effort_body(data):
         [(L(data, "col_ref"), False, "12mm"), (L(data, "col_workstream"), False, None),
          (L(data, "col_days"), True, None), (L(data, "col_amount"), True, None)],
         rows, total_row=total_row, addon_rows=addon_rows, footnote=footnote,
+        table_class="data sow-effort",
     )
     billing = S.callout(L(data, "billing_basis"), L(data, "billing_body"))
-    return table + billing
+    return intro + table + billing
 
 
 def _commercial_body(data):
