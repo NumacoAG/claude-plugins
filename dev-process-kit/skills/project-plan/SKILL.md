@@ -16,7 +16,7 @@ description: >-
   deliverables, or decision points goes through the obsidian-versioned-review
   regime while routine maintenance is a direct edit.
 status: stable
-version: "1.1 (2026-08-06, generic phrasing, mobile tracking via the review-kit command)"
+version: "1.2 (2026-08-06, generic phrasing throughout, mobile tracking via the review-kit command)"
 ---
 
 # project-plan, the living Project Status doc
@@ -49,7 +49,7 @@ Be generous. Trigger on:
   ```
   /dvsync-track
   ```
-  Tracking is idempotent. A doc inside a `~/Code/<project>` repo derives its mobile mapping automatically.
+  Tracking is idempotent. A doc inside a git repository derives its mobile mapping automatically from the repository's top level; a doc that lives outside one is mapped explicitly when it is tracked.
 
 ### Configuration, optional, in the project's root `CLAUDE.md`
 
