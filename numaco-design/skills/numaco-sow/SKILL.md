@@ -182,12 +182,14 @@ The JSON payload contract (same as the legacy renderer, see the header of `scrip
 
 A ready-to-run example lives in `sample/build_sample.py` (client Acme Labs AG, four workstreams, one optional add-on). It renders `sample/sample_sow.pdf` and runs the CoreGraphics check.
 
-## SOW number generation
+## Document number generation
 
-Format: `YYDDDN` where
+**One series for every commercial document Numaco issues**, not a per-document-type series. Format `YYDDDN` where
 - `YY` = two-digit year (e.g. `26` for 2026)
 - `DDD` = day of year, zero-padded (001 to 366). For 2026-04-23 this is `113`.
 - `N` = a single collision-avoidance digit 0 to 9.
+
+Live tenant examples that pin the scheme down: `IN262090` is 28 July 2026, `Arbeitsrapport 243662` is 31 December 2024 (2024 was a leap year, so day 366 exists), `Timesheet 253507` is 16 December 2025.
 
 Algorithm:
 
@@ -196,7 +198,18 @@ Algorithm:
 3. Pick the smallest unused digit 0 to 9 as `N`.
 4. If all ten are taken (very unlikely), pad with a second digit and tell the user.
 
-Implementation: `scripts/generate_sow_number.py`. The data directory is configurable and never assumed to exist: pass `--data-dir "<path>"` or set `NUMACO_DATA_DIR`; with no data dir the scan finds no collisions and `N` starts at 0.
+Two rules that are easy to get wrong:
+
+- **Quotation, order confirmation, delivery note and invoice for the SAME transaction share ONE number**, distinguished only by the letter prefix: `QU261938`, `OC261938`, `DN261938`, `IN261938`. The number identifies the transaction, not the sheet of paper.
+- **Every other document takes its own number from the same series.** A SOW, a timesheet, an Arbeitsrapport: each is allocated separately. **Never derive one document's number by suffixing another's** (`262180-07` is not a Numaco number), and never reuse the SOW number for the timesheet that accompanies it.
+
+**When one sitting produces a SOW and its timesheet, allocate both in ONE call with `--count 2`.** The collision scan reads filenames on disk, so two separate calls made before either file is written hand back the same number twice.
+
+Implementation: the rules live in the shared module `shared/numbering/document_number.py`; `scripts/generate_sow_number.py` is a thin CLI shim over it (`scripts/generate_timesheet_number.py` in the timesheet skill is the same shim). The data directory is configurable and never assumed to exist: pass `--data-dir "<path>"` or set `NUMACO_DATA_DIR`; with no data dir the scan finds no collisions and `N` starts at 0.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/numaco-sow/scripts/generate_sow_number.py" --data-dir "<sales-docs>" --count 2
+```
 
 ## Output folder
 

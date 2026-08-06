@@ -67,6 +67,20 @@ meta band; the project title serves when absent) and the `report_date` (pass
 today's date; the engine never calls the clock itself, so the payload stays
 reproducible).
 
+### Step 1b: allocate the document number
+
+**A timesheet takes its own number from the shared Numaco `YYDDDN` series.** It is never the accompanying SOW's number with a suffix bolted on, and never that number reused. Tenant precedent is unambiguous: `Timesheet 253507`, `Timesheet 260039`, `Arbeitsrapport 252319`, all bare six-digit numbers of their own.
+
+Generate it, never invent it:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/numaco-timesheet/scripts/generate_timesheet_number.py" --data-dir "<sales-docs>"
+```
+
+The number goes into `reference` and into the filename: `Timesheet <number> - <customer> - <period>.pdf`.
+
+**When the same sitting produces a SOW and its timesheet, allocate both in ONE call with `--count 2`.** The collision scan reads filenames on disk, so two separate calls made before either file is written return the same number twice. The full rules (including why QU/OC/DN/IN for one transaction do share a number) live in `shared/numbering/document_number.py`, which both skills shim over.
+
 ### Step 2: obtain the entries
 
 Two paths, in order of preference:
@@ -189,7 +203,7 @@ drift are the payload options. Rules:
   "period_start": "2026-04-01",
   "period_end": "2026-06-30",
   "report_date": "2026-07-02",
-  "reference": "TS-261912-Q2",
+  "reference": "261913",
   "consultant": "Alex Muster",
   "budget_hours": 120,
   "prior_hours": 30,
@@ -232,6 +246,11 @@ drift are the payload options. Rules:
   `budget_hours`, `prior_hours`, `categories`, `day_rate_chf`, `notes`,
   `output_path`, and the per entry `by` are optional; everything else is
   required.
+- `reference` is the timesheet's OWN six digit number from the shared Numaco
+  `YYDDDN` series, produced by `scripts/generate_timesheet_number.py` (step 1b).
+  It is never a SOW number, and never a SOW number with a suffix: `262180-07` is
+  not a Numaco number. If the same sitting also produced a SOW, the two numbers
+  are consecutive, allocated together with `--count 2`.
 - `engagement` present: shown as the Engagement line in the cover meta band;
   absent: the project title serves as that line.
 - `report_date` is the date shown on the cover. Pass today's date; when absent
