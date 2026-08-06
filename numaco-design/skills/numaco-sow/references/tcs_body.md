@@ -34,15 +34,31 @@ The company may from time to time request that the consultant arrange for the se
 
 ## 8. Legal Remedies
 
-Parties agree to submit any dispute to binding arbitration. Such arbitration shall be held under the terms and conditions specified by the Swiss Code of Obligations. In no case shall the consultant have a liability in excess of the amounts paid directly to the consultant for the consultant's own work.
+The parties will first attempt to resolve any dispute arising out of the agreement by negotiation between persons with authority to settle it. Failing that, the dispute is resolved by the courts identified in article 11. The parties may agree in writing, after a dispute has arisen, to submit it instead to arbitration, in which case they will agree the seat, the institution, the rules and the number of arbitrators in that same document. Numaco's liability is limited as set out in article 17.
 
 ## 9. Severability
 
 If any provision of the agreement is held to be invalid, void or unenforceable as written, such provision shall be interpreted so as to apply and be enforced to the maximum extent permitted by law, and the remaining provisions of the agreement shall continue in full force and effect without being impaired or invalidated in any way.
 
-## 10. Limitation
+## 10. Intellectual Property
 
-Notwithstanding any terms of the Agreement appearing to be to the contrary, the agreement does not apply to any invention or work of contractor for which no equipment, except for a computer as specified previously, supplies, facilities or trade secret information of company was used and which was developed entirely on contractor's own time, unless (a) the invention or work relates (i) directly to company's business or (ii) to company's actual or demonstrably anticipated research or development, or (b) the invention or work results from any services contractor provided to company.
+Numaco retains all rights in its own products, software, tools, libraries, methods, templates and documentation, including
+where that material is extended, configured or rewritten in the course of an engagement. Work of that kind produces a new
+version of a Numaco product; it does not transfer ownership of it.
+
+On payment of the amounts due, Numaco grants the client a non exclusive, worldwide, perpetual and irrevocable right to run
+and to copy the delivered software and its documentation for the client's own business purposes, at the sites named in the
+Statement of Work, and to continue that use after the engagement ends. The right does not extend to selling, distributing
+or licensing the software to any other party.
+
+The client owns its own data, its content, its configuration and its quality and regulatory documents. Numaco claims no
+rights in them, and the client may use, copy and amend the documentation Numaco delivers for its own quality and regulatory
+purposes without limit in time.
+
+Numaco does not deliver source code unless a Statement of Work says so. Where the client requires source code for business
+continuity, Numaco will agree a separate escrow arrangement at the client's cost. Numaco remains free to use the same
+software, methods and know how for other clients, without disclosing the client's confidential information or its
+configuration.
 
 ## 11. Governing Law and Forum
 
@@ -75,6 +91,40 @@ Each party agrees not to disclose or to use for any purpose, other than to perfo
 (4) Information required to be disclosed by any court or other administrative entity with the legal authority to so require, provided that the receiving party notifies the disclosing party sufficient to enable the disclosing party to protect the confidentiality of such information through protective order or other administrative remedy.
 
 The obligations of company and contractor under this article shall survive and continue for five (5) years after termination of the contract.
+
+## 16. Warranty
+
+Numaco performs the work with the care and skill of a qualified Swiss IT engineering firm. For 90 days from acceptance
+Numaco corrects, at no charge and at its option by repair or by re performance, any defect in the deliverables that the
+client reports in writing within 30 days of discovering it and within that 90 day period. A defect means a reproducible
+deviation of a deliverable from what the Statement of Work and any agreed test plan describe, observed in the agreed
+environment and at the agreed software and firmware versions.
+
+That correction is the client's sole remedy for a defect and replaces the warranty rights under articles 367 to 371 of the
+Swiss Code of Obligations, including the rights to refuse acceptance, to rescind and to reduce the price. Claims in respect
+of defects lapse 90 days after acceptance.
+
+The warranty does not cover a deviation caused by a change made by the client or by a third party, by a change to the
+operating environment made outside Numaco's control, by use outside what the Statement of Work describes, or by an
+instruction the client gave after Numaco had advised against it in writing. Nothing in this article limits Numaco's
+liability for a defect it has fraudulently concealed.
+
+## 17. Limitation of Liability
+
+Numaco's total liability arising out of an engagement, whether the claim is brought in contract, in tort or on any other
+basis, is limited to the total amount invoiced to the client for that engagement excluding VAT.
+
+Numaco is not liable for indirect or consequential loss, and in particular not for loss of production or line downtime,
+loss of profit or revenue, the cost of a product recall or a market withdrawal, the cost of rework or relabelling, fines
+imposed by a regulator or the cost of responding to one, loss or corruption of data, or loss of goodwill. These limits
+apply equally to claims based on the acts or omissions of Numaco's employees and subcontractors.
+
+These limits do not apply to liability for wilful intent or gross negligence, to personal injury or death, or to any
+liability that Swiss law does not allow to be limited. Where a limit stated here goes further than Swiss law allows, it
+applies to the greatest extent the law does allow and the rest of this article stands.
+
+The client remains responsible for its own backups, for the release and quality decisions its own procedures assign to it,
+and for keeping available any rollback path agreed in the Statement of Work.
 
 ---
 
