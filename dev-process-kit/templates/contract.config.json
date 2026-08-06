@@ -6,8 +6,8 @@
   "contract_dir": "docs/specs/tier-1",
   "spec_glob": "spec-*.md",
   "acceptance_doc": "definition-of-done.md",
-  "registry": "machine-readable/id-map.json",
-  "output": "machine-readable/contract-crosswalk.json",
+  "registry": "../tier-2/machine-readable/id-map.json",
+  "output": "../tier-2/machine-readable/contract-crosswalk.json",
 
   "requirement": { "prefix": "UR", "component": "[A-Z]{2}", "digits": 2 },
   "journey": { "prefix": "DJ", "digits": 2, "heading_level": 3 },

@@ -26,8 +26,8 @@ change when the plugin updates.
 | `contract_dir` | string | `docs/specs/tier-1` | |
 | `spec_glob` | string | `spec-*.md` | Inside `contract_dir`. Directories and non files are skipped, never crashed on. `README.md` is always excluded. |
 | `acceptance_doc` | string or null | `definition-of-done.md` | `null` skips every journey check and records the skip. |
-| `registry` | string | `machine-readable/id-map.json` | Created empty by `init`, never null. |
-| `output` | string | `machine-readable/contract-crosswalk.json` | |
+| `registry` | string | `../tier-2/machine-readable/id-map.json` | Resolved from the contract folder, so the default lands in the tier 2 sibling. Created empty by `init`, never null. |
+| `output` | string | `../tier-2/machine-readable/contract-crosswalk.json` | Also resolved from the contract folder. |
 | `requirement.prefix` | string | `UR` | |
 | `requirement.component` | regex, or null for a flat scheme | `[A-Z]{2}` | Any regex; two letters is only the default. |
 | `requirement.digits` | integer | 2 | Exact width. Any other width is a problem, never a silent skip. |

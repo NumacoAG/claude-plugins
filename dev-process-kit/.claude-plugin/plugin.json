@@ -1,7 +1,7 @@
 {
   "name": "dev-process-kit",
-  "version": "0.1.0",
-  "description": "The product specification and acceptance process, packaged so any project can be specified the same way. Owns the contract architecture (the component split, the specification anatomy, the requirement and journey identifier scheme with a frozen registry, clause splitting, the Definition of Done) and a fail closed crosswalk gate that checks the declared registry against the documents rather than only the documents against themselves. Delegates every review and lock mechanic to review-kit.",
+  "version": "0.2.0",
+  "description": "The development process as a reusable kit: the shared docs tree, the Tier 1 product contract with its identifier registry and fail-closed gate, and the living project plan",
   "author": {
     "name": "Numaco AG",
     "url": "https://numaco.ch"
@@ -18,5 +18,7 @@
     "gate",
     "markdown"
   ],
-  "dependencies": ["review-kit"]
+  "dependencies": [
+    "review-kit"
+  ]
 }

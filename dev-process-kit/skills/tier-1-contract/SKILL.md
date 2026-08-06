@@ -10,7 +10,7 @@ description: >-
   "what identifier does this get", "renumber these", "run the contract gate",
   "the crosswalk is failing", "set up the contract folder", "/contract-init" or
   "/contract-check". Use it also when working in any folder holding files named
-  spec-NN-something.md, a definition-of-done.md, or machine-readable/id-map.json,
+  spec-NN-something.md, a definition-of-done.md, or a tier 2 id-map.json,
   and on any document whose bullets carry identifiers shaped UR-XX-nn with a
   journey tag such as (DJ-04). Covers the component split, the specification
   anatomy, the acceptance journeys, clause splitting to one testable
@@ -176,7 +176,7 @@ An identifier names its kind and its home: a kind prefix, a component segment, a
 
 `(constraint)` replaces the journey list and is never combined with one. It is licensed only when all four properties hold: no operator performs it, it is true continuously rather than at an instant, its verifier is not a screen, and it constrains the build rather than the product's behaviour. The test is stageability, not ownership: a rule the owner signed personally still takes a journey when a day can stage it. Keep it near two percent. There is no empty parenthesis and no third option.
 
-The registry at `machine-readable/id-map.json` lists every live identifier, and it is what makes the gate possible. Six blocks: `components` (each code, its file, its state), `sources` (declared ancestors), `requirements`, `journeys`, `withdrawn` (every burned number and why), and `locks` (per document version, date, and digest, written by the tool and never by hand).
+The registry at `docs/specs/tier-2/machine-readable/id-map.json` lists every live identifier, and it is what makes the gate possible. Six blocks: `components` (each code, its file, its state), `sources` (declared ancestors), `requirements`, `journeys`, `withdrawn` (every burned number and why), and `locks` (per document version, date, and digest, written by the tool and never by hand).
 
 Greenfield: `sources` is empty, every entry is self keyed, and any inheritance marker in the prose is a hard failure, because the character has no referent. Inherited: each source declares its own marker, origin sentence, and expected count. Prose shows one marker, the registry holds all ancestry.
 
