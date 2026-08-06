@@ -205,8 +205,13 @@ def main_body(*parts):
 # ---------------------------------------------------------------------------
 # Cover
 # ---------------------------------------------------------------------------
-def cover(kind_label, doc_no, title, subtitle, meta_pairs, footer_line, tag=None, confidential="Confidential"):
-    tag_html = tag if tag is not None else f"{confidential}<br>Rev A &middot; 2026"
+def cover(kind_label, doc_no, title, subtitle, meta_pairs, footer_line, tag=None,
+          confidential="Confidential", rev_label="Rev A", rev_year=None):
+    if tag is not None:
+        tag_html = tag
+    else:
+        rev = rev_label if rev_year is None else f"{rev_label} &middot; {rev_year}"
+        tag_html = f"{confidential}<br>{rev}"
     cells = ""
     for pair in meta_pairs:
         label, value = pair[0], pair[1]

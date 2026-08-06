@@ -157,9 +157,12 @@ TIMESHEET_CSS = (ND / "shared" / "signal-stack" / "signal-stack.css").read_text(
 TIMESHEET_WATERMARK_OPACITY = 0.085
 
 # ---- Numaco company constants (identical to build_sow.py; company-wide truths) ----
-NUMACO_FOOTER = ("Numaco AG &middot; Haldenstrasse 3c &middot; CH-8905 Islisberg "
-                 "&middot; Switzerland &middot; VAT CHE-107.980.861 MWST "
-                 "&middot; numaco.ch")
+def _numaco_footer(data):
+    country = TL(data, "country")
+    vat = TL(data, "vat_prefix")
+    return ("Numaco AG &middot; Haldenstrasse 3c &middot; CH-8905 Islisberg "
+            f"&middot; {country} &middot; {vat}CHE-107.980.861 MWST "
+            "&middot; numaco.ch")
 COVER_FOOTER_LINE = "Numaco AG &middot; CH-8905 Islisberg"
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -246,8 +249,8 @@ def _hours_trim(h):
     return _hours(h)
 
 
-def _month_label(d):
-    return f"{MONTHS[d.month - 1]} {d.year}"
+def _month_label(d, data=None):
+    return f"{TL(data or {}, 'months')[d.month - 1]} {d.year}"
 
 
 def _parsed_entries(data):
@@ -490,17 +493,17 @@ _TS_CSS = (
 )
 
 
-def _footer_block():
+def _footer_block(data=None):
     """The standard Signature document foot line: address and VAT, mono grey."""
     return ('<p style="margin-top:10mm; padding-top:2.5mm;'
             ' border-top:0.25mm solid var(--hair);'
             ' font-family:var(--font-mono); font-size:6.8pt;'
             ' letter-spacing:.04em; color:var(--grey2)">'
-            f"{NUMACO_FOOTER}</p>")
+            f"{_numaco_footer(data or {})}</p>")
 
 
 # ---------------------------------------------------------------- chart
-def _bucket_entries(entries, start, end):
+def _bucket_entries(entries, start, end, data=None):
     """Bucket the entries for the chart.
 
     Monthly buckets when the period spans more than one calendar month, else
@@ -515,7 +518,7 @@ def _bucket_entries(entries, start, end):
         y, m = start.year, start.month
         multi_year = start.year != end.year
         while (y, m) <= (end.year, end.month):
-            label = MONTHS[m - 1][:3]
+            label = TL(data or {}, "months")[m - 1][:3]
             if multi_year:
                 label += f" {y % 100:02d}"
             index[(y, m)] = len(buckets)
@@ -535,8 +538,8 @@ def _bucket_entries(entries, start, end):
         wk_b = min(cur + timedelta(days=6), end)
         index[(iso_y, iso_w)] = len(buckets)
         buckets.append({
-            "label": f"W{iso_w}",
-            "sub": (f"{wk_a.day:02d}.{wk_a.month:02d} to "
+            "label": f'{TL(data or {}, "week_prefix")}{iso_w}',
+            "sub": (f'{wk_a.day:02d}.{wk_a.month:02d} {TL(data or {}, "to")} '
                     f"{wk_b.day:02d}.{wk_b.month:02d}"),
             "hours": 0.0,
         })
@@ -564,7 +567,7 @@ def _fmt_tick(v):
     return f"{v:g}"
 
 
-def _chart_svg(buckets, budget, prior=0.0):
+def _chart_svg(buckets, budget, prior=0.0, data=None):
     """The hours chart as a pure inline SVG string.
 
     Distinct brand palette bars per bucket with value labels, an ink cumulative line with round
@@ -671,9 +674,9 @@ def _chart_svg(buckets, budget, prior=0.0):
         label_y = ypos(cums[-1]) + 18.0
     p.append(f'<text x="{centers[-1]:.1f}" y="{label_y:.1f}" text-anchor="end"'
              f' font-family="{_SVG_MONO}" font-size="14" font-weight="700"'
-             f' fill="{_C_INK}">{_hours_trim(total)} h cumulative</text>')
+             f' fill="{_C_INK}">{TL(data or {}, "cumulative_caption").format(h=_hours_trim(total))}</text>')
 
-    axis_label = "WEEKS" if has_sub else "MONTHS"
+    axis_label = TL(data or {}, "axis_weeks" if has_sub else "axis_months")
     p.append(f'<text x="{width / 2:.1f}" y="{height - 6:.1f}" text-anchor="middle"'
              f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
              f' letter-spacing="1.2" fill="{_C_NAVY}">{axis_label}</text>')
@@ -681,7 +684,7 @@ def _chart_svg(buckets, budget, prior=0.0):
     p.append(f'<text x="{y_axis_center:.1f}" y="14" transform="rotate(-90)"'
              f' text-anchor="middle"'
              f' font-family="{_SVG_MONO}" font-size="13.5" font-weight="700"'
-             f' letter-spacing="1.2" fill="{_C_NAVY}">HOURS</text>')
+             f' letter-spacing="1.2" fill="{_C_NAVY}">{TL(data or {}, "axis_hours")}</text>')
 
     return (f'<svg viewBox="0 0 {width:g} {height:g}"'
             ' xmlns="http://www.w3.org/2000/svg"'
@@ -773,6 +776,18 @@ TS_LABELS = {
                      "project stated above, during {period}. The client is asked to review and approve "
                      "the recorded hours; once approved, this timesheet serves as the basis for invoicing."),
         "lg_hours": "Hours", "lg_cumulative": "Cumulative", "lg_budget": "Budget",
+        "col_share": "Share", "axis_weeks": "WEEKS", "axis_months": "MONTHS",
+        "axis_hours": "HOURS", "week_prefix": "W", "cumulative_caption": "{h} h cumulative",
+        "country": "Switzerland", "vat_prefix": "VAT ", "subtotal": "Subtotal",
+        "budget_title": "Budget utilisation", "budget_logged": "Logged to date",
+        "budget_util": "Utilisation", "budget_remaining": "Remaining",
+        "budget_of": "{pct}% of {n} h", "budget_carry": "Includes {n} h carried forward from before {date}",
+        "months": ["January", "February", "March", "April", "May", "June", "July",
+                   "August", "September", "October", "November", "December"],
+        "workmix_lead": ("The activity mix was led by <strong>{first}</strong> at {first_h} h "
+                         "({first_pct}%), followed by <strong>{second}</strong> at {second_h} h "
+                         "({second_pct}%). Each entry is assigned to the category that best "
+                         "represents its primary purpose."),
         "sig_numaco": "Numaco AG &middot; Date, signature",
         "sig_client": "For the client &middot; Date, signature",
     },
@@ -801,6 +816,18 @@ TS_LABELS = {
                      "die erfassten Stunden zu prüfen und zu genehmigen; nach der Genehmigung dient "
                      "dieser Arbeitsrapport als Grundlage für die Rechnungsstellung."),
         "lg_hours": "Stunden", "lg_cumulative": "Kumuliert", "lg_budget": "Budget",
+        "col_share": "Anteil", "axis_weeks": "WOCHEN", "axis_months": "MONATE",
+        "axis_hours": "STUNDEN", "week_prefix": "KW", "cumulative_caption": "{h} h kumuliert",
+        "country": "Schweiz", "vat_prefix": "", "subtotal": "Zwischensumme",
+        "budget_title": "Budgetausnutzung", "budget_logged": "Bisher erfasst",
+        "budget_util": "Ausnutzung", "budget_remaining": "Verbleibend",
+        "budget_of": "{pct}% von {n} h", "budget_carry": "Enthält {n} h Übertrag aus der Zeit vor {date}",
+        "months": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+                   "August", "September", "Oktober", "November", "Dezember"],
+        "workmix_lead": ("Den grössten Anteil hatte <strong>{first}</strong> mit {first_h} h "
+                         "({first_pct}%), gefolgt von <strong>{second}</strong> mit {second_h} h "
+                         "({second_pct}%). Jeder Eintrag ist derjenigen Kategorie zugeordnet, "
+                         "die seinen Hauptzweck am besten wiedergibt."),
         "sig_numaco": "Numaco AG &middot; Datum, Unterschrift",
         "sig_client": "Für den Kunden &middot; Datum, Unterschrift",
     },
@@ -881,7 +908,7 @@ def _entries_table(data):
         groups[-1][1].append(e)
 
     for (_, month_entries) in groups:
-        label = _month_label(month_entries[0]["date"])
+        label = _month_label(month_entries[0]["date"], data)
         if multi_month:
             rows.append([(esc(label), "tsm")] + [("", "tsm")] * (ncols - 1))
         sub_hours = 0.0
@@ -909,7 +936,7 @@ def _entries_table(data):
         if multi_month:
             lead_blanks = ncols - 2 - (1 if with_amount else 0)
             sub = ([("", "tsq")] * lead_blanks
-                   + [(f"Subtotal {esc(label)}", "tsq k"),
+                   + [(f'{TL(data, "subtotal")} {esc(label)}', "tsq k"),
                       (_hours(sub_hours), "num tsq")])
             if with_amount:
                 sub.append((S.num(sub_amount), "num tsq"))
@@ -948,13 +975,11 @@ def _work_mix_section(data):
     first_share = totals[first["key"]] / grand * 100.0
     second_share = totals[second["key"]] / grand * 100.0
 
-    lead = (
-        f'The activity mix was led by <strong>{esc(first["name"])}</strong> at '
-        f'{_hours(totals[first["key"]])} h ({first_share:.1f}%), followed by '
-        f'<strong>{esc(second["name"])}</strong> at '
-        f'{_hours(totals[second["key"]])} h ({second_share:.1f}%). '
-        'Each entry is assigned to the category that best represents its primary purpose.'
-    )
+    lead = TL(data, "workmix_lead").format(
+        first=esc(first["name"]), first_h=_hours(totals[first["key"]]),
+        first_pct=f"{first_share:.1f}",
+        second=esc(second["name"]), second_h=_hours(totals[second["key"]]),
+        second_pct=f"{second_share:.1f}")
 
     cards = []
     category_index = {category["key"]: i for i, category in enumerate(categories)}
@@ -992,7 +1017,7 @@ def _work_mix_section(data):
                  (_hours(grand), "num"), ("100.0%", "num amt")]
     summary = S.effort_table(
         [(TL(data, "col_category"), False, None), (TL(data, "col_hours"), True, "18mm"),
-         ("Share", False, "48mm")],
+         (TL(data, "col_share"), False, "48mm")],
         rows,
         total_row=total_row,
         table_class="data effort mix-table",
@@ -1055,7 +1080,7 @@ def _overview_section(data):
         client=esc(data["client_legal_name"]), project=esc(data["project_title"]),
         period=esc(data["period_label"]))
 
-    buckets, mode = _bucket_entries(entries, start, end)
+    buckets, mode = _bucket_entries(entries, start, end, data)
     chart_title = (TL(data, "chart_monthly") if mode == "monthly"
                    else TL(data, "chart_weekly"))
     if budget:
@@ -1066,7 +1091,7 @@ def _overview_section(data):
         body += _stat_band(budget, total, prior, start)
     body += S.subhead(chart_title)
     body += ('<div class="ts-chart">' + _legend(bool(budget), data)
-             + _chart_svg(buckets, budget, prior) + "</div>")
+             + _chart_svg(buckets, budget, prior, data) + "</div>")
 
     tag = TL(data, "tag_overview")
     if budget:
@@ -1091,7 +1116,7 @@ def _approval_section(data, consultant):
     ])
     number = "04" if data.get("categories") else "03"
     sec = S.section(number, TL(data, "sec_approval"), TL(data, "tag_approval"),
-                    S.para(para) + sig + _footer_block())
+                    S.para(para) + sig + _footer_block(data))
     return '<div class="ts-keep">' + sec + "</div>"
 
 
@@ -1119,7 +1144,7 @@ def render(data, output_path):
         os.makedirs(out_dir, exist_ok=True)
     doc_no = str(data.get("reference") or data["period_label"])
     body = build_body(data)
-    title = f"Numaco Timesheet {doc_no}"
+    title = f"Numaco {TL(data, 'doc_kind')} {doc_no}"
     S.render_pdf(
         title,
         body,
