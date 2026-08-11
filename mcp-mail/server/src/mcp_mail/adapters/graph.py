@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import mimetypes
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
@@ -14,10 +16,71 @@ from ..config import M365Account
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 
-# Graph sendMail accepts attachments inline up to ~3MB per file (4MB total
-# request size). Above that you have to use createUploadSession; not yet
-# implemented — we raise a clear error so Claude can re-route.
+# Per-file threshold for riding inline (base64) in the message JSON. Anything
+# ABOVE it goes to the mailbox through createUploadSession instead.
+#
+# The same number is the upload session's FLOOR, which is why only one threshold
+# exists: Graph answers ErrorAttachmentSizeShouldNotBeLessThanMinimumSize when
+# asked to open a session for a file smaller than 3MB. A file may therefore ride
+# inline or take a session, never both and never neither, and nothing under this
+# line may ever be routed to a session.
 INLINE_ATTACHMENT_LIMIT = 3 * 1024 * 1024
+
+# Graph rejects a message request body over ~4MB, and the ceiling applies to the
+# WHOLE request, not to one attachment: several files that are each small enough
+# to ride inline can still blow it collectively. Attachments travel base64-
+# encoded (4/3 of their raw size), so this budget is measured in ENCODED bytes.
+# It is exactly the encoded cost of ONE file at INLINE_ATTACHMENT_LIMIT: any
+# smaller value would contradict the per-file threshold, refusing a lone
+# attachment that is too small for a session and, by that budget, too big to
+# ride inline. Overflow cannot be rerouted (it is under the session minimum), so
+# it is refused locally, with an error naming the files and the total.
+INLINE_TOTAL_LIMIT = 4 * ((INLINE_ATTACHMENT_LIMIT + 2) // 3)  # 4 MiB encoded
+
+# Upload-session chunk size. Microsoft documents a 4MB ceiling per PUT for the
+# OUTLOOK attachment session ("keep each byte range less than 4 MB", repeated on
+# the Content-Length header); the 320 KiB-multiple rule commonly quoted belongs
+# to the OneDrive driveItem session and does not govern this endpoint. 3.75 MiB
+# sits under the documented ceiling (and is a multiple of 320 KiB anyway).
+UPLOAD_CHUNK_SIZE = 3840 * 1024  # 3.75 MiB
+
+# A chunk PUT moves megabytes, so it gets a longer budget than the 60s the
+# JSON-sized Graph calls share.
+UPLOAD_CHUNK_TIMEOUT = 300.0
+
+# How many consecutive PUTs may fail to advance the service's own next-expected
+# offset before the upload is declared stuck. Guards the resume loop against a
+# session that keeps asking for a range it never accepts.
+MAX_UPLOAD_STALLS = 3
+
+# Graph's documented ceiling for a mail attachment upload session.
+MAX_ATTACHMENT_SIZE = 150 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class _PendingUpload:
+    """A file too big to ride inline; uploaded to an existing draft in chunks."""
+
+    path: Path
+    name: str
+    size: int
+    content_type: str
+    is_inline: bool
+
+
+@dataclass
+class _Candidate:
+    """One caller-supplied attachment path, stat'ed but not yet read."""
+
+    order: int
+    path: Path
+    size: int
+    content_type: str
+    is_inline: bool
+
+    @property
+    def name(self) -> str:
+        return self.path.name
 
 
 class GraphAdapter:
@@ -262,43 +325,408 @@ class GraphAdapter:
         return [{"emailAddress": {"address": a}} for a in (addrs or [])]
 
     @staticmethod
-    def _attachments_payload(
-        paths: list[str] | None, body_html: str | None = None
-    ) -> list[dict]:
-        """Turn a list of local file paths into Graph fileAttachment dicts.
+    def _b64_size(raw: int) -> int:
+        """Wire cost of ``raw`` bytes once base64-encoded.
+
+        Base64 emits 4 characters per 3 input bytes and pads the last group, so
+        the encoded length is ceil(raw * 4 / 3) rounded up to a multiple of 4.
+        """
+        return 4 * ((raw + 2) // 3)
+
+    @classmethod
+    def _partition_attachments(
+        cls, paths: list[str] | None, body_html: str | None = None
+    ) -> tuple[list[dict], list[_PendingUpload]]:
+        """Split local paths into (inline fileAttachment dicts, chunked uploads).
+
+        Size alone picks the route, because Graph's two routes meet exactly at
+        INLINE_ATTACHMENT_LIMIT: at or below it a file rides inline (base64 in
+        the message JSON), above it a file becomes a `_PendingUpload` that the
+        caller streams to an already created draft via createUploadSession. The
+        request-wide budget can NOT move a file between routes -- a small file
+        pushed at a session is refused with
+        ErrorAttachmentSizeShouldNotBeLessThanMinimumSize -- so a set of
+        individually-inline files that together overflow the request is refused
+        here, by name, instead of being sent to an endpoint that cannot take it.
 
         If ``body_html`` references an attachment by ``cid:<filename>``, that
         attachment is marked inline (``isInline`` + ``contentId`` = filename) so
         it renders inside the message body (e.g. a signature logo) rather than as
-        a separate downloadable file. Attachments not referenced this way stay
-        regular attachments, so existing callers are unaffected.
+        a separate downloadable file. Those cid-referenced files also get first
+        claim on the inline budget, so when a request is tight it is the bulk
+        attachment that is reported as not fitting, never the signature logo.
+        Attachments not referenced this way stay regular attachments, and when
+        everything fits the emitted payload is identical to what this adapter has
+        always sent.
         """
         if not paths:
-            return []
-        out: list[dict] = []
-        for p in paths:
+            return [], []
+
+        candidates: list[_Candidate] = []
+        for i, p in enumerate(paths):
             path = Path(p).expanduser()
             if not path.is_file():
                 raise FileNotFoundError(f"Attachment not found: {path}")
-            data = path.read_bytes()
-            if len(data) > INLINE_ATTACHMENT_LIMIT:
+            size = path.stat().st_size
+            if size > MAX_ATTACHMENT_SIZE:
                 raise ValueError(
-                    f"Attachment {path.name} is {len(data) / 1024 / 1024:.1f}MB; "
-                    f"Graph inline-send caps at ~3MB. "
-                    "Large-file upload session not implemented in this phase."
+                    f"Attachment {path.name} is "
+                    f"{size / 1024 / 1024:.1f}MB; Microsoft Graph caps a single "
+                    f"mail attachment at "
+                    f"{MAX_ATTACHMENT_SIZE // 1024 // 1024}MB even with an upload "
+                    f"session. Share it as a link instead of attaching it."
                 )
             ctype, _ = mimetypes.guess_type(str(path))
+            candidates.append(
+                _Candidate(
+                    order=i,
+                    path=path,
+                    size=size,
+                    content_type=ctype or "application/octet-stream",
+                    is_inline=bool(body_html and f"cid:{path.name}" in body_html),
+                )
+            )
+
+        inline: list[_Candidate] = []
+        uploads: list[_Candidate] = []
+        overflow: list[_Candidate] = []
+        budget = INLINE_TOTAL_LIMIT
+        # cid-referenced files first (they are signature logos and must render in
+        # the body), then the rest in the caller's order. Each group keeps its
+        # relative order, and the surviving inline set is re-sorted below, so a
+        # payload that fits entirely is byte-for-byte what it always was.
+        for cand in sorted(candidates, key=lambda c: (not c.is_inline, c.order)):
+            if cand.size > INLINE_ATTACHMENT_LIMIT:
+                uploads.append(cand)
+                continue
+            cost = cls._b64_size(cand.size)
+            if cost > budget:
+                # Too big for what is left of the request, too small for a
+                # session: there is no route, so say so rather than pick one
+                # Graph will reject.
+                overflow.append(cand)
+                continue
+            budget -= cost
+            inline.append(cand)
+
+        if overflow:
+            small = [c for c in candidates if c.size <= INLINE_ATTACHMENT_LIMIT]
+            total = sum(cls._b64_size(c.size) for c in small)
+            names = ", ".join(c.name for c in sorted(small, key=lambda c: c.order))
+            spilled = ", ".join(c.name for c in sorted(overflow, key=lambda c: c.order))
+            raise ValueError(
+                f"These attachments are each small enough to send, but together "
+                f"they need {total / 1024 / 1024:.1f}MB of encoded space against "
+                f"the {INLINE_TOTAL_LIMIT / 1024 / 1024:.1f}MB Microsoft Graph "
+                f"allows in one message request: {names}. The ones that no longer "
+                f"fit ({spilled}) cannot be rerouted either, because Graph refuses "
+                f"an upload session for any file under "
+                f"{INLINE_ATTACHMENT_LIMIT / 1024 / 1024:.0f}MB. Send them across "
+                f"several messages, or share the bulky ones as links."
+            )
+
+        out: list[dict] = []
+        for cand in sorted(inline, key=lambda c: c.order):
             att: dict = {
                 "@odata.type": "#microsoft.graph.fileAttachment",
-                "name": path.name,
-                "contentType": ctype or "application/octet-stream",
-                "contentBytes": base64.b64encode(data).decode("ascii"),
+                "name": cand.name,
+                "contentType": cand.content_type,
+                "contentBytes": base64.b64encode(cand.path.read_bytes()).decode("ascii"),
             }
-            if body_html and f"cid:{path.name}" in body_html:
+            if cand.is_inline:
                 att["isInline"] = True
-                att["contentId"] = path.name
+                att["contentId"] = cand.name
             out.append(att)
-        return out
+
+        pending = [
+            _PendingUpload(
+                path=c.path,
+                name=c.name,
+                size=c.size,
+                content_type=c.content_type,
+                is_inline=c.is_inline,
+            )
+            for c in sorted(uploads, key=lambda c: c.order)
+        ]
+        return out, pending
+
+    # ---- large attachments (createUploadSession) ---------------------------
+    #
+    # Graph only accepts a big file against a message that ALREADY EXISTS in the
+    # mailbox, i.e. a draft: you open an upload session on the draft's attachment
+    # collection and PUT byte ranges to the pre-authenticated URL it hands back.
+    # There is no such route on /sendMail, so send() restructures itself into
+    # create draft -> upload -> POST /send when any attachment is oversized.
+
+    def _guard_delegate_upload(self, uploads: list[_PendingUpload]) -> None:
+        """Refuse an upload session on a delegated mailbox before anything exists.
+
+        Microsoft: "An app with delegated permissions returns HTTP 403 Forbidden
+        when attempting to attach large files to an Outlook message or event that
+        is in a shared or delegated mailbox. With delegated permissions,
+        createUploadSession succeeds only if the message or event is in the
+        signed-in user's mailbox." No workaround is listed, so the refusal has to
+        come BEFORE the draft is created; otherwise Graph 403s halfway through and
+        a body-and-recipients draft with no attachment is stranded in someone
+        else's mailbox. send() and reply() already refuse a delegate outright;
+        this covers the two draft paths, which do not.
+        """
+        if not uploads or not self.account.mailbox:
+            return
+        raise RuntimeError(
+            f"Attaching a large file to a message in the delegated mailbox "
+            f"({self.account.mailbox}) is not possible: Microsoft Graph refuses "
+            f"createUploadSession (HTTP 403) for any mailbox other than the "
+            f"signed-in user's, and there is no workaround. Too big to ride "
+            f"inline: "
+            + ", ".join(f"{u.name} ({u.size / 1024 / 1024:.1f}MB)" for u in uploads)
+            + ". Share those as links, or create the draft in your own mailbox."
+        )
+
+    def _upload_attachment(self, message_id: str, item: _PendingUpload) -> None:
+        """Attach one oversized file to an existing draft, in chunks."""
+        att_item: dict = {
+            "attachmentType": "file",
+            "name": item.name,
+            "size": item.size,
+            "contentType": item.content_type,
+        }
+        if item.is_inline:
+            att_item["isInline"] = True
+            att_item["contentId"] = item.name
+        resp = self._client.post(
+            f"{self._mail_root}/messages/{message_id}/attachments/createUploadSession",
+            headers=self._headers(content_type="application/json"),
+            json={"AttachmentItem": att_item},
+        )
+        # Checked by hand rather than via raise_for_status, which would drop both
+        # Graph's reason and the identity of the file that could not be attached.
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Graph refused an upload session for {item.name} "
+                f"({item.size / 1024 / 1024:.1f}MB): HTTP {resp.status_code} "
+                f"{self._body_excerpt(resp)}"
+            )
+        upload_url = (resp.json() or {}).get("uploadUrl")
+        if not upload_url:
+            raise RuntimeError(
+                f"Graph opened no upload session for {item.name} "
+                f"({item.size / 1024 / 1024:.1f}MB): the response carried no "
+                f"uploadUrl."
+            )
+        try:
+            self._put_chunks(upload_url, item)
+        except Exception:
+            self._cancel_upload_session(upload_url)
+            raise
+
+    def _put_chunks(self, upload_url: str, item: _PendingUpload) -> None:
+        """PUT the file to the session URL in Content-Range slices.
+
+        The uploadUrl is absolute and PRE-AUTHENTICATED (its token sits in the
+        query string) and lives on a different host from the Graph API, so no
+        Authorization header may be attached: sending one can get the request
+        rejected outright. httpx leaves an absolute URL untouched by the client's
+        base_url, so the same client is safe to reuse for these requests.
+
+        The service's answer is the only completeness signal there is, and it is
+        asymmetric: every PUT that leaves the attachment unfinished answers
+        200 OK carrying `nextExpectedRanges`, and ONLY the PUT that assembles it
+        answers 201 Created (with a Location header). So a 200 on the last byte
+        range means the service did NOT receive everything, however many bytes
+        were handed to it, and the local byte counter is not evidence of
+        anything. The loop is therefore driven by `nextExpectedRanges` -- which
+        is where Microsoft says to resume from -- and only a 201 ends it.
+        """
+        total = item.size
+        if total <= 0:
+            raise ValueError(
+                f"Attachment {item.name} is empty (0 bytes); Graph cannot open an "
+                f"upload session for it."
+            )
+        status = 0
+        completed = False
+        stalls = 0
+        with item.path.open("rb") as fh:
+            start = 0
+            while start < total:
+                fh.seek(start)
+                chunk = fh.read(min(UPLOAD_CHUNK_SIZE, total - start))
+                if not chunk:
+                    raise RuntimeError(
+                        f"Attachment {item.name} shrank while uploading: expected "
+                        f"{total} bytes, ran out at {start}."
+                    )
+                end = start + len(chunk) - 1
+                resp = self._client.put(
+                    upload_url,
+                    headers={
+                        "Content-Type": "application/octet-stream",
+                        "Content-Length": str(len(chunk)),
+                        "Content-Range": f"bytes {start}-{end}/{total}",
+                    },
+                    content=chunk,
+                    timeout=UPLOAD_CHUNK_TIMEOUT,
+                )
+                status = resp.status_code
+                if status == 201:
+                    # The attachment is assembled; nothing else is.
+                    completed = True
+                    break
+                # 200 is the documented "more expected"; 202 is accepted too so a
+                # service that uses it is not mistaken for a failure. Anything
+                # else IS a failure, and the body carries the reason that
+                # raise_for_status would drop.
+                if status not in (200, 202):
+                    raise RuntimeError(
+                        f"Upload of {item.name} failed at bytes {start}-{end}/"
+                        f"{total}: HTTP {status} {self._body_excerpt(resp)}"
+                    )
+                # Resume where the SERVICE says it wants the next byte, not where
+                # the local counter landed: when it commits less than was sent,
+                # advancing blindly leaves an unwritten hole in the attachment.
+                nxt = self._next_expected_start(resp)
+                if nxt is None:
+                    nxt = end + 1
+                if nxt <= start:
+                    stalls += 1
+                    if stalls >= MAX_UPLOAD_STALLS:
+                        raise RuntimeError(
+                            f"Upload of {item.name} is stuck: after "
+                            f"{stalls} attempts Graph still expects byte {nxt} "
+                            f"of {total} and accepts nothing more."
+                        )
+                else:
+                    stalls = 0
+                start = nxt
+        if not completed:
+            raise RuntimeError(
+                f"Upload of {item.name} ({total} bytes) never completed: Graph "
+                f"answered the last byte range with HTTP {status}, not the 201 "
+                f"Created that marks the attachment as assembled, so it still "
+                f"holds only part of the file."
+            )
+
+    @staticmethod
+    def _next_expected_start(resp: object) -> int | None:
+        """First offset from a session response's ``nextExpectedRanges``.
+
+        Microsoft: "Use the nextExpectedRanges collection to determine where to
+        start the next byte range to upload." Entries look like ``"4194304-"`` or
+        ``"4194304-8388607"``. Returns None when the response carries no usable
+        range, leaving the caller to fall back on its own counter.
+        """
+        try:
+            payload = resp.json()  # type: ignore[attr-defined]
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        ranges = payload.get("nextExpectedRanges")
+        if not isinstance(ranges, list) or not ranges:
+            return None
+        head = str(ranges[0]).strip().split("-", 1)[0].strip()
+        try:
+            return int(head)
+        except ValueError:
+            return None
+
+    def _cancel_upload_session(self, upload_url: str) -> None:
+        """Best-effort DELETE of a half-written session; never masks the cause."""
+        # Cleanup must not replace the real error, so every failure is swallowed.
+        with contextlib.suppress(Exception):
+            self._client.delete(upload_url, timeout=UPLOAD_CHUNK_TIMEOUT)
+
+    @staticmethod
+    def _body_excerpt(resp: object, limit: int = 400) -> str:
+        """Graph's own error text, which raise_for_status would otherwise drop."""
+        text = getattr(resp, "text", "") or ""
+        return text[:limit]
+
+    def _upload_all(self, draft_id: str | None, uploads: list[_PendingUpload]) -> None:
+        """Upload every oversized attachment to a draft that already exists.
+
+        A failure part-way leaves a draft that LOOKS finished (it already carries
+        the body, the recipients and whichever files did upload), so the error
+        has to name what is missing: a user told only "it failed" opens Outlook,
+        sees attachments, and sends a mail without the annexes.
+        """
+        if not uploads:
+            return
+        if not draft_id:
+            raise RuntimeError(
+                "Graph returned no draft id, so the large attachments "
+                f"({', '.join(u.name for u in uploads)}) could not be uploaded."
+            )
+        for i, item in enumerate(uploads):
+            try:
+                self._upload_attachment(draft_id, item)
+            except Exception as exc:
+                attached = [u.name for u in uploads[:i]]
+                missing = [u.name for u in uploads[i:]]
+                raise RuntimeError(
+                    f"{exc} The draft is INCOMPLETE: "
+                    f"{', '.join(missing)} "
+                    f"{'is' if len(missing) == 1 else 'are'} NOT attached"
+                    + (f" ({', '.join(attached)} did upload)" if attached else "")
+                    + ". Do not send it as it stands."
+                ) from exc
+
+    def _upload_onto_draft(
+        self, draft_id: str | None, uploads: list[_PendingUpload], what: str
+    ) -> None:
+        """_upload_all for the DRAFT paths, which must name what they left behind.
+
+        The send paths already tell the user a draft is sitting in Drafts; the
+        draft paths used to let the raw transport error out, so a half-built
+        draft accumulated silently on every retry.
+        """
+        if not uploads:
+            return
+        try:
+            self._upload_all(draft_id, uploads)
+        except Exception as exc:
+            raise RuntimeError(
+                f"{what} was created but its large attachments could not all be "
+                f"uploaded: {exc} The draft"
+                + (f" (id {draft_id})" if draft_id else "")
+                + " is still in Drafts; delete it or attach the missing files by "
+                "hand."
+            ) from exc
+
+    def _send_draft_or_report(self, draft_id: str | None, what: str) -> None:
+        """POST /send, then be exact about what a failure does and does not prove.
+
+        A refusal Graph ANSWERED (a status came back) proves the send did not
+        happen. A transport failure proves nothing at all: the request left the
+        machine and no answer returned, so the mail may well have gone out and
+        the draft may already have moved to Sent Items. Asserting "NOT sent"
+        there is how the same mail reaches a customer twice, so that case is
+        reported as UNKNOWN instead.
+        """
+        if not draft_id:
+            raise RuntimeError(
+                f"Graph returned no draft id, so the {what} could not be sent."
+            )
+        try:
+            resp = self._client.post(
+                f"{self._mail_root}/messages/{draft_id}/send",
+                headers=self._headers(),
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Sending the {what} failed at the send step: {exc} The outcome is "
+                f"UNKNOWN: the send request went out and no answer came back, so "
+                f"the {what} may or may not have been sent. Check Sent Items "
+                f"before resending (the draft id is {draft_id})."
+            ) from exc
+        if resp.status_code >= 400:
+            raise RuntimeError(
+                f"Sending the {what} failed at the send step: Graph refused it "
+                f"with HTTP {resp.status_code} {self._body_excerpt(resp)}. The "
+                f"{what} was NOT sent; the draft (id {draft_id}) is still in "
+                f"Drafts with its attachments."
+            )
 
     def send(
         self,
@@ -326,9 +754,13 @@ class GraphAdapter:
             message["ccRecipients"] = self._recipients(cc)
         if bcc:
             message["bccRecipients"] = self._recipients(bcc)
-        atts = self._attachments_payload(attachments, body_html)
+        atts, uploads = self._partition_attachments(attachments, body_html)
         if atts:
             message["attachments"] = atts
+
+        if uploads:
+            self._send_with_large_attachments(message, uploads)
+            return
 
         resp = self._client.post(
             "/me/sendMail",
@@ -336,6 +768,36 @@ class GraphAdapter:
             json={"message": message, "saveToSentItems": True},
         )
         resp.raise_for_status()
+
+    def _send_with_large_attachments(
+        self, message: dict, uploads: list[_PendingUpload]
+    ) -> None:
+        """Send a message whose attachments are too big for /sendMail.
+
+        /sendMail carries its message entirely in one request body, so there is
+        no upload-session route through it. The only way a big file reaches the
+        wire is against a message that already exists in the mailbox, so the send
+        becomes: create draft -> upload each big file -> POST /send. Callers must
+        have cleared the delegated-mailbox guard first, so `_mail_root` is /me.
+        """
+        resp = self._client.post(
+            f"{self._mail_root}/messages",
+            headers=self._headers(content_type="application/json"),
+            json=message,
+        )
+        resp.raise_for_status()
+        draft_id = (resp.json() or {}).get("id")
+        try:
+            self._upload_all(draft_id, uploads)
+        except Exception as exc:
+            # Nothing was sent: /send was never reached.
+            raise RuntimeError(
+                f"Sending with large attachments failed after the draft was "
+                f"created: {exc} The message was NOT sent; the draft"
+                + (f" (id {draft_id})" if draft_id else "")
+                + " is still in Drafts."
+            ) from exc
+        self._send_draft_or_report(draft_id, what="message")
 
     def reply(
         self,
@@ -354,8 +816,36 @@ class GraphAdapter:
                 f"does not request. Create a draft (mail_draft / mail_reply_draft) "
                 f"instead."
             )
-        message: dict = {"body": self._build_body(body_text, body_html)}
-        atts = self._attachments_payload(attachments, body_html)
+        body = self._build_body(body_text, body_html)  # validated before any I/O
+        atts, uploads = self._partition_attachments(attachments, body_html)
+        if uploads:
+            # The /reply action, like /sendMail, carries the whole message in a
+            # single request body, so it has no upload-session route either.
+            # Compose the identical reply as a DRAFT (createReply threads it and
+            # its attachment collection does take upload sessions), then send it.
+            # create_reply_draft leaves the recipients /createReply resolved
+            # alone unless they need composing, exactly as the single-shot /reply
+            # action below does, so the recipient set does not depend on how big
+            # the attachment happened to be.
+            try:
+                draft = self.create_reply_draft(
+                    message_id,
+                    body_text=body_text,
+                    body_html=body_html,
+                    reply_all=reply_all,
+                    attachments=attachments,
+                    cc=cc,
+                    bcc=bcc,
+                )
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Replying with large attachments failed before the send "
+                    f"step: {exc} The reply was NOT sent."
+                ) from exc
+            self._send_draft_or_report(draft.get("id"), what="reply")
+            return
+
+        message: dict = {"body": body}
         if atts:
             message["attachments"] = atts
 
@@ -425,7 +915,10 @@ class GraphAdapter:
             message["ccRecipients"] = self._recipients(cc)
         if bcc:
             message["bccRecipients"] = self._recipients(bcc)
-        atts = self._attachments_payload(attachments, body_html)
+        atts, uploads = self._partition_attachments(attachments, body_html)
+        # A delegated mailbox cannot take an upload session at all, so refuse
+        # before the draft exists rather than strand an attachment-less one.
+        self._guard_delegate_upload(uploads)
         if atts:
             message["attachments"] = atts
 
@@ -436,6 +929,9 @@ class GraphAdapter:
         )
         resp.raise_for_status()
         created = resp.json()
+        # Big files can only be attached to a message that already exists, so the
+        # draft is created first and they are streamed onto it afterwards.
+        self._upload_onto_draft(created.get("id"), uploads, what="The draft")
         return {
             "id": created.get("id"),
             "webLink": created.get("webLink"),
@@ -456,11 +952,21 @@ class GraphAdapter:
         """Create a threaded reply DRAFT (createReply), then PATCH body + recipients.
 
         Uses /createReply so the draft threads to the original conversation, then
-        PATCHes the new body and the client-composed recipient set (mirroring
-        reply(), so reply_all preserves the original To+Cc and extra cc/bcc are
-        added without dropping anyone). Attachments are POSTed to the draft's
-        attachments collection. No send action is ever invoked.
+        PATCHes the new body. Recipients are only composed and PATCHed when they
+        actually need composing (reply_all, or extra cc/bcc), mirroring reply()'s
+        single-shot path exactly: /createReply auto-populates the recipient set
+        the same way the /reply action does, HONOURING a Reply-To header, and
+        overwriting it with the From address would silently redirect a reply to a
+        noreply mailbox. Small attachments are POSTed to the draft's attachments
+        collection; oversized ones are streamed onto the same draft through an
+        upload session. No send action is ever invoked.
         """
+        # Partitioned first: it touches no network, so a missing file, an
+        # over-ceiling file, or a delegated mailbox that cannot take an upload
+        # session all fail before a draft exists to be stranded.
+        atts, uploads = self._partition_attachments(attachments, body_html)
+        self._guard_delegate_upload(uploads)
+
         resp = self._client.post(
             f"{self._mail_root}/messages/{message_id}/createReply",
             headers=self._headers(content_type="application/json"),
@@ -470,29 +976,29 @@ class GraphAdapter:
         draft = resp.json()
         draft_id = draft.get("id")
 
-        # Compose the full recipient set client-side, exactly like reply().
-        original = self.read(message_id)
-        sender = original.get("from")
-        exclude = {self.account.address.lower()}
-        if sender:
-            exclude.add(sender.lower())
-        to = [sender] if sender else []
-        base = (
-            (original.get("to") or []) + (original.get("cc") or [])
-            if reply_all
-            else []
-        )
-        final_cc = _extra_recipients(base + (cc or []), exclude)
-        already = {a.lower() for a in to} | {a.lower() for a in final_cc}
-        final_bcc = _extra_recipients(bcc, exclude, already=already)
-
         patch: dict = {"body": self._build_body(body_text, body_html)}
-        if to:
-            patch["toRecipients"] = self._recipients(to)
-        if final_cc:
-            patch["ccRecipients"] = self._recipients(final_cc)
-        if final_bcc:
-            patch["bccRecipients"] = self._recipients(final_bcc)
+        if reply_all or cc or bcc:
+            # Compose the full recipient set client-side, exactly like reply().
+            original = self.read(message_id)
+            sender = original.get("from")
+            exclude = {self.account.address.lower()}
+            if sender:
+                exclude.add(sender.lower())
+            to = [sender] if sender else []
+            base = (
+                (original.get("to") or []) + (original.get("cc") or [])
+                if reply_all
+                else []
+            )
+            final_cc = _extra_recipients(base + (cc or []), exclude)
+            already = {a.lower() for a in to} | {a.lower() for a in final_cc}
+            final_bcc = _extra_recipients(bcc, exclude, already=already)
+            if to:
+                patch["toRecipients"] = self._recipients(to)
+            if final_cc:
+                patch["ccRecipients"] = self._recipients(final_cc)
+            if final_bcc:
+                patch["bccRecipients"] = self._recipients(final_bcc)
         presp = self._client.patch(
             f"{self._mail_root}/messages/{draft_id}",
             headers=self._headers(content_type="application/json"),
@@ -500,13 +1006,14 @@ class GraphAdapter:
         )
         presp.raise_for_status()
 
-        for att in self._attachments_payload(attachments, body_html):
+        for att in atts:
             aresp = self._client.post(
                 f"{self._mail_root}/messages/{draft_id}/attachments",
                 headers=self._headers(content_type="application/json"),
                 json=att,
             )
             aresp.raise_for_status()
+        self._upload_onto_draft(draft_id, uploads, what="The reply draft")
 
         return {
             "id": draft_id,

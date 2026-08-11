@@ -49,7 +49,7 @@ class Signature:
     """An account's outgoing signature: an HTML snippet plus any inline images.
 
     The adapter inlines an image when the snippet references it as
-    ``cid:<filename>`` (see GraphAdapter._attachments_payload); otherwise the
+    ``cid:<filename>`` (see GraphAdapter._partition_attachments); otherwise the
     image rides as a normal attachment.
     """
 

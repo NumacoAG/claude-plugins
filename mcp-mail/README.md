@@ -86,7 +86,7 @@ step by step.
 mcp-mail/
 ├── .claude-plugin/        the plugin manifest
 ├── server/                the MCP server (Python, one adapter per provider)
-├── server/tests/          the regression suite (238 tests, `uv run pytest tests`)
+├── server/tests/          the regression suite (319 tests, `uv run pytest tests`)
 ├── hooks/                 the PreToolUse send gate for mail_send / mail_reply
 ├── skills/contacts/       the contacts skill
 ├── skills/mcp-mail-setup/ the guided setup skill
