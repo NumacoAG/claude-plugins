@@ -19,10 +19,10 @@ payment_days = 60
 # The two supplier-side contacts printed in every SOW's Parties block.
 [[sow.contacts]]
 name = "Finance contact"
-role = "Engagement lead"
+role = "Commercial contact"
 email = "finance@numaco.ch"
 
 [[sow.contacts]]
 name = "Your Name"
-role = "Solution architect"
+role = "Engineering contact"
 email = "you@numaco.ch"

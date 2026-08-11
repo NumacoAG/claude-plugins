@@ -104,11 +104,13 @@ NUMACO_VAT = "CHE-107.980.861 MWST"
 # Placeholder supplier contacts, used only when no per-user defaults file
 # exists. Real contacts come from the user's local defaults.toml (see below).
 PLACEHOLDER_CONTACTS = [
-    {"name": "Finance contact", "role": "Engagement lead",
+    {"name": "Finance contact", "role": "Commercial contact",
      "email": "finance@numaco.ch"},
-    {"name": "Your Name", "role": "Solution architect",
+    {"name": "Your Name", "role": "Engineering contact",
      "email": "you@numaco.ch"},
 ]
+
+SUPPLIER_CONTACT_ROLES = ("Commercial contact", "Engineering contact")
 
 
 def _load_defaults():
@@ -141,11 +143,13 @@ def _supplier_contacts():
     contacts = []
     try:
         raw = _load_defaults().get("sow", {}).get("contacts", [])
-        for c in raw:
+        for index, c in enumerate(raw):
             if isinstance(c, dict) and c.get("name") and c.get("email"):
                 contacts.append({
                     "name": html.escape(str(c["name"]), quote=False),
-                    "role": html.escape(str(c.get("role", "") or ""), quote=False),
+                    "role": SUPPLIER_CONTACT_ROLES[index]
+                            if index < len(SUPPLIER_CONTACT_ROLES)
+                            else html.escape(str(c.get("role", "") or ""), quote=False),
                     "email": html.escape(str(c["email"]), quote=False),
                 })
     except Exception:
@@ -603,13 +607,17 @@ def _appendix(data):
     clauses = []
     cur_marker = None
     cur_heading = None
-    buf = []
+    paras = []   # completed paragraphs of the clause being read
+    para = []    # source lines of the paragraph being accumulated
     for raw in md.splitlines():
         line = raw.rstrip()
         if line.startswith("## "):
+            if para:
+                paras.append(" ".join(para))
+                para = []
             if cur_marker is not None:
-                clauses.append((cur_marker, cur_heading, "<br><br>".join(buf)))
-            buf = []
+                clauses.append((cur_marker, cur_heading, "<br><br>".join(paras)))
+            paras = []
             head = line[3:].strip()
             m = re.match(r"^(\d+)\.\s*(.*)$", head)
             if m:
@@ -623,10 +631,20 @@ def _appendix(data):
             continue
         elif line.startswith("*") and line.endswith("*") and len(line) > 2:
             continue  # the italic "embedded at ~8pt" note in the header
-        elif line.strip() and cur_marker is not None:
-            buf.append(esc(line.strip()))
+        elif not line.strip():
+            # Only a BLANK line ends a paragraph. A hard wrap inside a paragraph
+            # is not a paragraph break: clauses 10, 16 and 17 are wrapped at ~120
+            # columns in the source, and joining every source line with <br><br>
+            # used to explode each of them into one paragraph per wrapped line.
+            if para:
+                paras.append(" ".join(para))
+                para = []
+        elif cur_marker is not None:
+            para.append(esc(line.strip()))
+    if para:
+        paras.append(" ".join(para))
     if cur_marker is not None:
-        clauses.append((cur_marker, cur_heading, "<br><br>".join(buf)))
+        clauses.append((cur_marker, cur_heading, "<br><br>".join(paras)))
     return S.appendix(L(data, "apx_title"), clauses, tag=L(data, "apx_tag"),
                       apx_label=L(data, "apx_label"))
 
