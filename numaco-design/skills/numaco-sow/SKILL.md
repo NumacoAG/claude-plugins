@@ -144,11 +144,11 @@ Post the full SOW content in chat, section by section, one more time. Ask the us
 Only after the user says yes:
 
 1. Generate the SOW number with `scripts/generate_sow_number.py` (see *SOW number generation*).
-2. Compute the filename: `SOW <number> - <customer> - <project>.pdf`.
+2. Compute the filename: `<number> - SOW <engagement>.pdf`.
 3. Determine the output folder (see *Output folder*).
 4. Assemble a JSON payload with all the filled fields (schema below) and render it:
    ```bash
-   python3 scripts/build_sow.py payload.json "/abs/path/SOW <number> - <customer> - <project>.pdf"
+   python3 scripts/build_sow.py payload.json "/abs/path/<number> - SOW <engagement>.pdf"
    ```
    `build_sow.py` writes a self contained HTML sidecar next to the PDF and renders the PDF through the shared `numaco_render` paged pipeline. The PDF carries the dark Signal Stack cover, the large faint monogram watermark on content pages (suppressed on the cover), the running footer with address and VAT, page numbers, the parties table, the effort table, and the T&Cs appendix.
 5. **Verify the PDF through CoreGraphics, not Chrome.** Run `numaco_render.pdfcheck(pdf, name, pages="1,2,3")` (and the last page) and eyeball the rasterised pages. This is the macOS Preview engine; never trust a Chromium-only preview or `qlmanage -t`.
@@ -214,6 +214,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/numaco-sow/scripts/generate_sow_number.py"
 ## Output folder
 
 Default target: the customer's project folder, in a `SOW/` subfolder.
+
+Every SOW file uses the same canonical stem: `<number> - SOW <engagement>`. Use
+that stem for the review markdown, JSON payload, HTML sidecar, Word document,
+and PDF. Do not include the customer name because the customer folder already
+provides that context. Do not include `DRAFT`; the version line and lock state
+inside the review markdown identify whether the document is still under review.
+If an unsigned and signed PDF must coexist, append ` Signed` to the signed copy.
+A separate DocuSign certificate appends ` DocuSign certificate`.
 
 - If the customer folder does not exist: create it and ask the user once for permission.
 - If it exists but has no `SOW/` subfolder: create `SOW/`. If the customer already uses a differently named subfolder (e.g. `Project and Financial Documents/`, `Financials/`), use that existing folder instead, detected via a listing.
@@ -329,7 +337,7 @@ For extensions to an existing SOW (additional scope on a live engagement):
 - In Context, reference the parent SOW number explicitly: *"This SOW extends the scope of SOW &lt;parent&gt; by..."*.
 - Scope: describe only the delta, not the whole parent engagement.
 - Effort: show only the additional days.
-- Filename: `SOW <new-number> - <customer> - <project> (CR to <parent>).pdf`.
+- Filename: `<new-number> - SOW <engagement> (CR to <parent>).pdf`.
 
 ## What NOT to do
 
