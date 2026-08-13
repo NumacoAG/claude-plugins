@@ -99,6 +99,10 @@ Standard Markdown maps onto the branded components. The mapping:
 | Markdown table | `table.doc` (teal header, zebra rows) |
 | `\| =Total \| ... \|` | a row whose first cell starts with `=` becomes the navy total row |
 | `---:` alignment | right-aligns that column and its numbers |
+| `:---:` alignment | centres that column, heading and body cells together |
+| `{green:text}` | the text in brand green, for a status or a verdict that passed |
+| `{amber:text}` | the text in brand amber, for a warning or a partial result |
+| `{red:text}` | the text in brand red, for a failure or a blocker |
 | ` ``` ` fenced block | `pre.code-block` verbatim listing (monospace, whitespace preserved, no inline markdown) |
 | `![Caption](image.png)` | centred `figure.figure`, image embedded as a data URI, alt text as the quiet caption below it |
 | `![](image.png)` | the same figure with no caption (empty alt text) |
@@ -110,7 +114,42 @@ Standard Markdown maps onto the branded components. The mapping:
 | `:::items {json} :::` | line-items table with computed subtotal / tax / grand-total |
 | `:::pagebreak` or `---` | hard page break |
 
-Inline: `**bold**`, `*italic*`, `` `code` ``.
+Inline: `**bold**`, `*italic*`, `` `code` ``, `{green:text}`, `{amber:text}`,
+`{red:text}`.
+
+### Semantic colour
+
+Mark a status or a verdict with `{green:text}`, `{amber:text}` or `{red:text}`.
+The words render in the brand accent colours (green `#2f7d4f`, amber `#c98a14`,
+red `#b3261e`), semibold, and they work in a table cell, in a bullet and in a
+paragraph alike:
+
+```
+| Site | Verdict | Hours |
+|:---|:---:|---:|
+| Basel | {green:Pass} | 12.0 |
+| Vienna | {amber:Watch} | 8.5 |
+| Milan | {red:Blocked} | 22.5 |
+```
+
+Three rules keep this honest.
+
+1. Colour is applied to live text, never to an image, so every coloured word
+   stays selectable, searchable and copyable in the finished PDF.
+2. Colour never carries the meaning on its own. Write the word that says it
+   (`Pass`, `Watch`, `Blocked`), so the table still reads correctly in a
+   monochrome print and for a colour blind reader. Never write `{red:X}` and
+   expect the colour alone to mean "failed".
+3. Use it sparingly. A verdict column, a handful of statuses in a summary. A
+   page of coloured prose reads as a draft, not as a Numaco document.
+
+Only those three keywords open a marker, and only in that exact lower case
+spelling with the colon straight after the word, so ordinary prose is untouched:
+`{timeout: 30}`, `{"green": 1}`, a ratio written `a:b` and an unknown keyword
+such as `{purple:nope}` all render exactly as typed. Nested inline markup works
+(`{green:**Pass**}`). To show the syntax itself rather than use it, put it in a
+fenced ` ``` ` block, which is passed through verbatim; an inline `` `code` ``
+span is not an escape hatch, because inline markup still resolves inside it.
 
 ### Bullet and scope-item title splits
 
@@ -118,10 +157,12 @@ Write a bullet or a numbered item as `Title -- body`, `Title : body`, or
 `Title | body`; the engine renders the part before the separator in bold.
 
 `--` and `|` are explicit and take precedence over `:`, which also occurs
-incidentally in prose. Three guards keep an incidental colon from bolding half a
+incidentally in prose. Four guards keep an incidental colon from bolding half a
 paragraph: an item that already opens with `**` is left alone, because you have
 marked the title yourself; a colon "title" longer than 80 characters is treated
-as prose; and a split that would strand a `**` pair is rejected. So
+as prose; a split that would strand a `**` pair is rejected; and a split that
+would leave an unclosed `{` is rejected, which is what protects a `{green: ...}`
+marker and any braced run you quote in a bullet. So
 `- **My title.** Body with a colon: here` renders exactly as written. For a
 numbered item you can supply an explicit label, for example
 `1. S1: Native writer -- captures ZPL and renders it inline`, which renders as a
@@ -130,10 +171,14 @@ body).
 
 ### Tables
 
-Use ordinary Markdown tables. Mark a column's alignment row with `---:` to
-right-align that column, which is what you want for numeric columns (days,
-amounts). Start the first cell of a row with `=` to turn that row into the navy
-bold total row, for example `| =BASE TOTAL | 48.0 | CHF 4'800.- |`.
+Use ordinary Markdown tables, with the standard alignment spellings in the
+alignment row. `---:` right-aligns a column, which is what you want for numeric
+columns (days, amounts); `:---:` centres one, which suits a short status, a
+verdict or a code that would look adrift at either edge; `---` and `:---` are
+left, the default. Centring reaches the heading as well as the body cells, so
+the column reads as one block. Start the first cell of a row with `=` to turn
+that row into the navy bold total row, for example
+`| =BASE TOTAL | 48.0 | CHF 4'800.- |`.
 
 Column widths follow the content. A cell carrying a long unbreakable identifier,
 say `STO_HL_environmental_monitoring_sample_40x20`, wraps inside its own cell
@@ -281,8 +326,14 @@ will be built.
   numbers; ruled, uppercase 10.5 pt subsection headings.
 - **Tables**: navy headers, repeated headings on page breaks, content-driven
   column widths up to five columns, tighter padding and a step down in type from
-  six columns, and 9.2 pt body text. A long unbreakable identifier wraps inside
+  six columns, and 9.2 pt body text. Columns are left aligned by default, right
+  aligned with `---:` (mono figures, flush right) and centred with `:---:`,
+  heading and body cells together. A long unbreakable identifier wraps inside
   its cell, so a table never runs past the text column.
+- **Semantic colour**: `{green:...}`, `{amber:...}` and `{red:...}` set a status
+  or a verdict in the brand accents, semibold, in a table cell, a bullet or a
+  paragraph. Colour is applied to live text (so it stays searchable) and it
+  never carries the meaning on its own.
 - **Figures**: centred in the text column, never wider than it, never split
   across a page, and capped in height so a tall figure is scaled to fit rather
   than clipped and always fits on a page together with the section band above

@@ -40,7 +40,9 @@ Body Markdown vocabulary (mapped to the Signature module):
     - bullet             spec_list; "Title -- body" / "Title : body" bolds the title
     1. item              scope_item inside items(); a leading "C1:" / "S1:" label
                          becomes the amber code, "Title -- body" splits summary/body
-    | a | b |            effort_table; ---: alignment -> numeric column;
+    | a | b |            effort_table; ---: alignment -> right aligned numeric
+                         column, :---: -> centred column (heading included),
+                         --- / :--- -> left, the default;
                          a row whose first cell starts with "=" -> total row
     :::items {json}      line_items_table with computed subtotal / VAT / grand-total
     :::note ... :::      note (amber side note)
@@ -57,7 +59,9 @@ Body Markdown vocabulary (mapped to the Signature module):
                          join their lines into one paragraph and used to typeset
                          the figure line as literal Markdown.
 
-Inline: **bold**, *italic*, `code`.
+Inline: **bold**, *italic*, `code`, and semantic colour {green:text},
+{amber:text}, {red:text} (a coloured span in the brand accents; works in a table
+cell, a bullet and a paragraph, and stays searchable in the PDF text layer).
 """
 import base64
 import json
@@ -95,12 +99,32 @@ def attr(s):
     return esc(s).replace('"', "&quot;")
 
 
+# Semantic colour: {green:text}, {amber:text}, {red:text} -> a coloured span.
+#
+# The three keywords are fixed and lower case, the colon carries no space before
+# it, and the payload may not contain a brace, so ordinary prose that happens to
+# hold braces and a colon ("the config block {timeout: 30}", "{"green": 1}" in a
+# listing) is left exactly as written: only these three words open a marker. The
+# form was chosen over ==text==, [text] or a colon prefix because none of those
+# collide with `code`, **bold** or *italic* either, but all three DO collide with
+# Markdown the engine or an author already uses. Braces are otherwise unused in
+# the body vocabulary (the figure attribute block is parsed off its own line,
+# before any inline pass ever sees it).
+#
+# The substitution runs last, after `code`, **bold** and *italic*, so nested
+# inline markup inside a marker renders normally and the span simply wraps the
+# result. Rendering is colour on live text, never an image, so the words stay
+# selectable, searchable and copyable in the PDF text layer.
+_SEM_COLOUR = re.compile(r"\{(green|amber|red):\s*([^{}]+?)\s*\}")
+
+
 def inline(s):
-    """Escape then apply inline Markdown: `code`, **bold**, *italic*."""
+    """Escape then apply inline Markdown: `code`, **bold**, *italic*, {green:...}."""
     s = esc(s)
     s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
     s = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", s)
+    s = _SEM_COLOUR.sub(r'<span class="sem-\1">\2</span>', s)
     return s
 
 
@@ -114,18 +138,22 @@ def plain(s):
     s = re.sub(r"`([^`]+)`", r"\1", s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
     s = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", s)
+    s = _SEM_COLOUR.sub(r"\2", s)
     return s
 
 
 # Split "Title -- body" / "Title : body" / "Title | body" into (title, body).
 #
 # "--" and "|" are deliberate separators and win over ":", which also turns up
-# incidentally in ordinary prose. Three guards stop an incidental colon from
+# incidentally in ordinary prose. Four guards stop an incidental colon from
 # bolding half a paragraph, which it used to do:
 #   1. text already opening with "**" is left alone; the author has marked the
 #      title themselves, and splitting it stranded the ** markers,
 #   2. a colon title longer than _MAX_COLON_TITLE is prose, not a title,
-#   3. a split that leaves an odd number of "**" on either side is rejected.
+#   3. a split that leaves an odd number of "**" on either side is rejected,
+#   4. a split that leaves an unclosed "{" on either side is rejected. That is
+#      the colon inside a {green: ...} marker, or inside any braced run an
+#      author quotes; splitting there bolded "{green" and stranded the marker.
 _TITLE_SPLIT_EXPLICIT = re.compile(r"^(.*?)\s*(?:--|\|)\s+(.*)$", re.DOTALL)
 _TITLE_SPLIT_COLON = re.compile(r"^(.*?)\s*:\s+(.*)$", re.DOTALL)
 _MAX_COLON_TITLE = 80
@@ -133,6 +161,10 @@ _MAX_COLON_TITLE = 80
 
 def _bold_balanced(text):
     return text.count("**") % 2 == 0
+
+
+def _braces_balanced(text):
+    return text.count("{") == text.count("}")
 
 
 def title_split(text):
@@ -145,7 +177,9 @@ def title_split(text):
     m = _TITLE_SPLIT_COLON.match(text)
     if (m and len(m.group(1)) <= _MAX_COLON_TITLE
             and "**" not in m.group(1)
-            and _bold_balanced(m.group(2))):
+            and _bold_balanced(m.group(2))
+            and _braces_balanced(m.group(1))
+            and _braces_balanced(m.group(2))):
         return m
     return None
 
@@ -421,17 +455,30 @@ def _table_cells(row):
 def render_effort_table(tbl_lines):
     """Markdown table -> Signature effort_table.
 
-    header row, alignment row (---: marks numeric columns), then body rows.
+    header row, alignment row, then body rows. The alignment row reads in the
+    standard Markdown spellings: "---:" is a right aligned (numeric) column,
+    ":---:" is a centred column, "---" and ":---" are left, which is the default.
     A body row whose first cell starts with "=" becomes the total row.
+
+    Right alignment keeps the "num" class it has always carried (mono figures,
+    no wrapping, flush right). Centring gets its own "ctr" class, emitted on the
+    header cell as well as on every body cell of that column, so the heading sits
+    over its column instead of hugging the left edge above centred content.
     """
     header = _table_cells(tbl_lines[0])
     aligns = _table_cells(tbl_lines[1])
     right = [a.endswith(":") and not a.startswith(":") for a in aligns]
+    centre = [len(a) > 1 and a.startswith(":") and a.endswith(":") for a in aligns]
 
     cols = []
     for j, h in enumerate(header):
-        is_num = right[j] if j < len(right) else False
-        cols.append((inline(h), is_num))
+        if j < len(right) and right[j]:
+            col_cls = True            # the module's historical "num" flag
+        elif j < len(centre) and centre[j]:
+            col_cls = "ctr"
+        else:
+            col_cls = False
+        cols.append((inline(h), col_cls))
 
     rows, total_row = [], None
     for raw in tbl_lines[2:]:
@@ -446,6 +493,8 @@ def render_effort_table(tbl_lines):
                 cls = "num amt" if is_num else "ws"
             else:
                 cls = "num" if is_num else "ws"
+            if j < len(centre) and centre[j]:
+                cls += " ctr"
             cells.append((inline(c), cls))
         if is_total:
             total_row = cells

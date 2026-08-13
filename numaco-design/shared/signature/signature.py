@@ -330,7 +330,12 @@ def effort_table(cols, rows, total_row=None, addon_rows=None, footnote=None,
         label = c[0]
         is_num = c[1] if len(c) > 1 else False
         width = c[2] if len(c) > 2 else None
-        clsattr = ' class="num"' if is_num else ""
+        # True keeps the historical "num" header class (mono, flush right). A
+        # string names the header class outright, which is how a column with an
+        # alignment other than the numeric one reaches its own th; the body cells
+        # of that column already name their class through _cells().
+        col_cls = "num" if is_num is True else (is_num or "")
+        clsattr = f' class="{col_cls}"' if col_cls else ""
         style = f' style="width:{width}"' if width else ""
         thead += f"<th{clsattr}{style}>{label}</th>"
     body = ""

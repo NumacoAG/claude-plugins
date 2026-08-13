@@ -336,6 +336,17 @@ table.data td {
   line-height: 1.4;
 }
 
+/* Centred column (":---:" in the Markdown alignment row). The companion of the
+   Signature core's "table.data td.num, table.data th.num" right alignment, and
+   written the same way, header cell and body cells together: a centred column
+   under a left hugging heading reads as two columns, not one. Left stays the
+   default and needs no class. The heading needs the explicit rule because the
+   core sets "text-align:left" on every th. */
+table.data th.ctr,
+table.data td.ctr {
+  text-align: center;
+}
+
 table.data tbody tr:nth-child(even) td {
   background: #f4f7fb;
 }
@@ -459,3 +470,33 @@ figure.figure figcaption {
   line-height: 1.5;
   text-align: center;
 }
+
+/* Semantic colour ({green:...}, {amber:...}, {red:...}): a status or a verdict,
+   inline, wherever text runs. A table cell is the main home, but the same span
+   works in a bullet and in a paragraph, because all three pass through the
+   engine's single inline() pass.
+
+   The colours are the brand accent palette, not invented ones. They are named
+   here as tokens because the Signature core carries its own token set and does
+   not inline the brand core theme, so --accent-green and --accent-red have to be
+   restated to be in scope at all; the values are verbatim from
+   shared/brand-core/theme.css, exactly as this stylesheet already restates
+   #1f7a8c, #c98a14 and #b3261e for the opening item cards above. Amber needs no
+   value: the Signature core's --amber is that same brand accent.
+
+   The semibold weight is what makes a one word verdict hold its own at 9.2 pt
+   table size; amber in particular reads thin against white at the body weight.
+
+   Colour is applied to the live text, never to an image, so the words stay
+   selectable, searchable and copyable in the PDF text layer. Colour also never
+   carries the meaning on its own: the word itself says "Pass" or "Blocked",
+   which is what survives a monochrome print and a colour blind reader. */
+:root {
+  --accent-green: #2f7d4f;       /* brand core: success, in-spec */
+  --accent-red:   #b3261e;       /* brand core: error, out-of-spec */
+  --accent-amber: var(--amber);  /* brand core #c98a14, already in the core */
+}
+
+.sem-green { color: var(--accent-green); font-weight: 600; }
+.sem-amber { color: var(--accent-amber); font-weight: 600; }
+.sem-red   { color: var(--accent-red);   font-weight: 600; }
