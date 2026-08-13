@@ -110,6 +110,8 @@ Standard Markdown maps onto the branded components. The mapping:
 | `> quote` | `.small` fine print |
 | `:::small ... :::` | `.small` fine print (multi-line) |
 | `:::note ... :::` | italic `.footnote` note |
+| `:::aside ... :::` | background aside: a light blue box of optional reading, smaller than the body prose, free to split across pages |
+| `:::aside Title ... :::` | the same box with a quiet mono title at its head |
 | `:::appendix ... :::` | `.appendix` fine-print section (page break, 8pt) |
 | `:::items {json} :::` | line-items table with computed subtotal / tax / grand-total |
 | `:::pagebreak` or `---` | hard page break |
@@ -285,6 +287,59 @@ left as literal text. A line that *starts* with `![` is always read as a figure,
 so write such an image mid-sentence rather than at the head of the line if you
 really want it left alone.
 
+### Background asides
+
+A report often carries a passage the reader may skip: how a mechanism works, the
+history behind a decision, the reason a constraint exists. Put it in an aside.
+
+```
+:::aside How the template store stays honest
+The store is git backed, so every change to label geometry carries an author, a
+timestamp and a reviewable diff.
+
+A template is in production if and only if it sits on the main branch. Nothing is
+applied by hand at a site, and nothing reaches a printer without a reviewed merge.
+:::
+```
+
+Everything after `:::aside` on the opening line is the title, and it is optional:
+`:::aside` on its own gives the same box with no heading, which is the right form
+when the paragraph before it has already said what the digression is about.
+
+The box is a light blue field, a step down in type from the body prose, with its
+title in the brand's mono face. That is deliberately the quietest of the three
+asides the engine offers, and the three are meant to be told apart at a glance:
+
+- `:::note` : a dark navy block with an amber edge, for one or two sentences the
+  reader must not miss.
+- `:::aside` : a light blue box, for background the reader is free to skip.
+- `:::small` (and `> quote`) : unboxed grey fine print, for a qualification on
+  what was just said.
+
+Inside an aside you get paragraphs, separated by a blank line, and bullets, a run
+of lines each opening with `-`. Inline markup works throughout, so `**bold**`,
+`*italic*`, `` `code` `` and the semantic colours all render, and every word
+stays selectable and searchable in the finished PDF. A bullet may wrap onto the
+next source line and stays one bullet; a blank line ends the list. A bullet
+written `Title : body` bolds its title, exactly as a bullet does in the section
+body.
+
+An aside is prose plus bullets and nothing else. Tables, headings, nested fences
+and page breaks are out of scope, and the two constructs an author is most likely
+to reach for anyway, a figure and a fenced listing, stop the build with an error
+naming the source line rather than being typeset as literal Markdown. Put those
+in the section body and keep the aside for its text.
+
+Unlike a figure, a long aside is allowed to split across a page. A passage of
+background is not one indivisible thing, and an unbreakable one longer than the
+text block could not be paginated at all. When it splits, the field carries on
+across the page edge with the two cut edges left open, so the box reads as one
+digression continued rather than as two boxes that happen to touch.
+
+Use it for background, not for the argument itself. A document in which every
+second block is a light blue box has simply moved its content into a lighter
+type size.
+
 ### Line-items table (for quotations, POs, invoices)
 
 Drop a fenced JSON block to get a first-class line-items table with computed
@@ -334,6 +389,11 @@ will be built.
   or a verdict in the brand accents, semibold, in a table cell, a bullet or a
   paragraph. Colour is applied to live text (so it stays searchable) and it
   never carries the meaning on its own.
+- **Background asides**: `:::aside` sets a skippable passage in a light blue box
+  at 9.4 pt, below the 11.2 pt body prose, with an optional title in the mono
+  face. It is the quiet counterpart of the navy `:::note`, and it is the one
+  boxed block that may split across a page, with the cut edges left open so the
+  field reads as continued.
 - **Figures**: centred in the text column, never wider than it, never split
   across a page, and capped in height so a tall figure is scaled to fit rather
   than clipped and always fits on a page together with the section band above

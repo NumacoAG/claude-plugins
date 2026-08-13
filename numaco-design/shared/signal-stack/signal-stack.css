@@ -133,6 +133,128 @@ code {
   color: #e0ad4d;
 }
 
+/* Background aside (":::aside [title] ... :::"): a passage the reader may skip,
+   set as a visibly separate, quieter box.
+
+   It is deliberately the soft counterpart of .note directly above. The note is a
+   dark navy bar with an amber edge and it shouts, which is right for one line
+   the reader must not miss and wrong for three paragraphs of background. The
+   aside is a light blue field with a soft blue hairline and no accent edge, a
+   step down in type from the 11.2pt body, and a title in the brand's second face
+   rather than a coloured label. Read side by side the three registers separate
+   at a glance: navy block = must read, light blue box = optional background,
+   unboxed grey fine print (.small) = a qualification on what was just said.
+
+   The palette is brand values restated as literal hex, the convention this
+   stylesheet already follows for the item cards and the semantic accents,
+   because the Signature render path does not inline brand-core/theme.css and a
+   var() naming a brand-core token would silently resolve to nothing:
+   #e4eaf3 is brand core --numaco-navy-100, #c5d1e5 is --numaco-navy-200,
+   #6c8bc6 is --numaco-navy-400, and #4a5876 is --ink-3, the brand's secondary
+   text. Navy and the mono font come from the Signature core, which IS in scope,
+   so those stay as var().
+
+   THE BOX MAY SPLIT ACROSS PAGES, and that is the point of it carrying no
+   break-inside: avoid, unlike every other boxed block here (.note, figures, a
+   listing, a table row). Those are all short or atomic by nature. A background
+   passage is neither: an unbreakable one longer than the text block could not be
+   paginated at all, and one merely longer than the space left would push most of
+   a page of white space ahead of itself. A split aside keeps its light field on
+   both fragments, which is what tells the reader the digression is still
+   running; the title is kept with the text it introduces so it can never be
+   stranded alone at a page foot. */
+.aside {
+  margin: 5mm 0 6mm;
+  padding: 4mm 5mm;
+  border: .25mm solid #c5d1e5;
+  border-radius: .8mm;
+  background: #e4eaf3;
+  color: #4a5876;
+  font-size: 9.4pt;
+  line-height: 1.5;
+}
+
+/* The two edges a split creates are opened up, so the box reads as one field
+   continued rather than as two boxes that happen to touch the page edges.
+   Paged.js fragments an element into one real element per page and stamps the
+   pieces data-split-to (continues overleaf) and data-split-from (continued from
+   the page before), which is the only hook there is: box-decoration-break has
+   nothing to slice, because the fragments are separate elements. */
+.aside[data-split-to] {
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.aside[data-split-from] {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  /* The polyfill resets padding-top on every continued fragment, from a rule
+     carrying its own five class selector chain, so this is the one place the
+     stylesheet has to shout to be heard. Without it the continued text sits hard
+     against the top edge of the field: a paragraph broken mid sentence starts at
+     the edge exactly, since the polyfill zeroes that paragraph's own margin too.
+     The bottom of the outgoing fragment is deliberately left flush, where the cut
+     itself is the signal that the passage runs on. */
+  padding-top: 3mm !important;
+}
+
+.aside .ak {
+  display: block;
+  margin-bottom: 2.4mm;
+  color: var(--navy);
+  font-family: var(--font-mono);
+  font-size: 7.8pt;
+  font-weight: 600;
+  letter-spacing: .01em;
+  break-after: avoid;
+}
+
+.aside p + p,
+.aside ul + p {
+  margin-top: 2.6mm;
+}
+
+/* Bullets inside an aside are not ul.spec: that list is a stack of pale cards
+   with an amber dot, which reads as content in its own right and would fight the
+   field it sits on. A quiet dash in the margin is enough inside a box that has
+   already announced itself. */
+.aside ul {
+  margin: 2.4mm 0 0;
+  list-style: none;
+}
+
+.aside li {
+  position: relative;
+  margin-top: 1.6mm;
+  padding-left: 4.6mm;
+  break-inside: avoid;
+}
+
+.aside li:first-child {
+  margin-top: 0;
+}
+
+.aside li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.1mm;
+  width: 2.4mm;
+  height: .3mm;
+  background: #6c8bc6;
+}
+
+.aside b {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.aside code {
+  background: #f3f6fb;
+}
+
 .sec {
   margin-top: 10mm;
 }

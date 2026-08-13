@@ -47,6 +47,10 @@ Body Markdown vocabulary (mapped to the Signature module):
     :::items {json}      line_items_table with computed subtotal / VAT / grand-total
     :::note ... :::      note (amber side note)
     :::small ... :::     fine-print paragraph(s)
+    :::aside [title]     background aside: a light blue box of optional reading,
+      ... :::            smaller than the body prose, with an optional quiet title
+                         on the opening fence line. Paragraphs and "-" bullets,
+                         inline markup throughout; it may split across pages.
     > quote              fine-print paragraph
     :::appendix ... :::  appendix(); its first heading is the appendix title,
                          any ## / ### inside become clause headings
@@ -590,10 +594,16 @@ def render_section_body(lines, lead_used, first_section):
             i += 1
             continue
 
-        # fenced blocks  :::name ...
+        # fenced blocks  :::name [argument]
+        #
+        # Everything after the name on the opening line is the block's argument.
+        # Only :::aside reads it today (its optional title); the other fences have
+        # always ignored it and still do.
         if stripped.startswith(":::"):
             flush_para()
-            name = stripped[3:].strip().split()[0] if stripped[3:].strip() else ""
+            head = stripped[3:].strip()
+            name = head.split()[0] if head else ""
+            arg = head[len(name):].strip()
             if name == "pagebreak":
                 out.append('<div class="pagebreak"></div>')
                 i += 1
@@ -614,6 +624,8 @@ def render_section_body(lines, lead_used, first_section):
                 reject_figure_in(inner, "a :::small fence")
                 txt = inline(" ".join(x.strip() for x in inner if x.strip()))
                 out.append(fineprint(txt))
+            elif name == "aside":
+                out.append(render_aside(arg, inner))
             else:  # unknown fence: render inner as ordinary section body
                 out.append(render_section_body(inner, lead_used, False))
             continue
@@ -716,6 +728,117 @@ def fineprint(html):
     """A small, muted fine-print paragraph using the module's design tokens."""
     return ('<p style="font-size:8.4pt;line-height:1.5;color:var(--grey);'
             'margin-top:2mm">' + html + "</p>")
+
+
+# ---------------------------------------------------------------- aside
+#
+# :::aside [title] ... :::  ->  a background aside: a light blue box holding a
+# passage the reader may skip, such as how a mechanism works or the history
+# behind a decision.
+#
+# It exists because the three registers that already existed all said the wrong
+# thing. A numbered section claims equal status with the real content; :::note is
+# one emphatic navy sentence with an amber bar, which shouts for attention that
+# background material does not want; :::small is undifferentiated fine print with
+# no boundary at all, so a reader cannot see where the digression starts and
+# where it stops. The aside says "this is background, read it if you want to" by
+# being a visibly separate, quieter box.
+#
+# Unlike :::note and :::small it is NOT joined into a single run of text: the
+# whole point is a passage, so blank lines separate paragraphs, and a run of "-"
+# lines becomes a quiet bullet list. Inline markup works throughout, as
+# everywhere else, because every piece goes through the one inline() pass, which
+# also keeps the text live and therefore selectable and searchable in the PDF.
+#
+# What an aside deliberately does not hold: a figure (block level, and refused
+# here exactly as it is in the other fences), a table, a heading, a nested fence
+# and a page break. It is prose plus bullets. A listing stops the build rather
+# than being typeset as literal backticks, which is what joining it into a
+# paragraph would silently have done.
+_ASIDE_BULLET = re.compile(r"^[-*]\s+")
+
+
+def _aside_bullet(text):
+    """One aside bullet; "Title -- body" bolds the title, as bullets do elsewhere."""
+    mt = title_split(text)
+    if mt and mt.group(1).strip():
+        return ("<b>" + inline(mt.group(1).strip()) + "</b> "
+                + inline(mt.group(2).strip()))
+    return inline(text)
+
+
+def _aside_body(lines):
+    """The inner lines of an aside -> paragraphs and bullet lists, in order.
+
+    A blank line is the only separator: it ends a paragraph and it ends a bullet
+    list. Everything else joins what is already open, so a bullet that wraps onto
+    the next source line stays one bullet. That is CommonMark's lazy continuation
+    and it is what an author writing wrapped prose inside a box expects; the
+    section body's bullets are stricter (one per line) because a wrapped bullet
+    there falls out of the list and becomes a paragraph, which is loud enough to
+    be noticed. Inside a box it would be a second block sitting in the field,
+    flush left under a hanging indent, which is not.
+    """
+    out, para, bullets = [], [], []
+
+    def flush_para():
+        if para:
+            out.append("<p>" + inline(" ".join(para)) + "</p>")
+            para.clear()
+
+    def flush_bullets():
+        if bullets:
+            out.append("<ul>"
+                       + "".join(f"<li>{_aside_bullet(b)}</li>" for b in bullets)
+                       + "</ul>")
+            bullets.clear()
+
+    for raw in lines:
+        stripped = raw.strip()
+        if not stripped:
+            flush_para()
+            flush_bullets()
+            continue
+        if stripped.startswith("```"):
+            sys.exit(
+                "ERROR: a fenced code block cannot be placed inside a :::aside "
+                "fence.\n"
+                f"       source line: {stripped}\n"
+                "       An aside carries prose and bullets. Move the listing out of\n"
+                "       the aside and put it in the section body, where it renders\n"
+                "       as a verbatim monospace block."
+            )
+        if _ASIDE_BULLET.match(stripped):
+            flush_para()
+            bullets.append(_ASIDE_BULLET.sub("", stripped))
+            continue
+        if bullets:                      # a wrapped line continues its bullet
+            bullets[-1] += " " + stripped
+            continue
+        para.append(stripped)
+
+    flush_para()
+    flush_bullets()
+    return "".join(out)
+
+
+def render_aside(title, lines):
+    """:::aside [title] ... ::: -> the Signal Stack background aside box.
+
+    The title is whatever follows the fence name on the opening line, and it is
+    optional: an aside with no title is simply a quieter box. Every visual rule
+    lives in the Signal Stack stylesheet, including the one that matters most
+    here, that the box may split across a page. A long digression that had to
+    stay whole would either be refused a page or push a page's worth of white
+    space ahead of it, which is exactly what a figure does and exactly what a
+    passage of prose must not.
+    """
+    reject_figure_in(lines, "a :::aside fence")
+    body = _aside_body(lines)
+    head = f'<span class="ak">{inline(title)}</span>' if title else ""
+    if not head and not body:
+        return ""
+    return f'<div class="aside">{head}{body}</div>'
 
 
 def code_block(buf):
