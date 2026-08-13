@@ -100,6 +100,9 @@ Standard Markdown maps onto the branded components. The mapping:
 | `\| =Total \| ... \|` | a row whose first cell starts with `=` becomes the navy total row |
 | `---:` alignment | right-aligns that column and its numbers |
 | ` ``` ` fenced block | `pre.code-block` verbatim listing (monospace, whitespace preserved, no inline markdown) |
+| `![Caption](image.png)` | centred `figure.figure`, image embedded as a data URI, alt text as the quiet caption below it |
+| `![](image.png)` | the same figure with no caption (empty alt text) |
+| `![Caption](image.png){width=60%}` | image sized to a share of the text column; `{width=90mm}` sizes it in millimetres |
 | `> quote` | `.small` fine print |
 | `:::small ... :::` | `.small` fine print (multi-line) |
 | `:::note ... :::` | italic `.footnote` note |
@@ -131,6 +134,111 @@ Use ordinary Markdown tables. Mark a column's alignment row with `---:` to
 right-align that column, which is what you want for numeric columns (days,
 amounts). Start the first cell of a row with `=` to turn that row into the navy
 bold total row, for example `| =BASE TOTAL | 48.0 | CHF 4'800.- |`.
+
+Column widths follow the content. A cell carrying a long unbreakable identifier,
+say `STO_HL_environmental_monitoring_sample_40x20`, wraps inside its own cell
+rather than widening the table: the table stays inside the 174 mm text column
+whatever the identifier's length and whatever the column count. Wrapping prefers
+a real break point where the text offers one, so a hyphenated or dotted name
+breaks at its hyphen or its dot; an underscored or slashed name has no such
+point and breaks mid character, because CSS cannot be told to prefer an
+underscore. Numeric columns never wrap at all.
+
+The price of keeping the table on the paper is paid by the other columns: in a
+table whose columns are already competing for width, a column can be allocated
+less than its longest word and an ordinary prose word can then break mid word. A
+table whose content fits is untouched. If a wide reconciliation table reads
+badly, shorten the labels, drop a column, or move the identifier column to the
+end.
+
+### Figures
+
+Place an image with standard Markdown syntax, alone on its own line:
+
+```
+![Ruler view of the Planica array label, 100 x 13 mm.](img/arrays_planica_100x13.png)
+```
+
+The path resolves against the Markdown file's own directory, so a document and
+its images travel together. An absolute path works too, as does a leading `~`.
+The engine reads the file and embeds it in the page as a base64 data URI, which
+is what keeps the document self-contained and offline; the mime type comes from
+the file extension, and `png`, `jpg`, `svg`, `gif` and `webp` are all
+recognised. Each distinct image is encoded once, however many times the document
+places it.
+
+A path containing parentheses, which is what a browser and Windows both produce
+on a duplicate download, needs no special handling:
+
+```
+![Array label, second copy.](img/label (1).png)
+```
+
+Wrap the path in angle brackets when it nests parentheses more deeply than that:
+
+```
+![Array label.](<img/label (1) (a).png>)
+```
+
+**The build stops rather than emitting a broken image.** A figure whose file is
+missing, unreadable, empty, or not really the format its extension claims (the
+engine checks the leading bytes for `png`, `jpg`, `gif` and `webp`, and looks for
+an `<svg` element in an `.svg`), a figure pointing at a remote URL, an attribute
+other than `width`, and a line that opens with `![` but does not parse as a
+complete figure all stop the build with an error naming the file, the resolved
+location and the source line. No PDF is written. In particular an image standing
+on its own line is never quietly typeset as literal Markdown into a finished
+document.
+
+That promise now reaches inside the fences too. `:::note`, `:::small`,
+`:::appendix` and a `>` blockquote each join their inner lines into one run of
+text, so a figure line inside one of them used to be escaped and printed as
+literal Markdown in the finished PDF while the build exited 0. A figure line
+inside any of those four now stops the build and says where the figure can
+stand. They are not taught to render one, because each emits a paragraph and a
+figure is a block that may not live inside a paragraph: the browser closes the
+paragraph early and the amber note box comes apart. Neither the 8.4 pt fine
+print nor the amber aside has a design register for an image. Put the figure on
+its own line in the section body and keep the fence for its text.
+
+The alt text becomes the caption: small, grey and centred under the image, in
+the same quiet register as the rest of the fine print. It runs through the usual
+inline pass, so `**bold**`, `*italic*` and `` `code` `` all work inside it (the
+`alt` attribute carried into the PDF gets the same text with the markers
+removed). Leave the alt text empty when a figure needs no caption:
+
+```
+![](img/STO_HL_column_50x10.png)
+```
+
+By default an image fills the text column. Label artwork varies wildly in aspect
+ratio, so an optional attribute block sizes it, either as a share of the column
+or as a millimetre value:
+
+```
+![Environmental monitoring box label, 120 x 20 mm.](img/STO_HL_EM_box_120x20.png){width=80%}
+![Instrument label held at its physical width.](img/instrument_planica_25x15.png){width=25mm}
+```
+
+The width sizes the **image**. The figure itself always spans the text column, so
+the caption keeps a readable measure: `{width=25mm}` gives you a 25 mm label with
+a full width caption centred under it, not a 25 mm ribbon of text.
+
+A figure never runs past the text column, and it never splits across a page: the
+image and its caption always travel to the next page together. A figure taller
+than the space it has is scaled down to fit rather than clipped, and the block is
+capped so that a figure and the section band that introduces it always fit on one
+page together: a figure opening a section never strands the navy band alone at
+the top of a blank page. A near page height figure still leaves white space on
+the page it could not fit on, which is inherent to an image that must stay whole;
+giving such a figure an explicit width of around 60 per cent usually reads
+better and packs the pages more tightly.
+
+Figures are block level by design. An image written inside a paragraph, inside a
+table cell, inside a bullet, or inside a numbered item is not a figure and is
+left as literal text. A line that *starts* with `![` is always read as a figure,
+so write such an image mid-sentence rather than at the head of the line if you
+really want it left alone.
 
 ### Line-items table (for quotations, POs, invoices)
 
@@ -171,8 +279,14 @@ will be built.
   content page at 8.5% opacity, suppressed on the cover.
 - **Hierarchy**: centred 18 pt main section titles with 12 pt amber section
   numbers; ruled, uppercase 10.5 pt subsection headings.
-- **Tables**: navy headers, repeated headings on page breaks, controlled column
-  geometry for technical tables with five columns, and 9.2 pt body text.
+- **Tables**: navy headers, repeated headings on page breaks, content-driven
+  column widths up to five columns, tighter padding and a step down in type from
+  six columns, and 9.2 pt body text. A long unbreakable identifier wraps inside
+  its cell, so a table never runs past the text column.
+- **Figures**: centred in the text column, never wider than it, never split
+  across a page, and capped in height so a tall figure is scaled to fit rather
+  than clipped and always fits on a page together with the section band above
+  it, with a small grey caption centred under the image at full column measure.
 - **Footer**: `Numaco AG · Haldenstrasse 3c · CH-8905 Islisberg · numaco.ch`,
   with `Page N of M` on the right, on every content page.
 

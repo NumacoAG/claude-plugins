@@ -49,9 +49,17 @@ Body Markdown vocabulary (mapped to the Signature module):
     :::appendix ... :::  appendix(); its first heading is the appendix title,
                          any ## / ### inside become clause headings
     :::pagebreak / ---   hard page break
+    ![Caption](img.png)  figure block; the image is embedded as a data URI, the
+                         alt text becomes the caption (empty alt -> no caption),
+                         and an optional {width=60%} or {width=90mm} sizes it.
+                         Block level only: a figure inside :::note, :::small,
+                         :::appendix or a blockquote stops the build, since those
+                         join their lines into one paragraph and used to typeset
+                         the figure line as literal Markdown.
 
 Inline: **bold**, *italic*, `code`.
 """
+import base64
 import json
 import os
 import re
@@ -71,9 +79,20 @@ REPORT_CSS = (
 REPORT_WATERMARK_OPACITY = 0.085
 
 
+# Directory the Markdown source lives in. Every relative figure path resolves
+# against it, so a document and its images travel together. main() sets it; the
+# default keeps the module importable and testable on its own.
+SRC_DIR = Path.cwd()
+
+
 # ---------------------------------------------------------------- utilities
 def esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def attr(s):
+    """Escape for use inside a double-quoted HTML attribute."""
+    return esc(s).replace('"', "&quot;")
 
 
 def inline(s):
@@ -82,6 +101,19 @@ def inline(s):
     s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
     s = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", s)
     s = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", s)
+    return s
+
+
+def plain(s):
+    """Drop inline Markdown markers without rendering them.
+
+    For places that take text rather than markup, above all the img alt
+    attribute: the caption renders through inline(), but the accessibility text
+    must read "bold" and not "**bold**".
+    """
+    s = re.sub(r"`([^`]+)`", r"\1", s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
+    s = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", s)
     return s
 
 
@@ -116,6 +148,239 @@ def title_split(text):
             and _bold_balanced(m.group(2))):
         return m
     return None
+
+
+# ---------------------------------------------------------------- figures
+#
+# A figure is a standard Markdown image alone on its own line:
+#
+#     ![Caption text](relative/path/to/image.png)
+#     ![](diagram.svg){width=60%}
+#
+# The path resolves against the Markdown file's own directory (an absolute path
+# and a leading ~ both work), the alt text becomes the caption (empty alt means
+# no caption), and the optional attribute block sizes the figure. The image is
+# read and embedded as a data URI, so the assembled HTML stays self-contained and
+# offline exactly like every brand asset. An image inside a paragraph or a table
+# cell is deliberately out of scope: figures are block level.
+#
+# The target accepts one level of nested parentheses, because "img/label (1).png"
+# is what a browser and Windows both produce on a duplicate download, and the
+# earlier [^)]*? target stopped at the first ")" so such a line never parsed at
+# all. The <angle bracket> form is accepted as the explicit escape hatch for a
+# path that nests more deeply than that.
+_FIGURE_LINE = re.compile(
+    r"^!\[(?P<alt>(?:[^\[\]]|\[[^\[\]]*\])*)\]\("
+    r"\s*(?P<target><[^<>]*>|(?:[^()]|\([^()]*\))*?)\s*"
+    r"\)"
+    r"(?:\s*\{(?P<attrs>[^}]*)\})?\s*$"
+)
+_FIGURE_WIDTH = re.compile(r"^width=(?P<v>\d+(?:\.\d+)?)(?P<u>%|mm)$", re.IGNORECASE)
+
+# Extensions the engine will embed. png, jpg and svg are the required set; gif
+# and webp ride along because the same base64 embedding covers them.
+FIGURE_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+}
+
+# Leading bytes that prove the file really is the raster format its extension
+# claims. Without this the engine happily base64s a zero length file or a text
+# file renamed .png; the browser then draws its broken image glyph and paints the
+# alt text across the column at body size, and the build still reports success.
+FIGURE_MAGIC = {
+    ".png": [b"\x89PNG\r\n\x1a\n"],
+    ".jpg": [b"\xff\xd8\xff"],
+    ".jpeg": [b"\xff\xd8\xff"],
+    ".gif": [b"GIF87a", b"GIF89a"],
+    # RIFF....WEBP: four size bytes sit between the two markers
+    ".webp": [b"RIFF"],
+}
+
+# One data URI per resolved path. A 40 figure document that shows the same label
+# in a summary and again in its own section otherwise carries that image twice,
+# and base64 is a third larger than the file it encodes.
+_FIGURE_URI_CACHE = {}
+
+
+def _figure_target_path(target):
+    """Strip the Markdown decorations off a link target and return the raw path.
+
+    Handles the <angle bracket> form and a trailing "title" or 'title'.
+    """
+    t = target.strip()
+    if t.startswith("<") and ">" in t:
+        return t[1:t.index(">")].strip()
+    m = re.match(r'^(\S.*?)\s+(["\']).*\2$', t)
+    if m:
+        t = m.group(1)
+    return t.strip()
+
+
+def resolve_figure(target, raw_line):
+    """Resolve a figure path against the Markdown file's directory, or die."""
+    raw = _figure_target_path(target)
+    if not raw:
+        sys.exit(f"ERROR: figure has no path: {raw_line.strip()}")
+    if re.match(r"^[a-z][a-z0-9+.-]*://", raw, re.IGNORECASE):
+        sys.exit(
+            f"ERROR: figure points at a remote URL: {raw}\n"
+            "       Numaco documents are self-contained and offline. Download the\n"
+            "       image next to the Markdown file and reference it by path."
+        )
+    p = Path(os.path.expanduser(raw))
+    if not p.is_absolute():
+        p = SRC_DIR / p
+    p = Path(os.path.normpath(str(p)))
+    if not p.exists():
+        sys.exit(
+            f"ERROR: figure not found: {raw}\n"
+            f"       resolved to: {p}\n"
+            f"       source line: {raw_line.strip()}\n"
+            f"       Relative figure paths resolve against the Markdown file's own\n"
+            f"       directory ({SRC_DIR})."
+        )
+    if p.is_dir():
+        sys.exit(f"ERROR: figure path is a directory, not an image: {p}")
+    if p.suffix.lower() not in FIGURE_MIME:
+        supported = ", ".join(sorted(FIGURE_MIME))
+        sys.exit(
+            f"ERROR: unsupported figure type {p.suffix or '(none)'}: {p}\n"
+            f"       supported extensions: {supported}"
+        )
+    return p
+
+
+def _figure_die(problem, path, raw_line, hint=""):
+    """Stop the build on a figure the page could not honestly show.
+
+    Same shape as the neighbouring resolve_figure() errors: what is wrong, the
+    resolved location, and the source line that asked for it.
+    """
+    sys.exit(
+        f"ERROR: {problem}\n"
+        f"       resolved to: {path}\n"
+        f"       source line: {raw_line.strip()}"
+        + (f"\n       {hint}" if hint else "")
+    )
+
+
+def figure_bytes(path, raw_line):
+    """Read a figure and prove it is the image its extension claims.
+
+    An unreadable file, an empty file, or a file whose leading bytes do not match
+    its extension all stop the build here. Embedding them anyway produces a PDF
+    that shows the browser's broken image glyph with the alt text painted across
+    the column, and the build would still exit 0 reporting success.
+    """
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        _figure_die(f"figure could not be read: {exc.strerror or exc}",
+                    path, raw_line,
+                    "Check the file's permissions and that it is a regular file.")
+
+    if not data:
+        _figure_die("figure file is empty (zero bytes)", path, raw_line)
+
+    suffix = path.suffix.lower()
+    magic = FIGURE_MAGIC.get(suffix)
+    if magic and not any(data.startswith(sig) for sig in magic):
+        _figure_die(f"figure is not a valid {suffix.lstrip('.')} file "
+                    "(its leading bytes do not match the format)",
+                    path, raw_line,
+                    "The extension and the actual content disagree. Re-export the "
+                    "image, or give it the extension it really has.")
+    if suffix == ".webp" and not (len(data) >= 12 and data[8:12] == b"WEBP"):
+        _figure_die("figure is not a valid webp file (RIFF container without a "
+                    "WEBP marker)", path, raw_line)
+    if suffix == ".svg" and b"<svg" not in data[:4096].lower():
+        _figure_die("figure is not a valid svg file (no <svg element found)",
+                    path, raw_line,
+                    "An SVG must carry an <svg> root element.")
+    return data
+
+
+def figure_data_uri(path, raw_line):
+    """Read an image and return it as a base64 data URI (self-contained, offline)."""
+    key = str(path)
+    if key not in _FIGURE_URI_CACHE:
+        mime = FIGURE_MIME[path.suffix.lower()]
+        b64 = base64.b64encode(figure_bytes(path, raw_line)).decode("ascii")
+        _FIGURE_URI_CACHE[key] = f"data:{mime};base64,{b64}"
+    return _FIGURE_URI_CACHE[key]
+
+
+def figure_width(attrs, raw_line):
+    """Parse the optional {width=60%} / {width=90mm} block; None means full column."""
+    if not attrs or not attrs.strip():
+        return None
+    normalised = re.sub(r"\s*=\s*", "=", attrs.strip())
+    width = None
+    for part in re.split(r"[;,\s]+", normalised):
+        if not part:
+            continue
+        m = _FIGURE_WIDTH.match(part)
+        if not m:
+            sys.exit(
+                f"ERROR: unsupported figure attribute {part!r}\n"
+                f"       source line: {raw_line.strip()}\n"
+                "       supported: {width=60%} or {width=90mm}"
+            )
+        if float(m.group("v")) <= 0:
+            sys.exit(f"ERROR: figure width must be greater than zero: {part}")
+        width = m.group("v") + m.group("u").lower()
+    return width
+
+
+def reject_figure_in(lines, where):
+    """Stop the build on a figure inside a block that cannot hold one.
+
+    :::note, :::small, a blockquote and :::appendix all join their inner lines
+    into one run and pass it through inline(), so the near miss guard in
+    render_section_body never sees them: a perfectly well formed figure line
+    inside one of these was escaped and typeset as literal Markdown into the
+    finished PDF while the build reported success. They cannot simply be taught
+    to render one either. Each emits a paragraph (S.note and fineprint literally,
+    the appendix through its clause text), and a <figure> is a block that may not
+    live inside a <p>; the browser closes the paragraph early and the amber note
+    box comes apart. Neither the 8.4 pt fine print nor the amber aside has a
+    design register for an image. So the figure is refused, loudly, and the
+    author is told where it can stand.
+    """
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("!["):
+            sys.exit(
+                f"ERROR: a figure cannot be placed inside {where}.\n"
+                f"       source line: {stripped}\n"
+                "       Figures are block level. Move the figure out of the block\n"
+                "       and put it on its own line in the section body, leaving\n"
+                "       the block for its text."
+            )
+
+
+def render_figure(m, raw_line):
+    """A matched figure line -> the Signal Stack figure block.
+
+    The only inline style is the author's chosen width, carried as a custom
+    property. Every visual rule (centring, margins, column fit, break-inside)
+    lives in the Signal Stack stylesheet. The width applies to the image, not to
+    the whole figure, so a 25 mm image still gets a full width caption instead of
+    a 25 mm ribbon of text broken over half a dozen ragged lines.
+    """
+    alt = (m.group("alt") or "").strip()
+    path = resolve_figure(m.group("target") or "", raw_line)
+    uri = figure_data_uri(path, raw_line)
+    width = figure_width(m.group("attrs"), raw_line)
+    style = f' style="--fig-width:{width}"' if width else ""
+    caption = f"<figcaption>{inline(alt)}</figcaption>" if alt else ""
+    return (f'<figure class="figure">'
+            f'<img{style} src="{uri}" alt="{attr(plain(alt))}">{caption}</figure>')
 
 
 # ---------------------------------------------------------------- front matter
@@ -255,6 +520,27 @@ def render_section_body(lines, lead_used, first_section):
             out.append(code_block(buf))
             continue
 
+        # figure: a Markdown image alone on its line (checked before the generic
+        # paragraph fallback, so it never gets swallowed into prose). A line that
+        # opens with "![" and does not parse is a near miss, never prose: letting
+        # it fall through typeset the literal Markdown into a finished customer
+        # PDF with no error at all, so it stops the build instead.
+        if stripped.startswith("!["):
+            flush_para()
+            fig = _FIGURE_LINE.match(stripped)
+            if not fig:
+                sys.exit(
+                    f"ERROR: line looks like a figure but does not parse as one:\n"
+                    f"       source line: {stripped}\n"
+                    "       A line that starts with '![' must be a complete figure:\n"
+                    "       ![Caption](path/to/image.png) with an optional {width=60%}\n"
+                    "       or {width=90mm}. Wrap a path that nests parentheses in\n"
+                    "       angle brackets: ![Caption](<img/label (1) (a).png>)."
+                )
+            out.append(render_figure(fig, line))
+            i += 1
+            continue
+
         # fenced blocks  :::name ...
         if stripped.startswith(":::"):
             flush_para()
@@ -272,9 +558,11 @@ def render_section_body(lines, lead_used, first_section):
             if name == "items":
                 out.append(render_line_items("\n".join(inner)))
             elif name == "note":
+                reject_figure_in(inner, "a :::note fence")
                 txt = inline(" ".join(x.strip() for x in inner if x.strip()))
                 out.append(S.note("Note", txt))
             elif name == "small":
+                reject_figure_in(inner, "a :::small fence")
                 txt = inline(" ".join(x.strip() for x in inner if x.strip()))
                 out.append(fineprint(txt))
             else:  # unknown fence: render inner as ordinary section body
@@ -309,6 +597,7 @@ def render_section_body(lines, lead_used, first_section):
             while i < n and lines[i].strip().startswith(">"):
                 buf.append(lines[i].strip()[1:].strip())
                 i += 1
+            reject_figure_in(buf, "a blockquote")
             out.append(fineprint(inline(" ".join(buf))))
             continue
 
@@ -405,6 +694,7 @@ def build_appendix(inner_lines):
     the current clause. Markers are left blank (the source carries no clause
     symbols to invent).
     """
+    reject_figure_in(inner_lines, "a :::appendix fence")
     title = "Appendix"
     clauses = []                 # list of [marker, heading, paragraphs]
     cur = ["", "", []]           # implicit lead-in clause (no heading)
@@ -570,10 +860,15 @@ def build_cover(fm):
 
 # ---------------------------------------------------------------- main
 def main():
+    global SRC_DIR
     if len(sys.argv) != 3:
         sys.exit("Usage: build_report.py <input.md> <output.pdf>")
     src = Path(sys.argv[1])
     pdf = Path(sys.argv[2])
+
+    # Figures are authored relative to the document, not to the shell's cwd.
+    SRC_DIR = Path(os.path.abspath(str(src))).parent
+    _FIGURE_URI_CACHE.clear()   # the cache is per document, never across builds
 
     fm, body = parse_front_matter(src.read_text())
     parts = build_body_parts(body.splitlines())

@@ -269,11 +269,56 @@ table.data tr {
   break-inside: avoid;
 }
 
+/* A long identifier must wrap inside its cell instead of widening the table off
+   the paper. This says "anywhere", not "break-word", and the difference is the
+   whole fix: only the soft wrap opportunities introduced by "anywhere" count
+   toward a cell's min-content size, and min-content is exactly what auto table
+   layout uses to size a column. Under "break-word", which stood here before, a
+   44 character sample name still claimed its full width in the column and only
+   broke once the column had already been made wide enough to hold it, so the
+   table grew past the 174mm text column and, from about 62 characters, past the
+   210mm trim edge with the last column entirely off the sheet, and the build
+   still exited 0. Measured on a five column reconciliation table: 44 characters
+   173.4mm, 56 characters 184.1mm, 62 characters and beyond clipped at the trim.
+   With "anywhere" every one of those renders at 173.4mm.
+
+   Both th and td, deliberately. Scoping this to td alone left the same table at
+   179.0mm, 5.2mm past the text column, whenever the long token sat in a header
+   cell.
+
+   "word-break: break-word" renders identically (it is defined as this same pair)
+   but is deprecated and non-standard, so it is not used. "word-break: break-all"
+   also fixes the geometry and is worse: it breaks at a character even where the
+   text offers a real break point, turning "STO-HL-CLEANROOM-01" into
+   "STO-HL-CLEANR / OOM-01" and the header "DECLARED ROUTING" into
+   "DECLARED ROU / TING". "anywhere" keeps the normal line breaking rules first
+   and only breaks mid character when the run genuinely has no break point of its
+   own, so a hyphenated or dotted name still breaks at its hyphen or its dot; an
+   underscored or slashed one has no such point and breaks mid character, which
+   is the best any stylesheet can do, since CSS cannot be told to prefer an
+   underscore.
+
+   The cost, measured: in a table whose columns are already competing for width,
+   a column can now be allocated less than its longest word and an ordinary prose
+   word can break mid word. A table that fits its content is untouched. Numeric
+   columns are untouched in every case, because table.data td.num carries
+   white-space: nowrap in the Signature core and a cell that may not wrap has no
+   wrap opportunities for this property to add. */
 table.data th,
 table.data td {
   overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+}
+
+/* Only the first column of a data table may break mid word. That is where the
+   long machine identifiers live (template names, method names), and letting it
+   collapse its min-content is what stops a wide table pushing its last column
+   off the sheet. Every other column keeps break-word, so an ordinary word such
+   as a verdict stays whole and stays searchable in the PDF text layer. */
+table.data th:first-child,
+table.data td:first-child {
+  overflow-wrap: anywhere;
 }
 
 table.data th {
@@ -295,33 +340,21 @@ table.data tbody tr:nth-child(even) td {
   background: #f4f7fb;
 }
 
-/* The tuned geometry below is calibrated for the five-column effort table and
-   must stay scoped to exactly five columns. Applied to a six-column table it
-   pins the second column at 20mm and shreds whichever column carries the prose,
-   so anything wider falls back to content-driven auto layout. */
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) {
-  table-layout: fixed;
-}
+/* Five columns: content-driven auto layout, exactly like three and four.
 
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(1),
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(1) {
-  width: 6mm;
-}
-
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(2),
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(2) {
-  width: 20mm;
-}
-
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(3),
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(3) {
-  width: 28mm;
-}
-
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) th:nth-child(4),
-table.data:has(th:nth-child(5)):not(:has(th:nth-child(6))) td:nth-child(4) {
-  width: 44mm;
-}
+   A fixed geometry used to live here (6mm / 20mm / 28mm / 44mm, pinned on any
+   table with exactly five columns) and it was removed because it was tuned for a
+   table that does not exist. It was described as the geometry of the SOW effort
+   table, but that table has FOUR columns (Ref / Workstream / Days / Amount) and
+   carries its own geometry in the Signature core as table.sow-effort, so the
+   five-column block never applied to it. What it did reach were the two
+   five-column shapes the packet really produces, and it damaged both: a
+   five-column Markdown table in a report had its first column pinned to 6mm and
+   set one character per line vertically, and the timesheet entries table (Date /
+   By / Description / Hours / Amount, the shape a sheet takes when it carries
+   both a By column and an Amount column) had its prose column pinned to 28mm.
+   Column geometry that is genuinely wanted is declared per table type on an
+   explicit class in the Signature core, never inferred from a column count. */
 
 /* Six columns or more: let the content decide the widths, and buy the room
    back with tighter padding and a step down in type. */
@@ -365,4 +398,64 @@ pre.code-block {
 pre.code-block code {
   font: inherit;
   color: inherit;
+}
+
+/* Figure (![Caption](image.png){width=60%}): a block level image, embedded as a
+   data URI by the engine, centred in the text column and never wider than it.
+   The author's optional width arrives as the --fig-width custom property, the
+   one piece of per-figure data; every visual rule lives here.
+
+   The width sizes the IMAGE, not the figure. The figure always spans the text
+   column, so the caption keeps a readable measure: {width=25mm} used to shrink
+   the whole block and broke a one-sentence caption into a 25 mm ribbon over half
+   a dozen ragged lines.
+
+   break-inside: avoid keeps the image and its caption together on one page, and
+   the max-height on the figure is what makes that promise keepable twice over.
+   An unbreakable box taller than the text block could not be paginated at all,
+   and one taller than the text block MINUS a section band stranded that band
+   alone at the top of an otherwise blank page whenever a figure opened a
+   section: the pair could never share a page, so break-after: avoid on the band
+   had nothing to move it to. The budget below is the text block (254mm) less a
+   two-line section band and the gap under it, so a figure and the band that
+   introduces it always fit together.
+
+   The figure is a flex column so the image, not the caption, absorbs that cap:
+   min-height 0 lets the image shrink inside it and object-fit keeps the shrink
+   proportional. With no frame around the figure the spare width is simply
+   paper. */
+figure.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-height: 213mm;
+  margin: 4mm auto 5.5mm;
+  text-align: center;
+  break-inside: avoid;
+}
+
+figure.figure img {
+  display: block;
+  flex: 0 1 auto;
+  width: var(--fig-width, 100%);
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 200mm;
+  object-fit: contain;
+  object-position: center;
+  margin: 0 auto;
+}
+
+/* Caption: same quiet register as .small and the .footnote fine print, centred
+   under the image and across the full text column. */
+figure.figure figcaption {
+  flex: 0 0 auto;
+  width: 100%;
+  margin-top: 2mm;
+  color: var(--grey);
+  font-size: 8.4pt;
+  line-height: 1.5;
+  text-align: center;
 }
