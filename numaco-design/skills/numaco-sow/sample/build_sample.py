@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """Build a sample Numaco SOW to prove the numaco-sow HTML pipeline end to end."""
+import os
 import sys
 from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SAMPLE_DIR.parent / "scripts"))
+
+# This sample is a committed, public artifact. build_sow resolves the supplier
+# contact block at import time from the machine-local defaults file, so without
+# this line whoever rebuilds the sample bakes their own name and work address
+# into a public repository (which is exactly what happened once). Point the
+# loader at a path that cannot exist, so it falls back to its placeholders.
+os.environ["NUMACO_DESIGN_DEFAULTS"] = str(SAMPLE_DIR / "_sample_uses_no_defaults.toml")
+
 import build_sow  # noqa: E402
 
 PAYLOAD = {

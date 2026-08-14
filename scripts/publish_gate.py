@@ -26,6 +26,7 @@ inside an already-baselined file still fails.
 """
 import os
 import re
+import subprocess
 import sys
 
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", ".pytest_cache",
@@ -91,29 +92,61 @@ def email_is_placeholder(token):
     return bool(PLACEHOLDER_LOCAL.match(token.split("@", 1)[0]))
 
 
-def scan(root, site_pats):
-    rules = GENERIC_RULES + [("site-specific-term", p) for p in site_pats]
-    hits = []
+def publishable_files(root):
+    """Relative paths of every file that could actually reach the public repo.
+
+    Inside a git work tree that means tracked files plus untracked files that
+    are not ignored, which is exactly what a push can carry. Build artifacts
+    are ignored by definition, so a local build must never turn the gate red:
+    the sample renderers write megabytes of HTML that no commit will ever
+    contain, and scanning them reports leaks that cannot leak.
+
+    Outside a git work tree (the pre-commit hook scans a temp directory of
+    staged copies, and CI may scan an exported tree) fall back to walking
+    everything, which is the safe direction to fail in.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "ls-files", "--cached", "--others",
+             "--exclude-standard", "-z"],
+            capture_output=True, check=True).stdout
+        rels = [r.decode("utf-8", "surrogateescape") for r in out.split(b"\0") if r]
+        if rels:
+            return rels
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    rels = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for fn in filenames:
-            if fn == BASELINE_NAME or os.path.splitext(fn)[1].lower() in SKIP_EXT:
-                continue
-            path = os.path.join(dirpath, fn)
-            rel = os.path.relpath(path, root)
-            try:
-                with open(path, "r", errors="ignore") as fh:
-                    for n, line in enumerate(fh, 1):
-                        if any(p.search(line) for p in ALLOW_LINE):
-                            continue
-                        for kind, pat in rules:
-                            for m in pat.finditer(line):
-                                tok = m.group(0)
-                                if kind == "real-email" and email_is_placeholder(tok):
-                                    continue
-                                hits.append((rel, n, kind, tok))
-            except (OSError, UnicodeDecodeError):
-                continue
+            rels.append(os.path.relpath(os.path.join(dirpath, fn), root))
+    return rels
+
+
+def scan(root, site_pats):
+    rules = GENERIC_RULES + [("site-specific-term", p) for p in site_pats]
+    hits = []
+    for rel in publishable_files(root):
+        parts = rel.split(os.sep)
+        if any(p in SKIP_DIRS for p in parts[:-1]):
+            continue
+        fn = parts[-1]
+        if fn == BASELINE_NAME or os.path.splitext(fn)[1].lower() in SKIP_EXT:
+            continue
+        path = os.path.join(root, rel)
+        try:
+            with open(path, "r", errors="ignore") as fh:
+                for n, line in enumerate(fh, 1):
+                    if any(p.search(line) for p in ALLOW_LINE):
+                        continue
+                    for kind, pat in rules:
+                        for m in pat.finditer(line):
+                            tok = m.group(0)
+                            if kind == "real-email" and email_is_placeholder(tok):
+                                continue
+                            hits.append((rel, n, kind, tok))
+        except (OSError, UnicodeDecodeError):
+            continue
     return hits
 
 
