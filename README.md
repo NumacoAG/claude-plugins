@@ -247,6 +247,25 @@ numaco-claude-plugins/
 └── README.md                this file
 ```
 
+## Contributing
+
+This repository is public because installing from it should need nothing more
+than the marketplace command: no GitHub account, no access request, no auth.
+Anyone may fork it and open a pull request.
+
+Nobody but the owner can merge one. `main` carries a ruleset that requires a
+pull request with an approving review from a code owner, and
+[`.github/CODEOWNERS`](.github/CODEOWNERS) makes the owner the code owner of
+every path. The ruleset also blocks force pushes and branch deletion, and holds
+every merge until the `publish gate` workflow passes: the privacy scan, the
+manifest and version checks, and a clean-config install smoke test.
+
+That gate is the reason the repository can be public at all. It refuses any
+change carrying real email addresses, absolute home paths, private keys, or
+site-specific terms, and it runs on every pull request, including pull requests
+from forks where no local hook of ours can reach. Known-safe matches live in
+`.publish-allow`, one path and token per line, each with its reason.
+
 ## License
 
 MIT. Copyright (c) 2026 Numaco AG. See [LICENSE](LICENSE).
