@@ -9,3 +9,4 @@ numaco-design/skills/numaco-sow/sample/build_sample.py:petra.meier@acmelabs.ch  
 numaco-design/skills/numaco-sow/scripts/build_sow.py:petra.meier@acmelabs.ch  # real-email
 numaco-hub/skills/numaco-setup/SKILL.md:/numaco/  # site-specific-term
 clockify-mcp/pyproject.toml:dev@numaco.ch  # generic company address, not a person; matches the commit-author convention
+.github/CODEOWNERS:putignano  # site-specific-term inside the owner's GitHub handle; CODEOWNERS cannot name an owner without it, and the handle is already public on every commit

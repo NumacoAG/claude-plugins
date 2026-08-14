@@ -1,0 +1,13 @@
+# Every path in this repository is owned by Max.
+#
+# This file is one half of the merge guard. The other half is the "main"
+# ruleset, which requires a pull request carrying an approving review from a
+# code owner before anything reaches main. Together they mean that no one but
+# Max can put a commit into the published marketplace, whatever the collaborator
+# list happens to say at the time. Repository admins bypass the ruleset, so Max's
+# own direct pushes to main keep working.
+#
+# Anyone outside the org can still fork and open a pull request, which is the
+# point of a public marketplace. They cannot merge one.
+
+* @maxputignano-numaco
