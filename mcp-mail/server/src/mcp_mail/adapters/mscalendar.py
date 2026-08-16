@@ -55,6 +55,8 @@ DEFAULT_TZ = "W. Europe Standard Time"   # Windows tz id, NOT IANA
 class GraphCalendarAdapter:
     """Graph calendar adapter. Auth refreshed per-call via MSAL silent flow."""
 
+    supports_drive_attachments = False
+
     def __init__(self, account: M365Account) -> None:
         self.account = account
         self._client = httpx.Client(base_url=GRAPH_BASE, timeout=60.0)

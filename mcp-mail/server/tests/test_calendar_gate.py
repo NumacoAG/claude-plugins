@@ -33,6 +33,8 @@ class FakeCalendar:
     logic, not a re-implementation.
     """
 
+    supports_drive_attachments = True
+
     def __init__(self, stored_attendees: bool = False) -> None:
         self.stored_attendees = stored_attendees
         self.created: list[dict] = []
@@ -158,6 +160,39 @@ def test_update_attendee_event_notifies_existing_guests(patch_adapter) -> None:
     assert out.get("id") == "e1"
     assert len(fake.updated) == 1
     assert fake.updated[0]["notify"] is True
+
+
+def test_attachment_update_of_attendee_event_still_requires_confirmation(
+    patch_adapter,
+) -> None:
+    fake = patch_adapter(FakeCalendar(stored_attendees=True))
+    out = _call("cal_update_event", {
+        "account": "g", "event_id": "e1", "drive_file_ids": ["doc-1"],
+    })
+    assert out["gated"] is True
+    assert not fake.updated
+
+
+def test_confirmed_attachment_update_reaches_adapter(patch_adapter) -> None:
+    fake = patch_adapter(FakeCalendar(stored_attendees=True))
+    out = _call("cal_update_event", {
+        "account": "g", "event_id": "e1", "drive_file_ids": ["doc-1"],
+        "confirmed": True,
+    })
+    assert out.get("id") == "e1"
+    assert fake.updated[0]["fields"]["drive_file_ids"] == ["doc-1"]
+    assert fake.updated[0]["notify"] is True
+
+
+def test_m365_attachment_request_is_rejected_before_write(patch_adapter) -> None:
+    fake = FakeCalendar(stored_attendees=False)
+    fake.supports_drive_attachments = False
+    patch_adapter(fake)
+    with pytest.raises(ValueError, match="require a Google account"):
+        _call("cal_update_event", {
+            "account": "work-m365", "event_id": "e1", "drive_file_ids": ["doc-1"],
+        })
+    assert not fake.updated
 
 
 # ---- delete -----------------------------------------------------------------

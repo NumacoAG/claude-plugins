@@ -1509,6 +1509,8 @@ async def list_tools() -> list[Tool]:
             name="cal_create_event",
             description=(
                 "Create an event. `start`/`end` are RFC3339 datetimes or all-day dates. "
+                "Google accounts may add native Drive attachments with `drive_file_ids`; "
+                "this does not change the files' sharing permissions. "
                 "When `attendees` (a list of emails) is present the event sends "
                 "invitations and is OUTWARD-FACING: the SERVER refuses the write unless "
                 "`confirmed=true`, so surface the event to the user first, then re-invoke "
@@ -1525,6 +1527,15 @@ async def list_tools() -> list[Tool]:
                     "start": {"type": "string"},
                     "end": {"type": "string"},
                     "attendees": {"type": "array", "items": {"type": "string"}},
+                    "drive_file_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                        "maxItems": 25,
+                        "description": (
+                            "Google only. Drive file IDs to add as native event attachments. "
+                            "File sharing permissions are unchanged."
+                        ),
+                    },
                     "confirmed": {
                         "type": "boolean",
                         "description": "Set true after the user approves an attendee-bearing event.",
@@ -1540,7 +1551,9 @@ async def list_tools() -> list[Tool]:
                 "Update an event by id. OUTWARD-FACING when the stored event OR the patch "
                 "carries attendees, since guests are notified of the change: the SERVER "
                 "refuses the write unless `confirmed=true`. Re-invoke with confirmed=true "
-                "after the user approves. Solo events proceed with no friction."
+                "after the user approves. Google accounts may add native Drive attachments "
+                "with `drive_file_ids`; existing attachments are preserved and file sharing "
+                "permissions are unchanged. Solo events proceed with no friction."
             ),
             inputSchema={
                 "type": "object",
@@ -1554,6 +1567,15 @@ async def list_tools() -> list[Tool]:
                     "start": {"type": "string"},
                     "end": {"type": "string"},
                     "attendees": {"type": "array", "items": {"type": "string"}},
+                    "drive_file_ids": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                        "maxItems": 25,
+                        "description": (
+                            "Google only. Drive file IDs to add as native event attachments. "
+                            "Existing attachments and file sharing permissions are unchanged."
+                        ),
+                    },
                     "confirmed": {
                         "type": "boolean",
                         "description": "Set true after the user approves an attendee-bearing change.",
@@ -2159,6 +2181,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             k: v for k, v in arguments.items()
             if k not in ("account", "calendar_id", "confirmed")
         }
+        if fields.get("drive_file_ids") and not adapter.supports_drive_attachments:
+            raise ValueError("Native Google Drive event attachments require a Google account")
         # Server-side outward-facing gate (spec section 4.3): an event with
         # attendees sends invitations, so the server refuses to write it until
         # the caller re-invokes with confirmed=true. Solo events proceed.
@@ -2168,7 +2192,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = adapter.create_event(arguments.get("calendar_id", "primary"), **fields)
         audit.record(
             "cal_create_event", acct.id, result.get("id"),
-            detail={"summary": fields.get("summary"), "attendees": fields.get("attendees")},
+            detail={
+                "summary": fields.get("summary"),
+                "attendees": fields.get("attendees"),
+                "driveFileIds": fields.get("drive_file_ids"),
+            },
         )
         return _ok(result)
 
@@ -2181,6 +2209,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             k: v for k, v in arguments.items()
             if k not in ("account", "calendar_id", "event_id", "confirmed")
         }
+        if fields.get("drive_file_ids") and not adapter.supports_drive_attachments:
+            raise ValueError("Native Google Drive event attachments require a Google account")
         # Gate on the OR of the stored event's attendees (fetched) and any in the
         # patch: a patch that omits attendees must still gate, and still notify,
         # when the stored event has guests.
@@ -2191,7 +2221,11 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         result = adapter.update_event(event_id, cal_id, notify=has_attendees, **fields)
         audit.record(
             "cal_update_event", acct.id, event_id,
-            detail={"attendees": fields.get("attendees"), "storedHadAttendees": stored_has_attendees},
+            detail={
+                "attendees": fields.get("attendees"),
+                "storedHadAttendees": stored_has_attendees,
+                "driveFileIds": fields.get("drive_file_ids"),
+            },
         )
         return _ok(result)
 

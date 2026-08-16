@@ -16,8 +16,9 @@ from typing import Any
 
 import httpx
 
-from .gmail import acquire_credentials, CALENDAR_SCOPES
 from ..config import GmailAccount
+from .gdrive import GoogleDriveAdapter
+from .gmail import CALENDAR_SCOPES, acquire_credentials
 
 CALENDAR_BASE = "https://www.googleapis.com/calendar/v3"
 
@@ -25,9 +26,12 @@ CALENDAR_BASE = "https://www.googleapis.com/calendar/v3"
 class GoogleCalendarAdapter:
     """Google Calendar adapter. Auth refreshed per-call via google-auth."""
 
+    supports_drive_attachments = True
+
     def __init__(self, account: GmailAccount) -> None:
         self.account = account
         self._client = httpx.Client(timeout=60.0)
+        self._drive = GoogleDriveAdapter(account)
 
     def _headers(self, content_type: str | None = None) -> dict[str, str]:
         creds = acquire_credentials(self.account, required_scopes=CALENDAR_SCOPES)
@@ -75,22 +79,32 @@ class GoogleCalendarAdapter:
         return [self._project_event(e) for e in resp.json().get("items", [])]
 
     def get_event(self, event_id: str, calendar_id: str = "primary") -> dict:
+        return self._project_event(self._get_event_raw(event_id, calendar_id))
+
+    def _get_event_raw(self, event_id: str, calendar_id: str = "primary") -> dict:
         resp = self._client.get(
             f"{CALENDAR_BASE}/calendars/{calendar_id}/events/{event_id}",
             headers=self._headers(),
         )
         resp.raise_for_status()
-        return self._project_event(resp.json())
+        return resp.json()
 
     # ---- write -------------------------------------------------------------
 
     def create_event(self, calendar_id: str = "primary", **fields: Any) -> dict:
         body = self._build_event_body(fields)
+        drive_file_ids = fields.get("drive_file_ids") or []
+        if drive_file_ids:
+            resolved = self._resolve_drive_attachments(drive_file_ids)
+            body["attachments"] = [attachment for _, attachment in resolved]
         send_updates = "all" if body.get("attendees") else "none"
+        params: dict[str, str | bool] = {"sendUpdates": send_updates}
+        if drive_file_ids:
+            params["supportsAttachments"] = True
         resp = self._client.post(
             f"{CALENDAR_BASE}/calendars/{calendar_id}/events",
             headers=self._headers(content_type="application/json"),
-            params={"sendUpdates": send_updates},
+            params=params,
             json=body,
         )
         resp.raise_for_status()
@@ -104,15 +118,26 @@ class GoogleCalendarAdapter:
         **fields: Any,
     ) -> dict:
         body = self._build_event_body(fields)
+        drive_file_ids = fields.get("drive_file_ids") or []
+        if drive_file_ids:
+            stored = self._get_event_raw(event_id, calendar_id)
+            existing = stored.get("attachments") or []
+            additions = self._resolve_drive_attachments(drive_file_ids)
+            body["attachments"] = self._merge_attachments(existing, additions)
         # Notify guests when this is an attendee-bearing change. `notify` lets
         # the server decide based on the STORED event (a patch that omits
         # attendees must still notify existing guests of a real change); when
         # not given, fall back to whether the patch itself carries attendees.
         should_notify = bool(body.get("attendees")) if notify is None else notify
+        params: dict[str, str | bool] = {
+            "sendUpdates": "all" if should_notify else "none"
+        }
+        if drive_file_ids:
+            params["supportsAttachments"] = True
         resp = self._client.patch(
             f"{CALENDAR_BASE}/calendars/{calendar_id}/events/{event_id}",
             headers=self._headers(content_type="application/json"),
-            params={"sendUpdates": "all" if should_notify else "none"},
+            params=params,
             json=body,
         )
         resp.raise_for_status()
@@ -177,6 +202,63 @@ class GoogleCalendarAdapter:
             ]
         return body
 
+    def _resolve_drive_attachments(
+        self, file_ids: list[str]
+    ) -> list[tuple[str, dict[str, str]]]:
+        """Resolve Drive ids to the metadata required by Calendar attachments."""
+        unique_ids = list(dict.fromkeys(file_ids))
+        if len(unique_ids) > 25:
+            raise ValueError("Google Calendar supports at most 25 attachments per event")
+
+        attachments: list[tuple[str, dict[str, str]]] = []
+        for file_id in unique_ids:
+            metadata = self._drive.get_metadata(file_id)
+            resolved_id = metadata.get("id") or file_id
+            file_url = metadata.get("webViewLink") or (
+                f"https://drive.google.com/open?id={resolved_id}"
+            )
+            title = metadata.get("name")
+            mime_type = metadata.get("mimeType")
+            if not title or not mime_type:
+                raise ValueError(
+                    f"Drive file {file_id!r} is missing the name or MIME type needed "
+                    "for a Calendar attachment"
+                )
+            attachments.append(
+                (
+                    resolved_id,
+                    {
+                        "fileUrl": file_url,
+                        "title": title,
+                        "mimeType": mime_type,
+                    },
+                )
+            )
+        return attachments
+
+    @staticmethod
+    def _merge_attachments(
+        existing: list[dict[str, Any]],
+        additions: list[tuple[str, dict[str, str]]],
+    ) -> list[dict[str, Any]]:
+        """Add attachments idempotently while preserving the stored objects."""
+        merged = [dict(attachment) for attachment in existing]
+        seen_urls = {
+            attachment.get("fileUrl") for attachment in merged if attachment.get("fileUrl")
+        }
+        seen_file_ids = {
+            attachment.get("fileId") for attachment in merged if attachment.get("fileId")
+        }
+        for file_id, attachment in additions:
+            if file_id in seen_file_ids or attachment["fileUrl"] in seen_urls:
+                continue
+            merged.append(attachment)
+            seen_file_ids.add(file_id)
+            seen_urls.add(attachment["fileUrl"])
+        if len(merged) > 25:
+            raise ValueError("Google Calendar supports at most 25 attachments per event")
+        return merged
+
     @staticmethod
     def _project_event(e: dict) -> dict:
         return {
@@ -190,6 +272,15 @@ class GoogleCalendarAdapter:
             "attendees": [
                 {"email": a.get("email"), "responseStatus": a.get("responseStatus")}
                 for a in e.get("attendees") or []
+            ],
+            "attachments": [
+                {
+                    "fileId": attachment.get("fileId"),
+                    "fileUrl": attachment.get("fileUrl"),
+                    "title": attachment.get("title"),
+                    "mimeType": attachment.get("mimeType"),
+                }
+                for attachment in e.get("attachments") or []
             ],
             "htmlLink": e.get("htmlLink"),
             "organizer": (e.get("organizer") or {}).get("email"),
