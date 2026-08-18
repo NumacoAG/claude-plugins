@@ -864,7 +864,11 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="drive_comments",
-            description="List comments and replies on a Drive file (Google Drive only; read-only).",
+            description=(
+                "List comments and replies on a Drive file, including quoted text and "
+                "the raw anchor used to verify native Google Docs placement "
+                "(Google Drive only; read-only)."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {

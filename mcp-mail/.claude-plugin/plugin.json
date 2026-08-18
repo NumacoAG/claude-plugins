@@ -1,7 +1,7 @@
 {
   "name": "mcp-mail",
-  "version": "0.5.6",
-  "description": "Self-hosted MCP server giving Claude read and write control over your own mail, calendar, and files across Microsoft 365 (including SharePoint and OneDrive), Google Workspace (Drive, Docs, Sheets, Slides, Calendar), IMAP, and a local iCloud or OneDrive folder. 55 tools; calendar and files are opt-in per account. See INSTALL.md to set it up.",
+  "version": "0.5.7",
+  "description": "Self-hosted MCP server giving Claude read and write control over your own mail, calendar, and files across Microsoft 365 (including SharePoint and OneDrive), Google Workspace (Drive, Docs, Sheets, Slides, Calendar), IMAP, and a local iCloud or OneDrive folder. Includes verified native Google Docs inline commenting through an authenticated browser. 55 tools; calendar and files are opt-in per account. See INSTALL.md to set it up.",
   "author": {
     "name": "Numaco AG",
     "url": "https://numaco.ch"

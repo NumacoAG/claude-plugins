@@ -48,7 +48,7 @@ and silent, so mail is untouched whether or not you ever re-consent.
 | `accounts.toml.example` | Template you copy to `~/.config/mcp-mail/accounts.toml` |
 | `defaults.toml.example` | Optional shared M365 app identity, copied to `~/.config/mcp-mail/defaults.toml` |
 | `server/` | The MCP server (Python, one adapter per provider) |
-| `server/tests/` | Regression suite, 319 tests (`cd server && uv run pytest tests`) |
+| `server/tests/` | Regression suite, 330 tests (`cd server && uv run pytest tests`) |
 | `hooks/` | The PreToolUse confirmation gate for `mail_send` and `mail_reply` |
 | `skills/contacts/` | The optional contacts skill |
 | `skills/mcp-mail-setup/` | The guided setup skill |

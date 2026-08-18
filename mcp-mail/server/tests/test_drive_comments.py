@@ -68,6 +68,7 @@ _PAGE_1 = {
             "createdTime": "2026-06-01T10:00:00Z",
             "modifiedTime": "2026-06-01T10:05:00Z",
             "resolved": False,
+            "anchor": "kix.native-anchor",
             "quotedFileContent": {"value": "the quick brown fox"},
             "replies": [
                 {
@@ -128,6 +129,7 @@ def test_list_comments_merges_pages_and_projects(
 
     first, second = comments
     # Anchored text surfaced from quotedFileContent.value.
+    assert first["anchor"] == "kix.native-anchor"
     assert first["anchorText"] == "the quick brown fox"
     assert first["author"] == "Ada Lovelace"
     assert first["authorEmail"] == "ada@example.com"
@@ -143,6 +145,7 @@ def test_list_comments_merges_pages_and_projects(
     assert second["authorEmail"] is None
     assert second["author"] == "Grace Hopper"
     assert second["resolved"] is True
+    assert second["anchor"] is None
     assert second["anchorText"] is None
     assert second["replies"] == []
 
@@ -161,6 +164,7 @@ def test_list_comments_request_shape(
     # includeDeleted is sent and false; a fields projection is requested.
     assert params.get("includeDeleted") == "false"
     assert params.get("fields")
+    assert "anchor" in params["fields"]
     # supportsAllDrives is NOT a valid comments.list param and must not be sent.
     assert "supportsAllDrives" not in params
 

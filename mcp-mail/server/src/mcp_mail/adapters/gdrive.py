@@ -179,7 +179,7 @@ class GoogleDriveAdapter:
         """
         fields = (
             "comments(id,author(displayName,emailAddress,me),content,htmlContent,"
-            "createdTime,modifiedTime,resolved,quotedFileContent(value),"
+            "createdTime,modifiedTime,resolved,anchor,quotedFileContent(value),"
             "replies(id,author(displayName,emailAddress),content,createdTime,"
             "modifiedTime,action)),nextPageToken"
         )
@@ -567,9 +567,9 @@ class GoogleDriveAdapter:
     def _project_comment(c: dict) -> dict:
         """Project a Drive comment into a clean, stable dict.
 
-        ``authorEmail`` / ``anchorText`` may be None: Drive frequently exposes
-        only the author's display name, and a comment is not always anchored to
-        a quoted text selection.
+        ``authorEmail`` / ``anchor`` / ``anchorText`` may be None: Drive
+        frequently exposes only the author's display name, and a comment is not
+        always anchored to a quoted text selection.
         """
         author = c.get("author") or {}
         quoted = c.get("quotedFileContent") or {}
@@ -581,6 +581,7 @@ class GoogleDriveAdapter:
             "createdTime": c.get("createdTime"),
             "modifiedTime": c.get("modifiedTime"),
             "resolved": c.get("resolved"),
+            "anchor": c.get("anchor"),
             "anchorText": quoted.get("value"),
             "replies": [
                 {

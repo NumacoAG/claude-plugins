@@ -6,9 +6,10 @@ files** across **Microsoft 365 / Outlook** (including SharePoint and OneDrive),
 **Gmail / Google Workspace** (Drive, Docs, Sheets, Slides, Calendar), **any IMAP
 provider** (iCloud, Yahoo, Fastmail, …), and a **local iCloud Drive or OneDrive
 folder**. It ships as a Claude Code plugin: one install registers the MCP server
-plus two skills, a guided setup walkthrough and a contacts skill that sweeps your
-mail into a contact directory. Both are model-invoked; just ask for them by
-name.
+plus three skills: a guided setup walkthrough, a contacts skill that sweeps your
+mail into a contact directory, and a Google Docs workflow that places native
+comments on exact text selections through an authenticated browser. The skills
+are model invoked; just ask for them by name.
 
 55 tools over six surfaces: mail (16), Drive files (16), Google Docs (10),
 calendar (5), Sheets (5), Slides (3). Mail works on its own. Calendar and files
@@ -40,6 +41,9 @@ provider's API from your machine.
 - Read and edit Google Docs (text, tables, formatting), read and write Google
   Sheets ranges, and read and edit text in Google Slides.
 - Comment threads on Google Drive files: list, add, reply, resolve, reopen.
+- Add native Google Docs comments to exact text selections through the inline
+  comments skill, with target validation and anchor verification through
+  mcp-mail.
 
 ## Providers
 
@@ -86,9 +90,10 @@ step by step.
 mcp-mail/
 ├── .claude-plugin/        the plugin manifest
 ├── server/                the MCP server (Python, one adapter per provider)
-├── server/tests/          the regression suite (319 tests, `uv run pytest tests`)
+├── server/tests/          the regression suite (330 tests, `uv run pytest tests`)
 ├── hooks/                 the PreToolUse send gate for mail_send / mail_reply
 ├── skills/contacts/       the contacts skill
+├── skills/google-docs-inline-comments/ native Docs comment placement
 ├── skills/mcp-mail-setup/ the guided setup skill
 ├── accounts.toml.example  copy to ~/.config/mcp-mail/accounts.toml
 ├── defaults.toml.example  optional shared M365 app identity, copy to

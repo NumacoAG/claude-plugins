@@ -225,6 +225,22 @@ to build/extend the contact directory:
 No new MCP tool needed. The MCP exposes primitives; the analytical layer lives in
 the skill's prompt + the markdown file's structure.
 
+## 8.1 Native Google Docs inline comments
+
+The public Drive comments API cannot create the native text anchor displayed by
+the Google Docs editor. Even an API comment carrying custom anchor metadata is
+shown by Workspace editors as a file level comment. Native inline placement is
+therefore an orchestrated workflow in
+`skills/google-docs-inline-comments/SKILL.md`, not another server write method.
+
+The skill uses `doc_get` to validate the exact quote and occurrence, then uses
+an authenticated Browser session to select the text and invoke the Google Docs
+comment composer. It takes a `drive_comments` snapshot before the write and
+verifies the new comment afterward. The Drive adapter deliberately projects the
+raw `anchor` as well as `anchorText`; a successful native Docs comment has the
+approved quoted text and a `kix.` anchor. An explicit staged approval remains
+required before any colleague visible comment is submitted.
+
 ## 9. Open implementation notes
 
 - **Per-account default folder names.** Providers spell "Archive" / "Junk" /
@@ -268,8 +284,10 @@ mcp-mail/
 │           └── native_format.py
 ├── hooks/                  ← PreToolUse send gate
 ├── skills/
-│   └── contacts/           ← phase 5 skill
-│       └── SKILL.md
+│   ├── contacts/           ← phase 5 skill
+│   │   └── SKILL.md
+│   └── google-docs-inline-comments/
+│       └── SKILL.md        ← native Docs comment orchestration
 ├── accounts.toml.example
 ├── defaults.toml.example   ← optional shared M365 app identity
 ├── requirements.md         ← tier-1 spec
@@ -285,7 +303,7 @@ plugin directory) and the skill directory (auto-discovered by Claude Code).
 On install, Claude Code:
 1. Registers the MCP server in the user's settings (no manual `settings.json`
    editing).
-2. Makes the contact skill discoverable.
+2. Makes the bundled skills discoverable.
 3. Pins server/skill versions together.
 
 Distribution mode is local install from a cloned repo (add as a plugin
@@ -407,4 +425,3 @@ mailbox owner granting Exchange Full Access.
   `core.guard` designates `drive_share` and attendee-bearing calendar writes as
   outward facing, and extending the hook matcher to cover them would put the
   per-call prompt in front of those too.
-
