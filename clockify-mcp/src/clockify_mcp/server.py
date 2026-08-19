@@ -41,6 +41,9 @@ mcp: FastMCP = FastMCP(
     "clockify",
     streamable_http_path="/",
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    # Clockify never sends server initiated notifications. A single JSON
+    # response lets each POST finish immediately so Cloud Run can return to zero.
+    json_response=True,
     # Stateless: every HTTP request is independent — no session IDs, no resumption.
     # Crucial on Cloud Run because scale-to-zero kills any in-memory session state;
     # clients that hold a session ID across container restarts would see their next

@@ -1,6 +1,6 @@
 {
   "name": "clockify-mcp",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Clockify time tracking for Claude Code: files entries through a Numaco-hosted MCP server (your Clockify key is decrypted there per request, not kept in your keychain) and scans your Outlook calendar for un-logged meetings.",
   "author": {
     "name": "Numaco AG",

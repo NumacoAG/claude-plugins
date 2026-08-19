@@ -236,6 +236,14 @@ def create_app(public_url: str) -> Starlette:
             await _send_unauthorized(send, public_url)
             return
 
+        # This server has no asynchronous events to send. Refusing the optional
+        # GET stream prevents MCP clients from holding a billable Cloud Run
+        # request open while idle. Tool discovery and calls continue over POST.
+        if scope.get("method") == "GET":
+            response = Response(status_code=405, headers={"Allow": "POST"})
+            await response(scope, receive, send)
+            return
+
         request_state = RequestState(Settings(api_key=api_key))
         reset_token = set_state(request_state)
         try:

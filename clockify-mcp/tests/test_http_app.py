@@ -12,10 +12,24 @@ import pytest
 import respx
 from starlette.testclient import TestClient
 
+from clockify_mcp.auth import AuthConfig, AuthService
 from clockify_mcp.http_app import create_app
 
 PUBLIC_URL = "https://test.example.com"
 CLOCKIFY_API = "https://api.clockify.me/api/v1"
+
+
+def _access_token() -> str:
+    auth = AuthService(
+        AuthConfig(
+            signing_key="test-signing-key",
+            encryption_key="test-encryption-key",
+            issuer=PUBLIC_URL,
+        )
+    )
+    encrypted_key = auth.encrypt_api_key("test-clockify-key")
+    token, _ttl = auth.issue_access_token(encrypted_key)
+    return token
 
 
 @pytest.fixture
@@ -234,6 +248,32 @@ def test_mcp_with_garbage_bearer_returns_401(client: TestClient) -> None:
         json={"jsonrpc": "2.0", "method": "ping", "id": 1},
     )
     assert r.status_code == 401
+
+
+def test_mcp_authenticated_get_refuses_event_stream(client: TestClient) -> None:
+    r = client.get(
+        "/mcp/",
+        headers={
+            "Authorization": f"Bearer {_access_token()}",
+            "Accept": "text/event-stream",
+        },
+    )
+    assert r.status_code == 405
+    assert r.headers["allow"] == "POST"
+
+
+def test_mcp_authenticated_post_returns_json(client: TestClient) -> None:
+    r = client.post(
+        "/mcp/",
+        headers={
+            "Authorization": f"Bearer {_access_token()}",
+            "Accept": "application/json, text/event-stream",
+        },
+        json={"jsonrpc": "2.0", "method": "ping", "id": 1},
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/json")
+    assert r.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
 
 
 # ---------- health ----------
