@@ -77,7 +77,7 @@ def create_app(public_url: str) -> Starlette:
     async def well_known_protected_resource(request: Request) -> Response:
         return JSONResponse(
             {
-                "resource": f"{public_url}/mcp",
+                "resource": f"{public_url}/mcp/",
                 "authorization_servers": [public_url],
                 "scopes_supported": ["mcp"],
                 "bearer_methods_supported": ["header"],

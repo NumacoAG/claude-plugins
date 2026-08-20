@@ -10,14 +10,21 @@ MCP server for [Clockify](https://clockify.me) — file time entries and query r
 
 Natural-language time inputs are accepted everywhere: `"today 09:00"`, `"yesterday 14:30"`, `"2h ago"`, `"now"`, plus full ISO-8601. The server converts to the user's IANA timezone (read from `GET /user`) before posting to Clockify.
 
-## Two modes
+## Connection model
 
 | Mode | Audience | Auth | Use when |
 |---|---|---|---|
-| **stdio** (default) | Claude Code, Cowork, local CLIs | Your single API key (env var or config file) | You work alone on one machine. |
-| **HTTP + OAuth** (`--http`) | Claude desktop app's *Add custom connector* dialog, anyone speaking the MCP streamable-HTTP protocol over the network | OAuth 2.1 + PKCE; each user pastes their own Clockify API key once at /authorize, then the access token carries it (Fernet-encrypted) | You want one hosted instance that your colleagues each connect to with their own Clockify account. |
+| **stdio** (published default) | Claude Code, Cowork, Codex, local CLIs | Your API key in your operating system credential store | Normal use. Each person runs the bundled adapter on their own computer. |
+| **HTTP + OAuth** (`--http`) | Legacy remote clients | OAuth 2.1 + PKCE | Temporary compatibility while an old remote installation is retired. |
 
-The same Python codebase runs both. Read the **stdio** section if you want it on your own laptop only; the **HTTP + OAuth** section is at the bottom and walks you through Cloud Run.
+Installing the plugin wires in the local stdio process automatically. Starting a
+Claude or Codex session starts only that small local process. MCP initialization
+and tool discovery do not read the Clockify key and do not contact Clockify.
+The first Clockify network request happens only when a Clockify tool is invoked.
+
+Every colleague installs the same plugin on their own computer and stores their
+own Clockify key there. The plugin distributes code only. It does not distribute
+any user's key, connection, or Clockify data.
 
 ## Install (stdio)
 
@@ -27,24 +34,29 @@ uv tool install --from . clockify-mcp     # or:  pip install -e .
 
 ## Configure
 
-Get an API key from <https://app.clockify.me/user/preferences#advanced> → "Generate".
-
-Pick one:
+Get an API key from <https://app.clockify.me/user/preferences#advanced>, then
+store it through the hidden local prompt:
 
 ```bash
-export CLOCKIFY_API_KEY=<your-key>
+uv run clockify-mcp --store-key
 ```
 
-Or in `~/.config/clockify-mcp/config.toml` (macOS / Linux) or `%APPDATA%\clockify-mcp\config.toml` (Windows):
+The command validates the key against Clockify before saving it in macOS
+Keychain, Windows Credential Manager, or Linux Secret Service. It never prints
+the key and does not put it in shell history.
+
+The optional config file contains only nonsecret settings:
 
 ```toml
-api_key = "<your-key>"
-# Optional — only if you're on a Clockify regional shard:
+# Only if you use a Clockify regional shard:
 # api_base = "https://euc1.api.clockify.me/api/v1"
 # reports_api_base = "https://euc1.reports.api.clockify.me/v1"
 # default_workspace_id = "..."
-# timezone = "Europe/Zurich"            # overrides /user's timeZone
+# timezone = "Europe/Zurich"
 ```
+
+`CLOCKIFY_API_KEY` and the old plaintext `api_key` config entry remain accepted
+only so existing installations can migrate without interruption.
 
 Verify:
 
@@ -113,21 +125,23 @@ may overlap; same-client overlap is forbidden">
 
 Claude Code auto-loads this into every session, and the skills pick it up. Each user maintains their own — nothing org-specific ships in the repo.
 
-## Share with colleagues (via the Claude desktop app plugin marketplace)
+## Share with colleagues
 
-Push this repo to GitHub. Colleagues then, in the Claude desktop app:
+Push this repo to GitHub. Each colleague then:
 
-1. **Customize → +** under Personal plugins → **Create plugin → Add marketplace** → paste the GitHub `owner/repo` (e.g. `<your-org>/clockify-mcp`).
-2. Open the new marketplace, click **Install** on `clockify-mcp`.
-3. First time they ask Claude something Clockify-related, they'll be redirected to a Connect Clockify form — paste their personal Clockify API key (Clockify → Preferences → Advanced → Generate). Their key stays encrypted inside their own JWT; the hosted server doesn't store it.
+1. Installs `clockify-mcp` from the shared marketplace on their own computer.
+2. Generates their own Clockify key under Profile settings, then API.
+3. Runs the local `clockify-mcp --store-key` setup through the guided setup.
 
-That's it — connector, skills, and slash commands are all wired up by the install.
+The local adapter, skills, and slash commands come from the plugin. Their key
+stays in their operating system credential store, and their local adapter calls
+Clockify directly only when they use a Clockify tool.
 
 ## Tool reference
 
 | Tool | What it does | Notes |
 |---|---|---|
-| `whoami` | Validate the key. Return user id, default workspace, timezone. | First call on startup; result is memoised. |
+| `whoami` | Validate the key. Return user id, default workspace, timezone. | Called only when requested; result is memoised. |
 | `list_workspaces` | All workspaces this user belongs to. | |
 | `list_projects` | Projects in a workspace. | Cached for `cache_ttl_seconds` (default 5 min). Filter by `name_filter`. |
 | `list_tasks` | Tasks inside a project. | |
@@ -158,30 +172,21 @@ Every datetime arg accepts:
 
 All values are normalised to UTC `Z` format before being sent to Clockify.
 
-## HTTP + OAuth (for the Claude desktop app's custom connector)
+## Legacy HTTP compatibility
 
-The desktop app's *Add custom connector (BETA)* dialog needs a public HTTPS URL. This mode runs the same MCP server over HTTP with an OAuth 2.1 + PKCE provider in front, so each colleague pastes their own Clockify API key once and the server is stateless from then on.
+The HTTP server remains in the code temporarily for existing remote clients. The
+published plugin no longer registers or uses it. New users should use the local
+stdio connection above.
 
-### How it works
+The canonical remote MCP URL ends in `/mcp/`. The trailing slash is required:
 
-```
-       ┌─ Claude desktop app ─────────────────────────────────┐
-       │  "Add custom connector"  →  https://your-cloud-run/  │
-       └──────────────────────────────────────────────────────┘
-              │  1. Discovers /.well-known/oauth-* endpoints
-              │  2. Dynamic Client Registration at /register
-              │  3. Opens /authorize → user pastes Clockify API key
-              │  4. /token exchange (with PKCE) → access_token (JWT)
-              ▼
-       ┌─ clockify-mcp on Cloud Run ───────────────────────────┐
-       │  Bearer token middleware decodes the JWT,             │
-       │  decrypts the embedded Clockify API key,              │
-       │  installs it as the per-request state,                │
-       │  then hands the request to the MCP server.            │
-       └───────────────────────────────────────────────────────┘
+```text
+https://your-service.example/mcp/
 ```
 
-No database. The Clockify API key is **Fernet-encrypted inside the JWT** with a server-side key; rotating that key revokes all tokens at once.
+Existing remote deployments still support dynamic client registration, OAuth
+2.1 with PKCE, and stateless JSON responses. This compatibility path is not part
+of the published plugin connection and is not recommended for new installs.
 
 ### Local smoke test
 
@@ -196,44 +201,9 @@ curl http://localhost:8765/.well-known/oauth-authorization-server | jq
 open "http://localhost:8765/authorize?response_type=code&redirect_uri=http://localhost/cb&code_challenge=x&code_challenge_method=plain"
 ```
 
-### Deploy to Cloud Run (free tier)
-
-Prereqs: a Google Cloud account, a project, and the `gcloud` CLI. Cloud Run's free tier (2M req/mo, 360k GB-s/mo) covers this workload at $0.
-
-```bash
-# 1. Set your project and pick a region close to your team.
-PROJECT_ID=your-gcp-project-id
-REGION=europe-west1
-SERVICE=clockify-mcp
-gcloud config set project "$PROJECT_ID"
-gcloud config set run/region "$REGION"
-
-# 2. Enable the APIs once.
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
-
-# 3. Generate the two server secrets (32 bytes each).
-JWT_SIGNING_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-ENCRYPTION_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-
-# 4. First deploy — PUBLIC_URL is a placeholder; we update it after we know the real URL.
-gcloud run deploy "$SERVICE" \
-  --source . \
-  --allow-unauthenticated \
-  --set-env-vars="JWT_SIGNING_KEY=$JWT_SIGNING_KEY,ENCRYPTION_KEY=$ENCRYPTION_KEY,PUBLIC_URL=https://placeholder"
-
-# 5. Grab the URL and update PUBLIC_URL.
-URL=$(gcloud run services describe "$SERVICE" --format='value(status.url)')
-gcloud run services update "$SERVICE" --update-env-vars="PUBLIC_URL=$URL"
-echo "Connector URL: $URL"
-```
-
-That `$URL` (e.g. `https://clockify-mcp-xyz-ew.a.run.app`) is what you paste into the *Remote MCP server URL* field of the connector dialog. The OAuth fields can stay empty — the server supports dynamic client registration.
-
-### After first deploy
-
-Paste the URL into the Claude desktop app's custom-connector dialog, click **Add**, then **Connect**. You'll see the *Connect Clockify* form; paste your API key and you're in. Your colleagues each do the same with their own keys.
-
-To rotate all tokens (kick everyone out): `gcloud run services update clockify-mcp --update-env-vars="JWT_SIGNING_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))')"`.
+Any existing remote client must use the service URL with `/mcp/` appended. Once
+all users have upgraded to the local plugin, the remote service and its secrets
+can be retired.
 
 ## Development
 

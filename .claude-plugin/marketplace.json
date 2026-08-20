@@ -57,7 +57,7 @@
     {
       "name": "numaco-hub",
       "source": "./numaco-hub",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "description": "Front door for the Numaco plugins: guided setup skill, an on-demand update command, and a skill that opens folders in Obsidian without hanging the app.",
       "author": {
         "name": "Numaco AG",
@@ -69,8 +69,8 @@
     {
       "name": "clockify-mcp",
       "source": "./clockify-mcp",
-      "version": "0.10.3",
-      "description": "Clockify time tracking for Claude Code: files entries through a Numaco-hosted MCP server (your Clockify key is decrypted there per request, not kept in your keychain) and scans your calendar for un-logged meetings.",
+      "version": "0.11.0",
+      "description": "Local Clockify time tracking for Claude Code and Codex: tools run on this computer, contact Clockify only when used, and keep each user's API key in their OS credential store.",
       "author": {
         "name": "Numaco AG",
         "url": "https://numaco.ch"

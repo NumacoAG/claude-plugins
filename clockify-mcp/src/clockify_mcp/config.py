@@ -10,6 +10,7 @@ from typing import Any
 
 from platformdirs import user_config_dir
 
+from .credentials import load_api_key
 from .errors import ConfigError
 
 CONFIG_APP_NAME = "clockify-mcp"
@@ -33,13 +34,24 @@ class Settings:
     cache_ttl_seconds: int = DEFAULT_CACHE_TTL
 
     @classmethod
-    def load(cls, *, config_path: Path | None = None) -> Settings:
+    def load(
+        cls,
+        *,
+        config_path: Path | None = None,
+        api_key_override: str | None = None,
+    ) -> Settings:
         file_cfg = _read_config_file(config_path)
-        api_key = _from_env_or_file("CLOCKIFY_API_KEY", "api_key", file_cfg)
+        api_key = (
+            api_key_override
+            or os.environ.get("CLOCKIFY_API_KEY")
+            or load_api_key()
+            or _from_file("api_key", file_cfg)
+        )
         if not api_key:
             raise ConfigError(
-                "CLOCKIFY_API_KEY is not set. Either export it in your shell or write it to "
-                f"{config_path or _default_config_path()} under key `api_key`."
+                "No Clockify API key is configured. Run `clockify-mcp --store-key` to place "
+                "your own key in the OS credential store. CLOCKIFY_API_KEY and the legacy "
+                f"`api_key` setting in {config_path or _default_config_path()} remain supported."
             )
         return cls(
             api_key=api_key,
@@ -74,6 +86,10 @@ def _from_env_or_file(env_key: str, file_key: str, file_cfg: dict[str, Any]) -> 
     val = os.environ.get(env_key)
     if val:
         return val
+    return _from_file(file_key, file_cfg)
+
+
+def _from_file(file_key: str, file_cfg: dict[str, Any]) -> str | None:
     raw = file_cfg.get(file_key)
     if raw is None:
         return None

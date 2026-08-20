@@ -10,11 +10,15 @@ Three modes:
 from __future__ import annotations
 
 import argparse
+import getpass
 import logging
 import os
 import sys
 
-from .errors import ClockifyError
+from .client import ClockifyClient
+from .config import Settings
+from .credentials import delete_api_key, store_api_key
+from .errors import ClockifyError, ConfigError
 from .server import _get_state, mcp
 
 
@@ -31,6 +35,16 @@ def main(argv: list[str] | None = None) -> int:
         "--check",
         action="store_true",
         help="Validate the API key, print user info, and exit.",
+    )
+    parser.add_argument(
+        "--store-key",
+        action="store_true",
+        help="Prompt for and validate your personal Clockify API key, then store it in the OS credential store.",
+    )
+    parser.add_argument(
+        "--delete-key",
+        action="store_true",
+        help="Delete the Clockify API key from the OS credential store.",
     )
     parser.add_argument(
         "--http",
@@ -70,6 +84,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     try:
+        if args.store_key:
+            return _run_store_key()
+        if args.delete_key:
+            return _run_delete_key()
         if args.check:
             return _run_check()
         if args.http:
@@ -91,6 +109,34 @@ def _run_check() -> int:
     print(f"  default_workspace_id: {user.get('defaultWorkspace')}")
     print(f"  active_workspace_id:  {user.get('activeWorkspace')}")
     print(f"  timezone:             {tz}")
+    return 0
+
+
+def _run_store_key() -> int:
+    api_key = getpass.getpass("Clockify API key (hidden): ").strip()
+    if not api_key:
+        raise ConfigError("Clockify API key is required; nothing was stored.")
+
+    settings = Settings.load(api_key_override=api_key)
+    client = ClockifyClient(settings)
+    try:
+        user = client.get_current_user()
+    finally:
+        client.close()
+
+    store_api_key(api_key)
+    print(
+        "Stored the key in the OS credential store after validating "
+        f"{user.get('name')} <{user.get('email')}>."
+    )
+    return 0
+
+
+def _run_delete_key() -> int:
+    if delete_api_key():
+        print("Deleted the Clockify API key from the OS credential store.")
+    else:
+        print("No Clockify API key was stored in the OS credential store.")
     return 0
 
 

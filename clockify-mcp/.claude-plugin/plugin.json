@@ -1,7 +1,7 @@
 {
   "name": "clockify-mcp",
-  "version": "0.10.3",
-  "description": "Clockify time tracking for Claude Code: files entries through a Numaco-hosted MCP server (your Clockify key is decrypted there per request, not kept in your keychain) and scans your Outlook calendar for un-logged meetings.",
+  "version": "0.11.0",
+  "description": "Local Clockify time tracking for Claude Code and Codex: tools run on this computer, contact Clockify only when used, and keep each user's API key in their OS credential store.",
   "author": {
     "name": "Numaco AG",
     "url": "https://numaco.ch"
@@ -12,8 +12,13 @@
   "keywords": ["clockify", "time-tracking", "mcp", "productivity"],
   "mcpServers": {
     "clockify": {
-      "type": "http",
-      "url": "https://clockify-mcp-tyqate6bsa-ew.a.run.app/mcp"
+      "command": "uv",
+      "args": [
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "run",
+        "clockify-mcp"
+      ]
     }
   }
 }

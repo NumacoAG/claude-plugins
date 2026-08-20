@@ -1,10 +1,8 @@
 # Copy this file to `~/.config/clockify-mcp/config.toml` (macOS / Linux)
 # or `%APPDATA%\clockify-mcp\config.toml` (Windows).
-# Alternatively, set CLOCKIFY_API_KEY in your shell — env vars win over file values.
-
-# Required: your personal API key.
-# Generate at https://app.clockify.me/user/preferences#advanced
-api_key = "PASTE-YOUR-KEY-HERE"
+# Store the API key in the OS credential store with:
+#   uv run clockify-mcp --store-key
+# This file contains optional, nonsecret settings only.
 
 # Optional. Override only if you're on a regional Clockify shard.
 # Defaults are the global hosts: api.clockify.me / reports.api.clockify.me
