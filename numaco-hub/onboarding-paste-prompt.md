@@ -242,8 +242,10 @@ nobody can do on my behalf:
   storing a Google OAuth client and any app specific passwords, only if I want
   Gmail or IMAP accounts,
   generating MY OWN Clockify API key at app.clockify.me under Profile settings,
-  then API, and pasting it into the hosted Connect Clockify page. Say explicitly
-  that nobody else's Clockify key is included on purpose: a Clockify key
-  authenticates as the person who owns it, so using someone else's would file my
-  hours under their name.
+  then API, and storing it through clockify-mcp's hidden local terminal prompt.
+  Say explicitly that the Clockify adapter runs on my own computer, calls
+  Clockify only when I use a Clockify tool, and keeps my key in my operating
+  system credential store. Nobody else's Clockify key is included on purpose: a
+  Clockify key authenticates as the person who owns it, so using someone else's
+  would file my hours under their name.
 ```

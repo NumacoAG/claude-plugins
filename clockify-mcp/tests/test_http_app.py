@@ -69,7 +69,7 @@ def test_protected_resource_metadata(client: TestClient) -> None:
     r = client.get("/.well-known/oauth-protected-resource")
     assert r.status_code == 200
     body = r.json()
-    assert body["resource"] == f"{PUBLIC_URL}/mcp"
+    assert body["resource"] == f"{PUBLIC_URL}/mcp/"
     assert PUBLIC_URL in body["authorization_servers"]
 
 

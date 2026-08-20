@@ -20,8 +20,10 @@ folders in Obsidian without hanging the app.
   numaco-design plugin root to `~/.config/numaco-design/defaults.toml`); the SOW
   skill asks and offers to write it if it is missing. For dev-process-kit there
   is nothing to configure at all: it stays inert until you run `/contract-init`
-  inside a project. It ends by pointing at each plugin's own README and INSTALL
-  for the depth.
+  inside a project. For clockify-mcp it guides each user through a hidden local
+  key prompt. The Clockify adapter runs on that user's computer and contacts
+  Clockify only when a Clockify tool is invoked. It ends by pointing at each
+  plugin's own README and INSTALL for the depth.
 - **A one-paste onboarding prompt** (`onboarding-paste-prompt.md`). One block you
   can put in an email: the recipient pastes it into Claude Code and it installs
   the packet, merges the auto-update setting into their settings without dropping

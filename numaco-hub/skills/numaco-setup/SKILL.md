@@ -26,28 +26,19 @@ Before configuring anything, make the trust model explicit. Four points:
    `mcp-mail`, `numaco-design`, `review-kit`, and `dev-process-kit` run on the
    user's machine, or talk straight to the user's own provider from that machine.
    Nobody at Numaco, including the author, can see any of it.
-3. **`clockify-mcp` is the one exception, and you must say so unprompted.** It
-   does not reach Clockify directly. It calls a Numaco-operated MCP server on
-   Google Cloud Run, which carries the user's Clockify API key encrypted inside
-   their access token and decrypts it in memory on each request to call Clockify.
-   It keeps no database of their entries, but the key goes to that server rather
-   than into their keychain, and their time entries do pass through it. Say this
-   plainly BEFORE offering to connect Clockify, so the choice is informed. If
-   they would rather not use it, the honest answer is that the four engine
-   plugins (`numaco-design`, `review-kit`, `mcp-mail`, `dev-process-kit`) install
-   and work fine on their own, but they have to skip `numaco-hub` as well,
-   because the hub declares `clockify-mcp` as a dependency and fails to load
-   without it. Do not tell them they can install the other five and drop this
-   one: uninstalling `clockify-mcp` afterwards takes this skill and
-   `/numaco-update` offline.
+3. **Clockify follows the same local model.** `clockify-mcp` runs a small stdio
+   process on the user's computer and calls Clockify directly only when a
+   Clockify tool is invoked. Starting Claude or Codex and listing MCP tools make
+   no Clockify request. Each user stores their own Clockify key in their own
+   operating system credential store. The marketplace distributes the adapter
+   code, not anyone's key or Clockify connection.
 4. **Where data does travel.** Whatever Claude reads for the user travels to
    Anthropic as part of the conversation, under their own Claude agreement,
    exactly as any file they open in Claude Code does. Beyond that these plugins
    send data only to the providers whose accounts the user connected themselves.
    Their secrets (OAuth tokens, app passwords, API keys) live in the operating
    system's credential store (macOS Keychain, Windows Credential Manager, Linux
-   Secret Service), never in plaintext in the repo and never in this chat, with
-   the single exception of the Clockify key described above.
+   Secret Service), never in plaintext in the repo and never in this chat.
 
 Do not disclose, guess, or speculate about which providers or accounts the
 author personally uses. This setup is about the user's own accounts only.
@@ -218,16 +209,26 @@ independent; do them in any order and pause after each one.
   distro package, for example `sudo apt-get install nodejs npm`), then rerun
   the doctor. Everything else is automatic; the doctor exits 0 when the machine
   can render. Then make sure the defaults file from section 3 is in place.
-- **clockify-mcp** (time tracking): repeat the hosted-server point from section 1
-  first, then set it up. **The user generates their own Clockify API key, and
-  nobody else's key will do.** A Clockify API key authenticates as the person who
-  owns it: entries filed with a colleague's key land under that colleague's name,
-  on their timesheet, against their approvals. Generate it in Clockify under
-  Profile settings, then API, before starting the connect flow, because the flow
-  gives no way to create one mid-stream. It is an OAuth flow, but with a twist
-  worth naming: instead of signing in to Clockify, the user pastes that key into
-  a Numaco-hosted "Connect Clockify" page, and the server then carries it
-  encrypted in the access token. Only their own workspace is ever touched.
+- **clockify-mcp** (time tracking): **the user generates their own Clockify API
+  key, and nobody else's key will do.** A Clockify API key authenticates as the
+  person who owns it. Entries filed with a colleague's key land under that
+  colleague's name, on their timesheet, against their approvals. Generate it in
+  Clockify under Profile settings, then API. Never ask the user to paste the key
+  into chat.
+
+  Resolve the installed plugin path from Claude's manifest:
+
+  ```bash
+  CLOCKIFY=$(python3 -c "import json,os;p=os.path.expanduser(os.environ.get('CLAUDE_CONFIG_DIR','~/.claude')+'/plugins/installed_plugins.json');print(json.load(open(p))['plugins']['clockify-mcp@numaco'][0]['installPath'])")
+  uv --directory "$CLOCKIFY" run clockify-mcp --store-key
+  ```
+
+  The user runs that command in their own terminal. It prompts for the key with
+  hidden input, validates the key directly against Clockify, and stores it in
+  their operating system credential store. The plugin's local stdio adapter is
+  already wired by installation. No remote server or browser connector is
+  involved. Restart Claude or Codex after setup so the installed plugin version
+  and local process are fresh.
 
 ## 5. What is left for the user, and why nobody can do it for them
 
