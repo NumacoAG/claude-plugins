@@ -69,7 +69,7 @@
     {
       "name": "clockify-mcp",
       "source": "./clockify-mcp",
-      "version": "0.11.0",
+      "version": "0.12.0",
       "description": "Local Clockify time tracking for Claude Code and Codex: tools run on this computer, contact Clockify only when used, and keep each user's API key in their OS credential store.",
       "author": {
         "name": "Numaco AG",

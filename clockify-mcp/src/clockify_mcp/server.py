@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
 
 from . import reports
 from .config import Settings
@@ -26,31 +25,7 @@ from .time_parsing import format_iso_z, parse_to_utc
 
 logger = logging.getLogger(__name__)
 
-# `streamable_http_path="/"` so when we Mount this app at /mcp in http_app.py,
-# the external path `/mcp/` reaches FastMCP's root (the JSON-RPC handler).
-# Default would be /mcp internally → external /mcp/mcp, which is ugly and breaks
-# clients that follow the standard `/mcp` URL.
-#
-# `transport_security=...(enable_dns_rebinding_protection=False)` because FastMCP
-# auto-enables Host-header validation when its `host` setting is 127.0.0.1/localhost
-# (its default), which would 421 every request whose Host doesn't match. Behind
-# Cloud Run we receive the public hostname, and Google's frontend has already
-# validated TLS + Host; rebinding protection at our layer is redundant and
-# breaks the flow.
-mcp: FastMCP = FastMCP(
-    "clockify",
-    streamable_http_path="/",
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
-    # Clockify never sends server initiated notifications. A single JSON
-    # response lets each POST finish immediately so Cloud Run can return to zero.
-    json_response=True,
-    # Stateless: every HTTP request is independent — no session IDs, no resumption.
-    # Crucial on Cloud Run because scale-to-zero kills any in-memory session state;
-    # clients that hold a session ID across container restarts would see their next
-    # request fail with "client has been closed". With stateless_http, there's
-    # nothing to lose between restarts.
-    stateless_http=True,
-)
+mcp: FastMCP = FastMCP("clockify")
 
 
 # Backward-compatible aliases for tests (and for stdio mode bootstrap).

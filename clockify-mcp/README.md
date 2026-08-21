@@ -1,6 +1,6 @@
 # clockify-mcp
 
-MCP server for [Clockify](https://clockify.me) — file time entries and query reports from Claude Code, Cowork, or any MCP client. Includes a `/log-session` command that turns the conversation you just had into a confirmed time entry.
+Local MCP server for [Clockify](https://clockify.me). It files time entries and queries reports from Claude Code, Cowork, or Codex. It includes a `/log-session` command that turns the conversation you just had into a confirmed time entry.
 
 - **`add_time_entry`** — file an entry with start, end, project, description.
 - **`list_time_entries`** — your entries in a date range (single project filter, auto-paginated, totals included).
@@ -11,11 +11,6 @@ MCP server for [Clockify](https://clockify.me) — file time entries and query r
 Natural-language time inputs are accepted everywhere: `"today 09:00"`, `"yesterday 14:30"`, `"2h ago"`, `"now"`, plus full ISO-8601. The server converts to the user's IANA timezone (read from `GET /user`) before posting to Clockify.
 
 ## Connection model
-
-| Mode | Audience | Auth | Use when |
-|---|---|---|---|
-| **stdio** (published default) | Claude Code, Cowork, Codex, local CLIs | Your API key in your operating system credential store | Normal use. Each person runs the bundled adapter on their own computer. |
-| **HTTP + OAuth** (`--http`) | Legacy remote clients | OAuth 2.1 + PKCE | Temporary compatibility while an old remote installation is retired. |
 
 Installing the plugin wires in the local stdio process automatically. Starting a
 Claude or Codex session starts only that small local process. MCP initialization
@@ -171,39 +166,6 @@ Every datetime arg accepts:
 | `"now"` | Current time |
 
 All values are normalised to UTC `Z` format before being sent to Clockify.
-
-## Legacy HTTP compatibility
-
-The HTTP server remains in the code temporarily for existing remote clients. The
-published plugin no longer registers or uses it. New users should use the local
-stdio connection above.
-
-The canonical remote MCP URL ends in `/mcp/`. The trailing slash is required:
-
-```text
-https://your-service.example/mcp/
-```
-
-Existing remote deployments still support dynamic client registration, OAuth
-2.1 with PKCE, and stateless JSON responses. This compatibility path is not part
-of the published plugin connection and is not recommended for new installs.
-
-### Local smoke test
-
-```bash
-export JWT_SIGNING_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-export ENCRYPTION_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-export PUBLIC_URL=http://localhost:8765
-clockify-mcp --http --port 8765 --public-url "$PUBLIC_URL"
-
-# In another terminal:
-curl http://localhost:8765/.well-known/oauth-authorization-server | jq
-open "http://localhost:8765/authorize?response_type=code&redirect_uri=http://localhost/cb&code_challenge=x&code_challenge_method=plain"
-```
-
-Any existing remote client must use the service URL with `/mcp/` appended. Once
-all users have upgraded to the local plugin, the remote service and its secrets
-can be retired.
 
 ## Development
 
