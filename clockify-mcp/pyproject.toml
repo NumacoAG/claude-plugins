@@ -1,7 +1,7 @@
 [project]
 name = "clockify-mcp"
-version = "0.1.0"
-description = "MCP server for Clockify time tracking — file time entries and query reports from Claude Code or Cowork."
+version = "0.12.0"
+description = "Local MCP server for Clockify time tracking from Claude Code, Cowork, or Codex."
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }
@@ -23,11 +23,6 @@ dependencies = [
     "python-dateutil>=2.9",
     "platformdirs>=4.2",
     "keyring>=25",
-    "cryptography>=42",
-    "pyjwt>=2.8",
-    "starlette>=0.37",
-    "uvicorn>=0.30",
-    "python-multipart>=0.0.9",
 ]
 
 [project.scripts]
@@ -85,7 +80,3 @@ ignore_missing_imports = false
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra --strict-markers"
-filterwarnings = [
-    # Test fixtures intentionally use short JWT keys; production keys are 32 bytes.
-    "ignore::jwt.warnings.InsecureKeyLengthWarning",
-]

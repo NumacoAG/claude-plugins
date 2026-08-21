@@ -1,11 +1,4 @@
-"""Per-request state via ContextVar.
-
-In stdio mode the state is set once at process startup (single user, env-derived).
-In HTTP/multi-user mode, ASGI middleware sets it per-request from the Bearer token.
-
-Tools call `get_state()` which reads from the ContextVar — same code path for both
-transports.
-"""
+"""Process state for the local stdio server."""
 
 from __future__ import annotations
 
@@ -20,7 +13,7 @@ from .errors import ValidationError
 
 
 class RequestState:
-    """Per-request state: client + caches + the current user (memoised once per request)."""
+    """Clockify client, caches, and the memoised current user."""
 
     def __init__(self, settings: Settings, client: ClockifyClient | None = None) -> None:
         self.settings = settings
@@ -77,22 +70,15 @@ _current: ContextVar[RequestState | None] = ContextVar("clockify_request_state",
 
 
 def get_state() -> RequestState:
-    """Return the current request's state.
-
-    In stdio mode this is the process-wide singleton; in HTTP mode it's per-request.
-    Raises if no state has been installed (programming error).
-    """
+    """Return the process state, or raise if it has not been installed."""
     state = _current.get()
     if state is None:
-        raise RuntimeError(
-            "No request state installed. In HTTP mode, the auth middleware should set "
-            "one per request; in stdio mode, the CLI should set one at startup."
-        )
+        raise RuntimeError("No Clockify process state is installed.")
     return state
 
 
 def set_state(state: RequestState | None) -> Token[RequestState | None]:
-    """Install (or clear) the current request state. Returns a token for reset()."""
+    """Install or clear the process state. Return a token for reset()."""
     return _current.set(state)
 
 

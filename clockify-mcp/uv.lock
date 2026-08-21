@@ -142,19 +142,14 @@ wheels = [
 
 [[package]]
 name = "clockify-mcp"
-version = "0.1.0"
+version = "0.12.0"
 source = { editable = "." }
 dependencies = [
-    { name = "cryptography" },
     { name = "httpx" },
     { name = "keyring" },
     { name = "mcp" },
     { name = "platformdirs" },
-    { name = "pyjwt" },
     { name = "python-dateutil" },
-    { name = "python-multipart" },
-    { name = "starlette" },
-    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -170,16 +165,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=42" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "keyring", specifier = ">=25" },
     { name = "mcp", specifier = ">=1.2" },
     { name = "platformdirs", specifier = ">=4.2" },
-    { name = "pyjwt", specifier = ">=2.8" },
     { name = "python-dateutil", specifier = ">=2.9" },
-    { name = "python-multipart", specifier = ">=0.0.9" },
-    { name = "starlette", specifier = ">=0.37" },
-    { name = "uvicorn", specifier = ">=0.30" },
 ]
 
 [package.metadata.requires-dev]

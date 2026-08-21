@@ -1,10 +1,7 @@
 """CLI entry point.
 
-Three modes:
-  - default (stdio): `clockify-mcp` — for Claude Code / local MCP clients.
-  - `--check`: validate the API key and exit.
-  - `--http`: run the HTTP server (OAuth + MCP over streamable HTTP) for the
-    Claude desktop app's custom-connector dialog and other remote MCP clients.
+The default mode serves local MCP clients over stdio. Utility flags store,
+delete, or validate the user's Clockify API key.
 """
 
 from __future__ import annotations
@@ -12,7 +9,6 @@ from __future__ import annotations
 import argparse
 import getpass
 import logging
-import os
 import sys
 
 from .client import ClockifyClient
@@ -27,8 +23,7 @@ def main(argv: list[str] | None = None) -> int:
         prog="clockify-mcp",
         description=(
             "Clockify MCP server. Default: stdio for a local MCP client. "
-            "Use --check to validate your API key, or --http to run the multi-user "
-            "OAuth-protected HTTP server."
+            "Use --check to validate your API key."
         ),
     )
     parser.add_argument(
@@ -47,31 +42,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Delete the Clockify API key from the OS credential store.",
     )
     parser.add_argument(
-        "--http",
-        action="store_true",
-        help="Run the HTTP server with OAuth (multi-user). Requires JWT_SIGNING_KEY, "
-        "ENCRYPTION_KEY, and PUBLIC_URL env vars (or --public-url).",
-    )
-    parser.add_argument(
-        "--host",
-        default=os.environ.get("HOST", "0.0.0.0"),
-        help="HTTP bind host (default: 0.0.0.0; env: HOST).",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=int(os.environ.get("PORT", "8080")),
-        help="HTTP bind port (default: 8080; env: PORT — set by Cloud Run).",
-    )
-    parser.add_argument(
-        "--public-url",
-        default=os.environ.get("PUBLIC_URL"),
-        help="Externally-reachable URL for this server, no trailing slash. "
-        "Used in OAuth metadata. Env: PUBLIC_URL.",
-    )
-    parser.add_argument(
         "--log-level",
-        default=os.environ.get("LOG_LEVEL", "INFO"),
+        default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging verbosity (writes to stderr; default INFO).",
     )
@@ -90,8 +62,6 @@ def main(argv: list[str] | None = None) -> int:
             return _run_delete_key()
         if args.check:
             return _run_check()
-        if args.http:
-            return _run_http(host=args.host, port=args.port, public_url=args.public_url)
         mcp.run()
         return 0
     except ClockifyError as exc:
@@ -137,38 +107,6 @@ def _run_delete_key() -> int:
         print("Deleted the Clockify API key from the OS credential store.")
     else:
         print("No Clockify API key was stored in the OS credential store.")
-    return 0
-
-
-def _run_http(*, host: str, port: int, public_url: str | None) -> int:
-    if not public_url:
-        print(
-            "Error: --public-url (or PUBLIC_URL env var) is required in --http mode.\n"
-            "  Examples:\n"
-            "    --public-url=http://localhost:8080   (for local smoke testing)\n"
-            "    --public-url=https://clockify-mcp-xyz.a.run.app  (Cloud Run)\n",
-            file=sys.stderr,
-        )
-        return 2
-
-    import uvicorn
-
-    from .http_app import create_app
-
-    app = create_app(public_url=public_url)
-    logging.getLogger(__name__).info(
-        "Starting HTTP server on %s:%d (public_url=%s)", host, port, public_url
-    )
-    # proxy_headers=True so Cloud Run's X-Forwarded-Proto=https is honored when
-    # Starlette builds redirect/self-reference URLs.
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level="info",
-        proxy_headers=True,
-        forwarded_allow_ips="*",
-    )
     return 0
 
 
