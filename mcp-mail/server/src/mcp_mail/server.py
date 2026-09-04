@@ -115,6 +115,114 @@ def _ok(payload: Any) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(payload, indent=2, default=str))]
 
 
+def _native_elicitation_target() -> tuple[Any | None, str | None, Any | None]:
+    """Return a native confirmation session or a fail-closed reason.
+
+    Claude Code keeps using the plugin's fail-closed PreToolUse transcript gate.
+    Other MCP clients, including Codex, can instead use the protocol-native form
+    elicitation flow. Direct unit-test calls have no request context and therefore
+    retain the legacy hook-controlled path.
+    """
+    try:
+        context = server.request_context
+    except LookupError:
+        return None, None, None
+
+    session = context.session
+    params = session.client_params
+    if params is None:
+        return None, "The MCP client did not provide initialization parameters.", None
+
+    client_name = params.clientInfo.name.casefold()
+    if "claude" in client_name and "code" in client_name:
+        return None, None, None
+
+    elicitation = params.capabilities.elicitation
+    if elicitation is None or elicitation.form is None:
+        return None, "The MCP client cannot display the required email confirmation.", None
+    return session, None, context.request_id
+
+
+def _outbound_confirmation_message(arguments: dict[str, Any], *, is_reply: bool) -> str:
+    """Build the exact human-readable payload shown in the native confirmation."""
+
+    def addresses(key: str) -> str:
+        values = arguments.get(key) or []
+        return ", ".join(str(value) for value in values) or "(none)"
+
+    body = arguments.get("body_text") or arguments.get("body_html") or "(empty)"
+    attachments = arguments.get("attachments") or []
+    attachment_text = ", ".join(str(path) for path in attachments) or "(none)"
+
+    lines = [
+        "Confirm this outbound email action.",
+        f"Account: {arguments.get('account', '')}",
+    ]
+    if is_reply:
+        lines.extend(
+            [
+                f"Reply to message: {arguments.get('message_id', '')}",
+                f"Reply all: {bool(arguments.get('reply_all', False))}",
+                f"Additional CC: {addresses('cc')}",
+                f"Additional BCC: {addresses('bcc')}",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                f"To: {addresses('to')}",
+                f"CC: {addresses('cc')}",
+                f"BCC: {addresses('bcc')}",
+                f"Subject: {arguments.get('subject', '')}",
+            ]
+        )
+    lines.extend([f"Attachments: {attachment_text}", "", "Body:", str(body)])
+    return "\n".join(lines)
+
+
+async def _native_outbound_choice(
+    arguments: dict[str, Any], *, is_reply: bool
+) -> tuple[str | None, str | None]:
+    """Ask a protocol-native send/save/cancel question when the client supports it.
+
+    ``None`` means the current client has no suitable elicitation surface and its
+    own gate remains authoritative. Any malformed or failed elicitation is treated
+    as cancellation so a client that advertised support cannot fail open.
+    """
+    session, capability_error, request_id = _native_elicitation_target()
+    if session is None:
+        if capability_error is not None:
+            return "Do not send", capability_error
+        return None, None
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "decision": {
+                "type": "string",
+                "title": "Email action",
+                "enum": ["Send email", "Save as draft", "Do not send"],
+            }
+        },
+        "required": ["decision"],
+    }
+    try:
+        result = await session.elicit_form(
+            message=_outbound_confirmation_message(arguments, is_reply=is_reply),
+            requestedSchema=schema,
+            related_request_id=request_id,
+        )
+    except Exception as exc:
+        return "Do not send", f"Confirmation failed closed: {type(exc).__name__}"
+
+    if result.action != "accept" or not isinstance(result.content, dict):
+        return "Do not send", "The user did not authorize the outbound email."
+    decision = result.content.get("decision")
+    if decision not in {"Send email", "Save as draft", "Do not send"}:
+        return "Do not send", "The confirmation response was missing or invalid."
+    return str(decision), None
+
+
 # ---- drive / calendar adapter dispatch -------------------------------------
 #
 # Drive tools route across three backends by provider: Gmail accounts -> Google
@@ -581,12 +689,12 @@ async def list_tools() -> list[Tool]:
                 "Pass `body_html` for rich, `body_text` for plain-only. Optional `attachments` "
                 "is a list of local file paths. If the account has a configured signature it is "
                 "appended automatically (with its inline logo); pass append_signature=false to "
-                "suppress it. HARD-GATED: a PreToolUse hook BLOCKS this call unless the user has "
-                "just selected 'Send email' in an AskUserQuestion box offering exactly three "
-                "options — 'Send email' / 'Save as draft' / 'Do not send'. You MUST present that "
-                "box as the final step immediately before calling mail_send. For the 'Save as "
-                "draft' choice call mail_draft instead (never mail_send); for 'Do not send', "
-                "stop. Do NOT add to the allowlist."
+                "suppress it. CONFIRMATION-GATED: first stage the exact recipients, subject, body, "
+                "and attachments for the user. Clients supporting MCP form elicitation receive a "
+                "final 'Send email' / 'Save as draft' / 'Do not send' choice inside this tool. "
+                "Claude Code instead requires its canonical AskUserQuestion box immediately "
+                "before the call, enforced by the plugin's fail closed PreToolUse hook. Never "
+                "allowlist or bypass either confirmation mechanism."
             ),
             inputSchema={
                 "type": "object",
@@ -621,11 +729,12 @@ async def list_tools() -> list[Tool]:
                 "`reply_all`: the extra addresses are deduped and never include yourself or the "
                 "original sender. Optional `attachments` is a list of local file paths. If the "
                 "account has a configured signature (with signature_on_reply) it is appended "
-                "automatically; pass append_signature=false to suppress it. HARD-GATED exactly like "
-                "mail_send: a PreToolUse hook BLOCKS this call unless the user just selected 'Send "
-                "email' in an AskUserQuestion box offering 'Send email' / 'Save as draft' / 'Do not "
-                "send'. Present that box as the final step before replying. For 'Save as draft' call "
-                "mail_reply_draft instead; for 'Do not send', stop. Do NOT add to the allowlist."
+                "automatically; pass append_signature=false to suppress it. CONFIRMATION-GATED "
+                "exactly like mail_send: stage the exact reply and recipients first. Clients "
+                "supporting MCP form elicitation receive the final send/save/cancel choice inside "
+                "this tool. Claude Code instead requires its canonical AskUserQuestion box, "
+                "enforced by the fail closed PreToolUse hook. Never allowlist or bypass either "
+                "confirmation mechanism."
             ),
             inputSchema={
                 "type": "object",
@@ -659,9 +768,9 @@ async def list_tools() -> list[Tool]:
             name="mail_draft",
             description=(
                 "Create a NEW-message draft in the account's Drafts folder WITHOUT sending it. "
-                "This is the destination for the user's 'Save as draft' choice in the send-"
-                "confirmation box: when the user picks 'Save as draft', call mail_draft (not "
-                "mail_send). Same fields and behaviour as mail_send (HTML-first body, cc/bcc, "
+                "Clients with MCP form elicitation can also reach this operation by selecting "
+                "'Save as draft' inside mail_send. In Claude Code, call mail_draft after that "
+                "selection. Same fields and behaviour as mail_send (HTML first body, cc/bcc, "
                 "`attachments` local file paths, automatic signature with inline logo unless "
                 "append_signature=false), except the message is saved as a draft and never "
                 "delivered. NOT gated by the send hook, so it needs no confirmation box. Returns "
@@ -695,9 +804,10 @@ async def list_tools() -> list[Tool]:
             name="mail_reply_draft",
             description=(
                 "Create a threaded reply DRAFT in the account's Drafts folder WITHOUT sending it. "
-                "This is the destination for the user's 'Save as draft' choice when replying: when "
-                "the user picks 'Save as draft', call mail_reply_draft (not mail_reply). Same "
-                "fields and behaviour as mail_reply (`reply_all`, extra `cc`/`bcc`, `attachments`, "
+                "Clients with MCP form elicitation can also reach this operation by selecting "
+                "'Save as draft' inside mail_reply. In Claude Code, call mail_reply_draft after "
+                "that selection. Same fields and behaviour as mail_reply (`reply_all`, extra "
+                "`cc`/`bcc`, `attachments`, "
                 "automatic reply signature unless append_signature=false, threading preserved), "
                 "except the reply is saved as a draft and never delivered. NOT gated by the send "
                 "hook. Returns the draft id (and a webLink where the provider exposes one)."
@@ -1669,6 +1779,24 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     if name == "mail_send":
         acct, adapter = _get_adapter(arguments["account"])
         body_html, attachments, note = _prepare_body(acct, arguments, is_reply=False)
+        choice, confirmation_error = await _native_outbound_choice(arguments, is_reply=False)
+        if choice == "Do not send":
+            return _ok({
+                "ok": False,
+                "cancelled": True,
+                "reason": confirmation_error or "The user chose not to send the email.",
+            })
+        if choice == "Save as draft":
+            result = adapter.create_draft(
+                to=arguments["to"],
+                subject=arguments["subject"],
+                body_text=arguments.get("body_text"),
+                body_html=body_html,
+                cc=arguments.get("cc"),
+                bcc=arguments.get("bcc"),
+                attachments=attachments,
+            )
+            return _ok(_with_note({"ok": True, "draft": result}, note))
         adapter.send(
             to=arguments["to"],
             subject=arguments["subject"],
@@ -1683,6 +1811,24 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     if name == "mail_reply":
         acct, adapter = _get_adapter(arguments["account"])
         body_html, attachments, note = _prepare_body(acct, arguments, is_reply=True)
+        choice, confirmation_error = await _native_outbound_choice(arguments, is_reply=True)
+        if choice == "Do not send":
+            return _ok({
+                "ok": False,
+                "cancelled": True,
+                "reason": confirmation_error or "The user chose not to send the reply.",
+            })
+        if choice == "Save as draft":
+            result = adapter.create_reply_draft(
+                message_id=arguments["message_id"],
+                body_text=arguments.get("body_text"),
+                body_html=body_html,
+                reply_all=bool(arguments.get("reply_all", False)),
+                attachments=attachments,
+                cc=arguments.get("cc"),
+                bcc=arguments.get("bcc"),
+            )
+            return _ok(_with_note({"ok": True, "draft": result}, note))
         adapter.reply(
             message_id=arguments["message_id"],
             body_text=arguments.get("body_text"),

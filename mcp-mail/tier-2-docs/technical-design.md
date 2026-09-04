@@ -58,9 +58,13 @@ is section 11, and the authoritative list is always `list_tools()` in
 | `mail_delete_folder(account, name, force?=false)` | Prio 2. Errors if non-empty unless `force=true`. | no |
 | `mail_archive(account, message_id)` | Prio 2. Provider-native archive. | no |
 
-Confirmation-gating mechanism: send and reply do NOT go in the Claude Code
-allowlist; they always trigger the per-call permission prompt. Delete IS
-allowlistable (it's not gated). This is per tier-1 §4.
+Confirmation mechanism: send and reply do not go in the Claude Code allowlist.
+Claude Code uses the plugin's `PreToolUse` transcript gate. Codex and other MCP
+clients that advertise form elicitation receive a server initiated choice with
+exactly three outcomes: send, save as draft, or cancel. A missing capability,
+canceled prompt, malformed result, or elicitation error fails closed. Direct
+handler calls outside an MCP request retain the legacy path for unit tests.
+Delete remains allowlistable because it is not gated. This is per tier 1 §4.
 
 ## 3. Authentication setup
 

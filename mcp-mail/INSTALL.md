@@ -529,7 +529,7 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 | A write, move, delete or share is refused | The write guard. Set `auto_write = true` on that account only if you want file and calendar writes to stop asking. |
 | `drive_share` fails on a localfs account | Not supported: there is no service to share through. Use an M365 or Google account for sharing. |
 | `drive_delete` fails on Linux or Windows | localfs deletes go to the macOS Trash via `osascript`. Delete the file yourself, or use an M365 or Google backend. |
-| Every send is blocked with "outbound mail is gated" | That is the send gate doing its job: Claude must ask you first and you must pick "Send email". If it never clears, check that `python3` is on your `PATH` (§1): the gate fails **closed** on purpose, so a missing interpreter blocks rather than silently sends. |
+| Every send is blocked with "outbound mail is gated" | In Claude Code, pick "Send email" in the final confirmation box. If it never clears, check that `python3` is on your `PATH` (§1). In Codex or another MCP client, the choice appears inside the tool through MCP form elicitation. If the client cannot display it, the server blocks the send. |
 | See the raw server error | Run it standalone: `uv --directory "$MCPMAIL/server" run python -m mcp_mail` (stdio server; Ctrl-C to stop). |
 
 ---
@@ -541,11 +541,13 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
   written to `accounts.toml` or any file in the repo.
 - The setup scripts read secrets via stdin/`getpass`, so they don't land in your
   shell history.
-- The server binds to `localhost` and is only spoken to by Claude Code over stdio.
-- `mail_send` / `mail_reply` always require a per-message confirmation. This is
-  enforced by a `PreToolUse` hook in `hooks/`, which fails **closed**: if the hook
-  cannot run, the send is blocked rather than let through. It needs `python3` on
-  your `PATH`, which §1 already requires.
+- The server binds to `localhost` and is only spoken to by the MCP client over
+  stdio.
+- `mail_send` and `mail_reply` always require a per message confirmation. Codex
+  and other clients with MCP form elicitation show the send, save as draft, or
+  cancel choice inside the tool. Claude Code uses the `PreToolUse` transcript
+  gate in `hooks/`. Both mechanisms fail **closed**. The Claude Code hook needs
+  `python3` on your `PATH`, which §1 already requires.
   `mail_delete` does **not** — be deliberate before allowlisting it.
 - File and calendar writes have their own guard. Unless an account sets
   `auto_write = true`, every write, move, delete and share is refused server side
