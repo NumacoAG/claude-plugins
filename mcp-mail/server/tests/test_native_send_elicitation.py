@@ -1,8 +1,8 @@
-"""Tests for protocol-native outbound email confirmation.
+"""Tests for outbound email confirmation across MCP clients.
 
-Claude Code keeps its transcript hook. Other MCP clients use form elicitation
-inside the mail_send and mail_reply tools, with every abnormal result failing
-closed.
+Claude Code keeps its transcript hook. Codex uses its configured tool approval
+prompt. Other MCP clients use form elicitation inside mail_send and mail_reply,
+with every abnormal result failing closed.
 """
 
 from __future__ import annotations
@@ -220,6 +220,7 @@ def test_reply_save_as_draft_never_replies(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_confirmation_round_trip_over_mcp_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MCP_MAIL_CLIENT_APPROVAL_GATE", raising=False)
     adapter = _CapturingAdapter()
     monkeypatch.setattr(srv, "_get_adapter", lambda account_id: (_Acct(), adapter))
     prompts: list[Any] = []
@@ -252,3 +253,90 @@ def test_confirmation_round_trip_over_mcp_transport(monkeypatch: pytest.MonkeyPa
     assert adapter.sent is not None
     assert len(prompts) == 1
     assert "Transport test" in prompts[0].message
+
+
+def test_configured_codex_gate_uses_client_approval_without_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MCP_MAIL_CLIENT_APPROVAL_GATE", "codex")
+    adapter = _CapturingAdapter()
+    monkeypatch.setattr(srv, "_get_adapter", lambda account_id: (_Acct(), adapter))
+
+    async def scenario() -> dict[str, Any]:
+        async with create_connected_server_and_client_session(
+            srv.server,
+            client_info=types.Implementation(name="codex", version="test"),
+            raise_exceptions=True,
+        ) as session:
+            result = await session.call_tool(
+                "mail_send",
+                {
+                    "account": "acct",
+                    "to": ["person@example.com"],
+                    "subject": "Client approval test",
+                    "body_text": "Codex already prompted before this call.",
+                },
+            )
+            return json.loads(result.content[0].text)
+
+    out = asyncio.run(scenario())
+
+    assert out == {"ok": True, "sent_to": ["person@example.com"]}
+    assert adapter.sent is not None
+
+
+def test_configured_gate_does_not_bypass_other_clients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MCP_MAIL_CLIENT_APPROVAL_GATE", "codex")
+    adapter = _CapturingAdapter()
+    monkeypatch.setattr(srv, "_get_adapter", lambda account_id: (_Acct(), adapter))
+    prompts: list[Any] = []
+
+    async def choose_send(context: Any, params: Any) -> types.ElicitResult:
+        prompts.append(params)
+        return types.ElicitResult(action="accept", content={"decision": "Send email"})
+
+    async def scenario() -> dict[str, Any]:
+        async with create_connected_server_and_client_session(
+            srv.server,
+            elicitation_callback=choose_send,
+            client_info=types.Implementation(name="another-client", version="test"),
+            raise_exceptions=True,
+        ) as session:
+            result = await session.call_tool(
+                "mail_send",
+                {
+                    "account": "acct",
+                    "to": ["person@example.com"],
+                    "subject": "Server form test",
+                    "body_text": "This client must still use the MCP form.",
+                },
+            )
+            return json.loads(result.content[0].text)
+
+    out = asyncio.run(scenario())
+
+    assert out == {"ok": True, "sent_to": ["person@example.com"]}
+    assert adapter.sent is not None
+    assert len(prompts) == 1
+
+
+def test_codex_manifest_pairs_prompt_policy_with_server_gate() -> None:
+    plugin_root = Path(__file__).parents[2]
+    plugin = json.loads((plugin_root / ".codex-plugin" / "plugin.json").read_text())
+    mcp = json.loads((plugin_root / ".mcp.json").read_text())
+
+    assert plugin["version"] == "0.5.9"
+    assert plugin["mcpServers"] == "./.mcp.json"
+    mail = mcp["mcpServers"]["mail"]
+    assert mail["env"]["MCP_MAIL_CLIENT_APPROVAL_GATE"] == "codex"
+    assert mail["tools"]["mail_send"]["approval_mode"] == "prompt"
+    assert mail["tools"]["mail_reply"]["approval_mode"] == "prompt"
+
+
+def test_outbound_mail_schema_has_no_caller_confirmation_bypass() -> None:
+    tools = {tool.name: tool for tool in asyncio.run(srv.list_tools())}
+
+    assert "confirmed" not in tools["mail_send"].inputSchema["properties"]
+    assert "confirmed" not in tools["mail_reply"].inputSchema["properties"]

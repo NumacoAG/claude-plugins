@@ -80,11 +80,12 @@ You configure any subset of these — a single account is a valid setup.
   In all other cases the MCP refreshes tokens automatically and silently. When
   reauth is unavoidable, it surfaces a clear, actionable prompt rather than a
   cryptic 401.
-- **Send requires explicit per-message confirmation.** Claude proposes the full
-  envelope; you approve; only then does the SMTP/API call happen. Mechanism:
-  Claude Code's per-call permission prompt, not a separate confirmation tool
-  inside the MCP. Configurable to auto-send per account in the config file.
-  Delete is NOT gated — it executes immediately.
+- **Send requires explicit per-message confirmation.** The assistant proposes
+  the full envelope; you approve; only then does the SMTP/API call happen.
+  Claude Code uses its transcript hook. Codex uses a per tool approval prompt
+  bundled with the plugin, paired with an environment controlled server gate.
+  Other MCP clients use protocol form elicitation. Configurable to auto-send per
+  account in the config file. Delete is NOT gated and executes immediately.
 - **Idempotent where reasonable.** Marking-read on an already-read message is a
   no-op, not an error. Same for marking-spam on an already-spam message.
 
@@ -147,12 +148,12 @@ From a single Claude session, you can:
 
 ## 9. Delivery
 
-The end-state is a single **Claude Code plugin** called `mcp-mail`. The plugin's
-manifest bundles the MCP server (phases 1–4) and the contact-directory skill
-(phase 5) into one install:
+The end-state is one **Codex and Claude Code plugin** called `mcp-mail`. The
+client manifests bundle the MCP server (phases 1 through 4) and the contact directory
+skill (phase 5) into one install:
 
-- registers the MCP server automatically (no manual `settings.json` editing),
-- drops the contact skill into Claude's discoverable skill path,
+- registers the MCP server automatically, with no manual transport editing,
+- makes the contact skill discoverable in the active client,
 - versions both as a unit.
 
 Distribution mode is local install: add the repo as a plugin marketplace and

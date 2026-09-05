@@ -1,8 +1,8 @@
 # mcp-mail server
 
-The MCP server portion of the `mcp-mail` Claude Code plugin. For the full,
-provider-by-provider setup walkthrough see [`../INSTALL.md`](../INSTALL.md); the
-project spec is in [`../requirements.md`](../requirements.md).
+The MCP server portion of the `mcp-mail` Codex and Claude Code plugin. For the
+full, provider-by-provider setup walkthrough see [`../INSTALL.md`](../INSTALL.md);
+the project spec is in [`../requirements.md`](../requirements.md).
 
 It registers 55 tools over six surfaces: mail (16), Drive and SharePoint or
 OneDrive files (16), Google Docs (10), calendar (5), Sheets (5), and Slides (3).
@@ -21,13 +21,13 @@ wider scopes share one list with mail, so an un-re-consented token breaks mail.
    registration (Application/client ID + tenant ID).
 4. Store the required secrets in the macOS Keychain (Google OAuth client blob;
    IMAP app-specific passwords) — see [`../INSTALL.md`](../INSTALL.md).
-5. Install the plugin in Claude Code (see `../INSTALL.md`) and restart the session.
+5. Install the plugin in Codex or Claude Code (see `../INSTALL.md`) and restart the session.
 6. If you want calendar or files, add `capabilities` to those accounts and run
    the re-consent once: `uv run python scripts/reauth_m365.py <id>` for M365,
    `uv run python scripts/reauth_google.py <id>` for Google (`../INSTALL.md`
    section 5D). A `localfs` account needs neither: it declares `roots` and works
    immediately.
-7. In Claude, ask: "list my mail accounts", then "list folders in my work-m365
+7. Ask the client to "list my mail accounts", then "list folders in my work-m365
    account". The first call to a given account opens a browser for OAuth
    (Microsoft on `http://localhost:8765`, Google on `http://localhost:8766`).
    After that, tokens are cached in the Keychain and subsequent calls are silent.

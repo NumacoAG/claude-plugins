@@ -9,7 +9,7 @@
 
 ```
 ┌─────────────────┐
-│   Claude Code   │  via MCP stdio (local)
+│ Codex / Claude  │  via MCP stdio (local)
 └────────┬────────┘
          │
 ┌────────▼─────────────────────────────────────┐
@@ -59,12 +59,16 @@ is section 11, and the authoritative list is always `list_tools()` in
 | `mail_archive(account, message_id)` | Prio 2. Provider-native archive. | no |
 
 Confirmation mechanism: send and reply do not go in the Claude Code allowlist.
-Claude Code uses the plugin's `PreToolUse` transcript gate. Codex and other MCP
-clients that advertise form elicitation receive a server initiated choice with
-exactly three outcomes: send, save as draft, or cancel. A missing capability,
-canceled prompt, malformed result, or elicitation error fails closed. Direct
-handler calls outside an MCP request retain the legacy path for unit tests.
-Delete remains allowlistable because it is not gated. This is per tier 1 §4.
+Claude Code uses the plugin's `PreToolUse` transcript gate. The Codex `.mcp.json`
+sets `approval_mode = "prompt"` for both tools and passes
+`MCP_MAIL_CLIENT_APPROVAL_GATE=codex` to the server. The server then treats the
+completed Codex tool approval as authoritative and does not open a second MCP
+form. Other MCP clients that advertise form elicitation receive a server
+initiated choice with exactly three outcomes: send, save as draft, or cancel. A
+missing capability, canceled prompt, malformed result, or elicitation error
+fails closed. Direct handler calls outside an MCP request retain the legacy path
+for unit tests. Delete remains allowlistable because it is not gated. This is per
+tier 1 §4.
 
 ## 3. Authentication setup
 
@@ -255,13 +259,16 @@ required before any colleague visible comment is submitted.
 
 ## 10. Plugin packaging
 
-`mcp-mail` ships as a Claude Code plugin. Repo layout:
+`mcp-mail` ships as both a Codex and Claude Code plugin. Repo layout:
 
 ```
 mcp-mail/
 ├── .claude-plugin/
 │   ├── plugin.json         ← plugin manifest (registers the MCP server)
 │   └── marketplace.json    ← local marketplace manifest
+├── .codex-plugin/
+│   └── plugin.json         ← Codex plugin manifest
+├── .mcp.json               ← Codex server launch and approval policy
 ├── server/                 ← MCP server source (phases 1–4)
 │   ├── pyproject.toml
 │   ├── uv.lock
@@ -300,15 +307,16 @@ mcp-mail/
     └── technical-design.md ← this doc
 ```
 
-The `plugin.json` manifest declares the MCP server entrypoint (Python module
-spawned over stdio, with `${CLAUDE_PLUGIN_ROOT}` resolving to the installed
-plugin directory) and the skill directory (auto-discovered by Claude Code).
+The Claude Code `plugin.json` manifest declares the MCP server entrypoint, with
+`${CLAUDE_PLUGIN_ROOT}` resolving to the installed plugin directory. The Codex
+manifest points to `.mcp.json`, whose relative `cwd` resolves to the installed
+plugin root. It also bundles the prompt policy for `mail_send` and `mail_reply`
+with the matching server environment gate.
 
-On install, Claude Code:
-1. Registers the MCP server in the user's settings (no manual `settings.json`
-   editing).
-2. Makes the bundled skills discoverable.
-3. Pins server/skill versions together.
+On install, either client registers the MCP server without manual transport
+configuration, makes the bundled skills discoverable, and pins the server and
+skill versions together. Codex also loads the two outbound mail prompt policies
+from `.mcp.json`.
 
 Distribution mode is local install from a cloned repo (add as a plugin
 marketplace, then install). See `../INSTALL.md`.

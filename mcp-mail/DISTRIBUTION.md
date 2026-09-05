@@ -48,8 +48,9 @@ and silent, so mail is untouched whether or not you ever re-consent.
 | `accounts.toml.example` | Template you copy to `~/.config/mcp-mail/accounts.toml` |
 | `defaults.toml.example` | Optional shared M365 app identity, copied to `~/.config/mcp-mail/defaults.toml` |
 | `server/` | The MCP server (Python, one adapter per provider) |
-| `server/tests/` | Regression suite, 340 tests (`cd server && uv run pytest tests`) |
+| `server/tests/` | Regression suite, 344 tests (`cd server && uv run pytest tests`) |
 | `hooks/` | The Claude Code PreToolUse gate for `mail_send` and `mail_reply` |
+| `.codex-plugin/` and `.mcp.json` | Codex manifest, MCP launch settings, and per tool send approval prompts |
 | `skills/contacts/` | The optional contacts skill |
 | `skills/mcp-mail-setup/` | The guided setup skill |
 | `.claude-plugin/` | The plugin manifest |
