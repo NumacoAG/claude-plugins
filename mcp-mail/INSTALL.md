@@ -1,9 +1,10 @@
 # mcp-mail — installation guide
 
-This guide installs **mcp-mail** on **macOS, Windows, or Linux**. It's written so
-you can hand it to Claude ("read INSTALL.md and help me set this up") and have it
-walk you through, or follow it yourself. You configure **only the accounts you
-want** — there's no requirement to set up all providers.
+This guide installs **mcp-mail** on **macOS, Windows, or Linux**. It is written
+so you can hand it to Codex or Claude Code ("read INSTALL.md and help me set this
+up") and have the assistant walk you through, or follow it yourself. You
+configure **only the accounts you want**. There is no requirement to set up all
+providers.
 
 **What it installs.** 55 tools across six surfaces: mail (16), Drive and
 SharePoint / OneDrive files (16), Google Docs (10), calendar (5), Sheets (5) and
@@ -20,7 +21,7 @@ covers that, and it is the step people miss.
 
 ---
 
-## 🤖 If you are Claude reading this to help install
+## 🤖 If you are an assistant reading this to help install
 
 Work through the sections **in order**. Rules for you specifically:
 
@@ -44,7 +45,7 @@ Work through the sections **in order**. Rules for you specifically:
 
 | Need | Check | Install if missing |
 |---|---|---|
-| Claude Code | already installed if you're reading this in it | — |
+| Codex or Claude Code | already installed if you are reading this in it | client documentation |
 | Python 3.13+ | `python3 --version` (Win: `py --version`) | from python.org, or it comes with `uv` |
 | `uv` | `uv --version` | see below |
 | `git` | `git --version` | only needed if you `git clone` the repo |
@@ -70,11 +71,29 @@ installed globally, and on Windows the credential-store backend
 (`pywin32-ctypes`) is pulled in automatically.
 
 The helper scripts below run out of that same installed copy. Resolve its path
-once and keep it in a shell variable:
+once and keep it in a shell variable.
+
+**Claude Code on macOS or Linux:**
 
 ```bash
 MCPMAIL=$(python3 -c "import json,os;p=os.path.expanduser('~/.claude/plugins/installed_plugins.json');print(json.load(open(p))['plugins']['mcp-mail@numaco'][0]['installPath'])")
 echo "$MCPMAIL"
+```
+
+**Codex on macOS or Linux:**
+
+```bash
+MCPMAIL=$(codex plugin list --json | python3 -c 'import json,sys; from pathlib import Path; p=next(x for x in json.load(sys.stdin)["installed"] if x["name"]=="mcp-mail"); print(Path.home()/".codex/plugins/cache"/p["marketplaceName"]/p["name"]/p["version"])')
+echo "$MCPMAIL"
+```
+
+**Codex on Windows PowerShell:**
+
+```powershell
+$plugin = (codex plugin list --json | ConvertFrom-Json).installed |
+  Where-Object { $_.name -eq "mcp-mail" }
+$env:MCPMAIL = Join-Path $HOME ".codex\plugins\cache\$($plugin.marketplaceName)\$($plugin.name)\$($plugin.version)"
+Write-Output $env:MCPMAIL
 ```
 
 Then run any helper script as:
@@ -421,9 +440,25 @@ cross-platform.
 
 ---
 
-## 6. Install the plugin in Claude Code
+## 6. Install the plugin
 
-Install from the public Numaco marketplace. Two commands in a terminal:
+Install from the public Numaco marketplace for the client you use.
+
+### Codex
+
+```bash
+codex plugin marketplace add NumacoAG/claude-plugins
+codex plugin add mcp-mail@numaco
+```
+
+You can also open `/plugins` in the Codex CLI or use the Plugins screen in the
+desktop app. Start a new session after installation. The Codex manifest
+registers the local MCP server automatically. Its bundled `.mcp.json` also sets
+`approval_mode = "prompt"` for `mail_send` and `mail_reply`, and supplies the
+matching server gate. This prevents the unsupported second form prompt while
+preserving a user approval before every outbound email.
+
+### Claude Code
 
 ```bash
 claude plugin marketplace add NumacoAG/claude-plugins
@@ -446,7 +481,7 @@ registers its tools:
 claude plugin list
 ```
 
-The manifest registers the MCP server automatically using
+The Claude Code manifest registers the MCP server automatically using
 `${CLAUDE_PLUGIN_ROOT}/server` (resolved to wherever the plugin is installed) —
 you do **not** edit `settings.json` by hand. The server is launched as
 `uv --directory <plugin>/server run python -m mcp_mail`, so `uv` must be on your
@@ -456,7 +491,7 @@ you do **not** edit `settings.json` by hand. The server is launched as
 
 ## 7. First run & sign-in
 
-In Claude, start with the no-network call:
+In Codex or Claude Code, start with the no-network call:
 
 > **"List my mail accounts."**
 
@@ -521,7 +556,7 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 | IMAP login fails | Regenerate the app-specific password; confirm 2FA is on; check host/port. |
 | Browser sign-in hangs (Windows) | Allow Python through Windows Firewall for the loopback port; close anything else using 8765/8766. |
 | `Address already in use` on :8765 / :8766 | Another process (or a stuck prior auth) holds the port; close it and retry. |
-| Plugin tools don't appear | Restart the Claude Code session after install; confirm with `/plugin` that `mcp-mail` is enabled. |
+| Plugin tools don't appear | Start a new client session after install. In Codex, check `codex plugin list` and `codex mcp list`. In Claude Code, confirm with `/plugin` that `mcp-mail` is enabled. |
 | **Gmail stopped working right after upgrading** | Expected, and it is the scope widening. Run `scripts/reauth_google.py <id>` once per Google account (§5D). |
 | `no token covering the SharePoint / OneDrive file scopes` | Run `scripts/reauth_m365.py <id>` (§5D). If the sign-in hits an "admin approval required" wall, use the localfs backend (§5E) instead. |
 | `account '<id>' does not declare capability 'drive'` (or `'calendar'`) | Add it to that account's `capabilities` list in `accounts.toml` (§5D step 1), then restart the session. |
@@ -529,7 +564,7 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 | A write, move, delete or share is refused | The write guard. Set `auto_write = true` on that account only if you want file and calendar writes to stop asking. |
 | `drive_share` fails on a localfs account | Not supported: there is no service to share through. Use an M365 or Google account for sharing. |
 | `drive_delete` fails on Linux or Windows | localfs deletes go to the macOS Trash via `osascript`. Delete the file yourself, or use an M365 or Google backend. |
-| Every send is blocked with "outbound mail is gated" | In Claude Code, pick "Send email" in the final confirmation box. If it never clears, check that `python3` is on your `PATH` (§1). In Codex or another MCP client, the choice appears inside the tool through MCP form elicitation. If the client cannot display it, the server blocks the send. |
+| Every send is blocked with "outbound mail is gated" | In Codex, upgrade to mcp-mail 0.5.9 or later, start a new session, and confirm that `codex mcp list` shows the plugin supplied `mail` server. Codex should ask before the tool call and should not open a second form. In Claude Code, pick "Send email" in the final confirmation box. Other MCP clients use the form inside the tool; a client without form support remains blocked. |
 | See the raw server error | Run it standalone: `uv --directory "$MCPMAIL/server" run python -m mcp_mail` (stdio server; Ctrl-C to stop). |
 
 ---
@@ -544,10 +579,11 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 - The server binds to `localhost` and is only spoken to by the MCP client over
   stdio.
 - `mail_send` and `mail_reply` always require a per message confirmation. Codex
-  and other clients with MCP form elicitation show the send, save as draft, or
-  cancel choice inside the tool. Claude Code uses the `PreToolUse` transcript
-  gate in `hooks/`. Both mechanisms fail **closed**. The Claude Code hook needs
-  `python3` on your `PATH`, which §1 already requires.
+  uses its per tool approval prompt, configured automatically by `.mcp.json`.
+  Claude Code uses the `PreToolUse` transcript gate in `hooks/`. Other MCP
+  clients use a form inside the tool. Each mechanism fails **closed** when its
+  expected confirmation is unavailable. The Claude Code hook needs `python3` on
+  your `PATH`, which §1 already requires.
   `mail_delete` does **not** — be deliberate before allowlisting it.
 - File and calendar writes have their own guard. Unless an account sets
   `auto_write = true`, every write, move, delete and share is refused server side

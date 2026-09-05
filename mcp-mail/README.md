@@ -5,11 +5,11 @@ that gives Claude full read + write control over your **mail, calendar, and
 files** across **Microsoft 365 / Outlook** (including SharePoint and OneDrive),
 **Gmail / Google Workspace** (Drive, Docs, Sheets, Slides, Calendar), **any IMAP
 provider** (iCloud, Yahoo, Fastmail, …), and a **local iCloud Drive or OneDrive
-folder**. It ships as a Claude Code plugin: one install registers the MCP server
-plus three skills: a guided setup walkthrough, a contacts skill that sweeps your
-mail into a contact directory, and a Google Docs workflow that places native
-comments on exact text selections through an authenticated browser. The skills
-are model invoked; just ask for them by name.
+folder**. It ships as both a Codex and Claude Code plugin. One install registers
+the MCP server plus three skills: a guided setup walkthrough, a contacts skill
+that sweeps your mail into a contact directory, and a Google Docs workflow that
+places native comments on exact text selections through an authenticated
+browser. The skills are model invoked; just ask for them by name.
 
 55 tools over six surfaces: mail (16), Drive files (16), Google Docs (10),
 calendar (5), Sheets (5), Slides (3). Mail works on its own. Calendar and files
@@ -82,15 +82,17 @@ step by step.
 - macOS, Windows, or Linux (secrets go to the OS credential store —
   Keychain / Credential Manager / Secret Service — automatically)
 - Python 3.13+ and [`uv`](https://docs.astral.sh/uv/)
-- Claude Code, Codex, or another MCP client with form elicitation support
+- Codex, Claude Code, or another MCP client with form elicitation support
 
 ## Layout
 
 ```
 mcp-mail/
 ├── .claude-plugin/        the plugin manifest
+├── .codex-plugin/         the Codex plugin manifest
+├── .mcp.json              Codex MCP launch and approval configuration
 ├── server/                the MCP server (Python, one adapter per provider)
-├── server/tests/          the regression suite (340 tests, `uv run pytest tests`)
+├── server/tests/          the regression suite (344 tests, `uv run pytest tests`)
 ├── hooks/                 the Claude Code PreToolUse gate for send and reply
 ├── skills/contacts/       the contacts skill
 ├── skills/google-docs-inline-comments/ native Docs comment placement
@@ -109,12 +111,13 @@ mcp-mail/
   in your OS credential store (macOS Keychain / Windows Credential Manager /
   Linux Secret Service). The config file holds non-secret IDs only.
 - The server binds to `localhost` and is spoken to over stdio by the MCP client.
-- `mail_send` and `mail_reply` always require a per message confirmation. Codex
-  and other clients with MCP form elicitation receive a final choice inside the
-  tool: send, save as draft, or cancel. Claude Code retains the `PreToolUse`
-  transcript gate. Both paths fail **closed**, so a missing or malformed
-  confirmation blocks the send. `mail_delete` is **not** gated, so think before
-  allowlisting it.
+- `mail_send` and `mail_reply` always require a per message confirmation. The
+  Codex plugin configures `approval_mode = "prompt"` for both tools and tells the
+  server that the client prompt is authoritative. Claude Code retains the
+  `PreToolUse` transcript gate. Other MCP clients receive a final form choice
+  inside the tool: send, save as draft, or cancel. Every path fails **closed**
+  when its expected confirmation is missing. `mail_delete` is **not** gated, so
+  think before allowlisting it.
 - File and calendar writes have a second guard: unless an account sets
   `auto_write = true`, every write, move, delete and share is refused server side
   until you confirm the intent. Sharing a file, and any calendar event that

@@ -1,0 +1,29 @@
+{
+  "name": "mcp-mail",
+  "version": "0.5.9",
+  "description": "Self-hosted MCP server giving Codex access to your own mail, calendar, and files across Microsoft 365, Google Workspace, IMAP, and local synced folders.",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "mcp-mail",
+    "shortDescription": "Private local access to your mail, calendar, and files",
+    "longDescription": "Connect your own Microsoft 365, Google Workspace, IMAP, and local synced folder accounts to Codex through a local MCP server. Credentials stay in your operating system credential store.",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "List my mail accounts.",
+      "Show my unread messages.",
+      "What is on my calendar today?"
+    ]
+  }
+}

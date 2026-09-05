@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -119,9 +120,10 @@ def _native_elicitation_target() -> tuple[Any | None, str | None, Any | None]:
     """Return a native confirmation session or a fail-closed reason.
 
     Claude Code keeps using the plugin's fail-closed PreToolUse transcript gate.
-    Other MCP clients, including Codex, can instead use the protocol-native form
-    elicitation flow. Direct unit-test calls have no request context and therefore
-    retain the legacy hook-controlled path.
+    A client named by MCP_MAIL_CLIENT_APPROVAL_GATE keeps its own configured tool
+    approval prompt authoritative. Other MCP clients can use the protocol-native
+    form elicitation flow. Direct unit-test calls have no request context and
+    therefore retain the legacy hook-controlled path.
     """
     try:
         context = server.request_context
@@ -135,6 +137,10 @@ def _native_elicitation_target() -> tuple[Any | None, str | None, Any | None]:
 
     client_name = params.clientInfo.name.casefold()
     if "claude" in client_name and "code" in client_name:
+        return None, None, None
+
+    client_gate = os.environ.get("MCP_MAIL_CLIENT_APPROVAL_GATE", "").strip().casefold()
+    if client_gate and client_gate in client_name:
         return None, None, None
 
     elicitation = params.capabilities.elicitation

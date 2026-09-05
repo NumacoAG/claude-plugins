@@ -1,14 +1,14 @@
 ---
 name: mcp-mail-setup
-description: Guide the user through installing and configuring the mcp-mail plugin so Claude can reach their own accounts (email, and where their setup includes them, calendar and drive). Use whenever the user says "set up mcp-mail", "configure my email", "configure my mail server", "connect my mail/calendar/drive to Claude", "onboard mcp-mail", "help me install mcp-mail", or otherwise asks to connect their own mailbox to Claude. The skill walks provider by provider through INSTALL.md, connecting only the accounts the user chooses (Microsoft 365 / Outlook, Gmail / Google Workspace, or any IMAP provider such as iCloud, Yahoo, or Fastmail). Everything runs locally on the user's machine; secrets go into the OS credential store, never into the chat or any file.
+description: Guide the user through installing and configuring the mcp-mail plugin so Codex or Claude Code can reach their own accounts (email, and where their setup includes them, calendar and drive). Use whenever the user says "set up mcp-mail", "configure my email", "configure my mail server", "connect my mail/calendar/drive", "onboard mcp-mail", "help me install mcp-mail", or otherwise asks to connect their own mailbox. The skill walks provider by provider through INSTALL.md, connecting only the accounts the user chooses (Microsoft 365 / Outlook, Gmail / Google Workspace, or any IMAP provider such as iCloud, Yahoo, or Fastmail). Everything runs locally on the user's machine; secrets go into the OS credential store, never into the chat or any file.
 ---
 
 # mcp-mail setup
 
-This skill helps you (Claude) walk a user through installing and configuring the
+This skill helps you walk a user through installing and configuring the
 **mcp-mail** plugin on their own machine. The heavy lifting lives in the plugin's
-`INSTALL.md`; your job is to hand it to the user provider by provider and keep the
-three ground rules below front of mind at every step.
+`INSTALL.md`; your job is to hand it to the user provider by provider and keep
+the three ground rules below front of mind at every step.
 
 ## Read this first (three rules you must never break)
 
@@ -71,8 +71,8 @@ written so you can follow it top to bottom on macOS, Windows, or Linux. In short
 
 1. **Confirm the platform and prerequisites.** Determine the user's OS (ask, or
    infer it) and use the matching command variant throughout: a POSIX shell on
-   macOS or Linux, PowerShell on Windows. Check that Python 3.13+, `uv`, and
-   Claude Code are present (INSTALL.md section 1).
+   macOS or Linux, PowerShell on Windows. Check that Python 3.13+, `uv`, and the
+   user's chosen client, Codex or Claude Code, are present (INSTALL.md section 1).
 2. **Build the server** with `uv sync` in `server/` (section 2). Nothing is
    installed globally; it builds an isolated virtual environment.
 3. **Ask which accounts the user wants** and write `accounts.toml` for only those
@@ -122,11 +122,17 @@ written so you can follow it top to bottom on macOS, Windows, or Linux. In short
      most tenants. A non-admin cannot get past that screen. Do not leave the user
      stuck there; offer the local folder backend (section 5E) instead, which
      gives them a working file surface immediately.
-6. **Install the plugin and restart the session** (section 6), then run the first
-   sign-in and smoke test (sections 7 and 8). Start with "list my mail accounts",
+6. **Install the plugin for the active client and restart the session** (section
+   6), then run the first sign-in and smoke test (sections 7 and 8). In Codex,
+   verify that the plugin supplied MCP server is active. Its `.mcp.json`
+   automatically sets `approval_mode = "prompt"` for `mail_send` and
+   `mail_reply`, together with the matching client gate. Do not replace this with
+   a caller supplied `confirmed` argument. Start with "list my mail accounts",
    which needs no network, then exercise one account so its sign-in runs.
 7. **Mention the two write guards** before the user starts using it in anger.
-   `mail_send` and `mail_reply` always ask per message. Separately, every file and
+   `mail_send` and `mail_reply` always ask per message. Codex asks through its
+   per tool approval prompt, Claude Code uses its transcript hook, and other MCP
+   clients use the server form. Separately, every file and
    calendar write, move, delete and share is refused unless that account sets
    `auto_write = true`; sharing a file and any calendar event with attendees count
    as outward facing and are gated like sending mail. Also tell them that file and

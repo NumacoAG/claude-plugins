@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "mail": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "./server",
+        "run",
+        "python",
+        "-m",
+        "mcp_mail"
+      ],
+      "cwd": ".",
+      "env": {
+        "MCP_MAIL_CLIENT_APPROVAL_GATE": "codex"
+      },
+      "startup_timeout_sec": 120,
+      "tools": {
+        "mail_send": {
+          "approval_mode": "prompt"
+        },
+        "mail_reply": {
+          "approval_mode": "prompt"
+        }
+      }
+    }
+  }
+}
