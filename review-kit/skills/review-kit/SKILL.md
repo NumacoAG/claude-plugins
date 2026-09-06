@@ -11,7 +11,7 @@ review-kit bundles the two skills the user uses to co-author and QA markdown doc
 
 ## The trio
 
-1. **obsidian-versioned-review** (`skills/obsidian-versioned-review/`): the green-mark versioned-review regime for co-authoring a single vault doc over multiple rounds. A doc under the regime carries a `**vN.y**` line under its H1. Claude green-marks its deltas with inline color spans, the user reviews and comments with plain `>` blockquotes, the loop repeats until the user says "lock". This is a verbatim copy of the canonical `~/.claude/skills/obsidian-versioned-review/SKILL.md`.
+1. **obsidian-versioned-review** (`skills/obsidian-versioned-review/`): the color marked versioned review regime for co-authoring a single vault doc over multiple rounds. A doc under the regime carries a `**vN.y**` line under its H1. Claude marks additions in green, deletion proposals in orange, discussion comments in purple, and answers in red. The loop repeats until the user says "lock".
 2. **qa-audit** (`skills/qa-audit/`): the post-release QA workflow. It writes a slim release-notes entry (pill, feature bullets, dual-emoji checklist) to a project's live `qa-log.md`, iterates with the user via the same green-mark conventions, carries unchecked items forward, and archives locked entries to `qa-audit-archive.md`. Verbatim copy of the canonical `~/.claude/skills/qa-audit/SKILL.md`.
 3. **dvsync prune / pin** (the engine at `${CLAUDE_PLUGIN_ROOT}/scripts/dvsync.py`): keeps the mobile iCloud Obsidian vault tiny by removing stale mobile copies once the laptop copy is provably authoritative, without ever touching the laptop / OneDrive file.
 

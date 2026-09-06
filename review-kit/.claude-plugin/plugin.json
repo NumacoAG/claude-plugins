@@ -1,7 +1,7 @@
 {
   "name": "review-kit",
-  "version": "0.2.0",
-  "description": "The markdown review trio plus a folded-in dual-vault-sync engine. obsidian-versioned-review (green-mark co-authoring loop) and qa-audit (release QA log workflow) co-author and QA your docs; dual-vault-sync reconciles a small tier 1 set between laptop and mobile iCloud Obsidian, with a daily DRY-RUN mobile rolling-window prune so the phone vault stays tiny (real deletion is opt-in via --apply). Dormant until you track a doc.",
+  "version": "0.3.0",
+  "description": "The markdown review trio plus a folded-in dual-vault-sync engine. obsidian-versioned-review uses green additions, orange deletion proposals, purple questions, and red answers. qa-audit supports release QA, while dual-vault-sync reconciles a small tier 1 set between laptop and mobile iCloud Obsidian. Mobile pruning remains a dry run unless explicitly applied.",
   "author": {
     "name": "Numaco AG",
     "url": "https://numaco.ch"

@@ -6,9 +6,9 @@ its engine, commands, and reconcile hooks live here).
 
 ## What it bundles
 
-- **obsidian-versioned-review** (skill): the green-mark versioned-review regime
+- **obsidian-versioned-review** (skill): the color marked versioned review regime
   for co-authoring a vault doc over multiple rounds (a `**vN.y**` version line,
-  inline color spans for deltas, plain `>` review comments, a lock procedure).
+  inline color spans for additions, deletion proposals, questions, and answers, plus a lock procedure).
 - **qa-audit** (skill): the post-release QA workflow. It writes a slim
   `qa-log.md` release entry (pill, feature bullets, dual-emoji checklist),
   carries unchecked items forward, and archives locked entries on lock.

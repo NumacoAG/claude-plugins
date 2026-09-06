@@ -1,9 +1,10 @@
 ---
 name: obsidian-versioned-review
 description: >-
-  Collaboratively draft, iterate on, review, and lock a markdown document in your Obsidian vault using the green-mark versioned-review regime. Use whenever the user wants to co-author or review a vault doc over multiple rounds — triggers include "let's draft/write X in the vault", "review this doc", "iterate on it", "incorporate my comments", "bump the version", "lock the doc", finding `>>` or `>?` review comments in a doc, or working on any file that carries a `**vN.y**` version line under its title. Covers the full loop: versioning, green-marking changes with inline color spans, the review cadence, Obsidian rendering gotchas, the git worktree → commit → push → merge flow, and enshrining conventions.
-status: stable
-version: "1.4 (2026-06-30: no hard line wraps inside a paragraph or bullet, one logical line equals one physical line; see § D)"
+  Collaboratively draft, iterate on, review, and lock a markdown document in an Obsidian vault using the color marked versioned review regime. Use whenever the user wants to co-author a vault document over multiple rounds, incorporate review comments, bump a document version, lock a document, or process a document already carrying a review version line. Covers versioning, additions, deletion proposals, discussion, review cadence, Obsidian rendering, git workflow, and enshrining conventions.
+metadata:
+  status: stable
+  version: "1.5 (2026-09-06: orange deletion proposals remain visible for one review round)"
 ---
 
 # Obsidian versioned-doc review
@@ -19,11 +20,11 @@ The canonical written spec also lives in the vault at `_meta/conventions.md` § 
 - The user says "lock the doc", "bump the version", or similar.
 - You open any doc whose first content line is `**vN.y**`.
 
-## Green-marking uses INLINE COLOR SPANS only — never callout blocks
+## Review marking uses inline color spans only
 
 **FORBIDDEN:** `> [!new]` / `[!new]+` callout blocks — or any `>`-prefixed block wrapper — for green-marking. Do **not** use them. The user dislikes whole-doc green blocks, and the `>` line prefixes break formatting. There is no longer any "multi-block callout" form.
 
-Green-marking is done **only** with inline spans:
+Review marking is done **only** with inline spans:
 
 ```markdown
 <span style="color: mediumseagreen">changed or new text</span>
@@ -31,11 +32,12 @@ Green-marking is done **only** with inline spans:
 
 No CSS snippet is required — inline `style="color: …"` renders natively in Obsidian. (The old `.obsidian/snippets/versioned-doc-review.css` callout snippet is obsolete and has been removed; don't recreate it.)
 
-Three colors, three meanings, all inline spans:
+Four colors, four meanings, all inline spans:
 
 | Color | Span | Meaning |
 |---|---|---|
 | green | `<span style="color: mediumseagreen">` | Claude's changes this revision |
+| orange | `<span style="color: darkorange">` | text proposed for deletion this revision; delete it next revision if the user leaves no comment about it |
 | purple | `<span style="color: mediumpurple">` | a user comment kept for discussion (a `>?` question, or a `>>` that asked for something already done) |
 | red | `<span style="color: crimson">` | Claude's answer to the purple text above it |
 
@@ -44,9 +46,9 @@ Three colors, three meanings, all inline spans:
 - Put `**vN.y**` directly under the H1 title.
 - Each Claude revision for review bumps `y` by 1 (`0.3` → `0.4`).
 - **In-revision fixes do not bump `y`.** If you must correct your own output (broken render, typo, missed change) *before* the user has reviewed the current revision, fix in place and keep the same `y`.
-- **Lock:** when the user says "lock", bump to `(N+1).0`, strip all green (delete the `<span …>` tags, keep their inner text), **delete every purple/red Q&A pair entirely** (questions and answers do not survive a lock), put a 🔒 next to the version line (`**v1.0** 🔒`), and add a 🔒 footer at the very end (`🔒 **Locked — vX.0 (YYYY-MM-DD).**`).
+- **Lock:** when the user says "lock", bump to `(N+1).0`, strip all green spans while keeping their inner text, delete every orange deletion proposal, **delete every purple/red Q&A pair entirely** (questions and answers do not survive a lock), put a 🔒 next to the version line (`**v1.0** 🔒`), and add a 🔒 footer at the very end (`🔒 **Locked: vX.0 (YYYY-MM-DD).**`).
 
-## B. Green-marking — only what changed this round, with spans
+## B. Mark additions and deletion proposals
 
 Mark **only the changes you made in the current revision**, in `mediumseagreen`, using inline `<span style="color: mediumseagreen">…</span>`.
 
@@ -59,9 +61,13 @@ Spans are **inline only**, so mark at the granularity of the changed text — pu
 Rules:
 
 - **Initial / all-new doc (v0.1): do NOT blanket-color it.** That is the noise the user rejected. Write clean plain markdown; the `**v0.1**` line already signals "all new, first review." Green is reserved for marking **deltas in later revisions**.
-- **A wholly new multi-line block** you can't span cleanly (a new table or fenced code block added in v0.2+): leave the block itself plain and precede it with a one-line green marker, e.g. `<span style="color: mediumseagreen">(new — added vX.y:)</span>`.
+- **A wholly new multi-line block** you cannot span cleanly (a new table or fenced code block added in v0.2+): leave the block itself plain and precede it with a one-line green marker, for example `<span style="color: mediumseagreen">(new in vX.y)</span>`.
 - On each new revision, **first remove the previous round's green** (delete its `<span>` tags, keep the text), then green only the newest changes.
-- On lock, strip all spans (keep their inner content).
+- When Claude proposes removing existing text, keep that text in place for the current revision and wrap it in `<span style="color: darkorange">…</span>`. Orange means the text will disappear in the next revision if the user leaves no comment about it.
+- For a heading, list item, paragraph, or table cell proposed for deletion, put the orange span inside that element. If a fenced block cannot be colored safely, leave it intact and precede it with `<span style="color: darkorange">(proposed for deletion in vX.y)</span>`.
+- At the start of the following revision, delete each unchallenged orange proposal completely. If the user commented on an orange proposal, process that comment and retain, revise, or delete the text according to the comment.
+- Never resurrect text that the user directly deleted from the file. Direct user deletions are already accepted instructions and remain deleted.
+- On lock, keep the inner text of green spans, delete orange text completely, and delete purple/red Q&A pairs completely.
 
 ## C. The review loop
 
@@ -70,12 +76,12 @@ Rules:
 3. The user responds through **two comment channels** (`>mp` and plain `>` are retired):
    - **`>>` — call to action comment.** An instruction. Incorporate it into the doc (or execute it) and remove the comment line in the next revision.
    - **`>?` — discussion comment.** A question. It **never triggers any action**: no doc change beyond the Q&A transformation below, no code change, no dispatch, nothing. Action on a discussed topic happens only when the user later confirms it with a `>>`.
-   Also **diff the user's current doc against the exact version you last released** and treat every direct edit, addition, and deletion they made as instructions; keep a copy/memory of what you released so you can compute that diff. **Strikethrough = delete:** text the user wraps in `~~…~~` means *remove it* — drop that text (and the `~~` markup) in the next revision.
+   Also **diff the user's current doc against the exact version you last released** and treat every direct edit, addition, and deletion they made as instructions; keep a copy or memory of what you released so you can compute that diff. **Strikethrough means propose deletion:** replace text the user wraps in `~~…~~` with the same text in orange in the next revision. Delete it in the following revision if the user leaves no comment about it.
 4. Claude iterates:
-   - **`>>` handling:** incorporate the instruction; the incorporated result becomes plain (accepted) text — reserve green for content that is genuinely new to review. **Already-done rule:** when a `>>` asks for something already implemented elsewhere in the document or the code, do **not** do it again and do not add superfluous components — replace the comment with its text in purple, and answer in red beneath the place where the thing already exists, pointing at it.
+   - **`>>` handling:** incorporate the instruction; the incorporated result becomes plain accepted text, and green remains reserved for content genuinely new to review. If the instruction removes text, keep that text in orange for the current revision and delete it next revision if there is no follow up. **Already done rule:** when a `>>` asks for something already implemented elsewhere in the document or the code, do not do it again and do not add superfluous components. Replace the comment with its text in purple, then answer in red beneath the existing implementation and point to it.
    - **`>?` handling:** answer the question **in the chat**, and in the doc replace the `>?` line with the question in **purple** followed by the answer in **red** (`Q:` purple span, then `A:` crimson span, each its own line), kept in place so the user can re-read it in the next revision.
-   - **Purple/red cleanup:** any Q&A pair from the previous round that drew **no follow-up** comment or question is fully deleted this round. All purple and red is always stripped at lock.
-   - Then remove the previous round's green, green-span the new round, bump `y`. Go to 2.
+   - **Color cleanup:** delete any purple/red pair from the previous round that drew no follow up. Delete any orange proposal from the previous round that drew no comment. Purple, red, and orange are always deleted at lock.
+   - Then remove the previous round's green tags while keeping their text, green span the new round, orange span new deletion proposals, bump `y`, and go to step 2.
 5. Repeat until the user says "lock", then run the lock procedure (§ A).
 
 ## D. Obsidian rendering gotchas (do not relearn these)
@@ -84,7 +90,7 @@ Rules:
 - `<span>` is **inline only** — never wrap a heading, table, list, or blockquote in one big span. Put the span *inside* the element (inside the heading line, inside the cell, around the item's text).
 - `<div>` wrappers **do not render markdown inside** in current Obsidian (headings/tables come out as literal text). Don't use them.
 - **MUST escape angle brackets inside any raw HTML span.** Placeholders like `<team>`, `<product>`, or `<name>.<surname>` are parsed as HTML tags and silently swallow the surrounding content. Inside a `<span>`, replace `<` with `&lt;` and `>` with `&gt;`: e.g. `<span style="color: mediumseagreen">my &lt;name&gt;.&lt;surname&gt;</span>`. Any literal `>` you want to *show* inside a span must also be written `&gt;`. In plain markdown (outside spans), backticks are preferred: `` `<team>` ``.
-- A markdown link wrapped in a green `<span>` will not render as a link — keep the link outside the span, or accept it for the review round (lock removes the green anyway).
+- A markdown link wrapped in a color `<span>` will not render as a link. Keep the link outside the span, or accept it for the review round.
 - **Cross-references must be clickable links.** Any reference to another doc or section is an Obsidian link `[text](relative/path.md)` (or `[[wikilink]]`), never bare prose ("see §3", "the other doc"). The user reviews on mobile and wants to tap through.
 - **No hard line wraps inside a paragraph, bullet, or table row.** Write each paragraph, list item, and table row as a single physical line and let the editor soft-wrap. Never insert manual newlines to wrap prose at a column width: they make text break at fixed points when the user resizes the window or changes the font, and they reflow badly. One logical line is one physical line. (Blank lines between blocks stay, as normal markdown.)
 
@@ -113,7 +119,9 @@ Always absolute, always double-quoted.
 
 - [ ] Used inline color spans only — **no `[!new]` / callout blocks** (forbidden)
 - [ ] Removed previous round's green (deleted old `<span>` tags, kept the text)
+- [ ] Deleted previous orange text only when it received no comment; retained and processed any commented orange proposal
 - [ ] Greened **only** this round's changes; left an all-new v0.1 doc plain
+- [ ] Marked every new deletion proposal in dark orange and left the text visible for this review round
 - [ ] Every `>>` call to action incorporated and its comment line removed — or, if already done elsewhere, converted to a purple comment with a red answer at the existing implementation
 - [ ] Every `>?` discussion comment answered in chat and converted to purple `Q:` + red `A:` in place — and **nothing else done about it** (no doc, code, or dispatch action without a confirming `>>`)
 - [ ] Previous round's purple/red pairs with no follow-up deleted
@@ -121,4 +129,4 @@ Always absolute, always double-quoted.
 - [ ] No hard line wraps inside paragraphs, bullets, or table rows (one logical line equals one physical line)
 - [ ] Bumped `y` (or kept it for an in-revision fix)
 - [ ] Opened the file for the user with a bash-fence command
-- [ ] On lock: bumped to `(N+1).0`, stripped all spans including purple/red, added 🔒 by the version and a 🔒 footer
+- [ ] On lock: bumped to `(N+1).0`, kept green content, deleted orange content and purple/red Q&A pairs, added 🔒 by the version and a 🔒 footer
