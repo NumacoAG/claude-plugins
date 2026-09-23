@@ -1,0 +1,215 @@
+/* ##### STYLE BLOCK 1: DESIGN SYSTEM TOKENS ##### */
+/* ============================================================
+   Numaco Design System — Colors & Type
+   ============================================================
+   Numaco AG (Möhlin, CH) — software for industrial labeling
+   and automation. The brand reads precise, calm and trustworthy:
+   one deep navy, generous whites, and the geometric sans
+   Manrope.
+   ============================================================ */
+
+@font-face {
+  font-family: "Manrope";
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---------- Brand ---------- */
+  --numaco-navy:        #183060;   /* primary, the logo */
+  --numaco-navy-700:    #1f3d78;
+  --numaco-navy-600:    #2a4d92;
+  --numaco-navy-500:    #3a62ad;
+  --numaco-navy-400:    #6c8bc6;
+  --numaco-navy-200:    #c5d1e5;
+  --numaco-navy-100:    #e4eaf3;
+  --numaco-navy-50:     #f3f6fb;
+
+  /* ---------- Neutrals ---------- */
+  --paper:              #ffffff;
+  --paper-tint:         #fafbfc;  /* page tint */
+  --ink-1:              #0d1426;  /* near-black, headlines */
+  --ink-2:              #1a2540;  /* body */
+  --ink-3:              #4a5876;  /* secondary */
+  --ink-4:              #8a93a8;  /* tertiary, captions */
+  --ink-5:              #c1c7d3;  /* dividers, disabled */
+  --hairline:           #e6e9ef;
+  --hairline-strong:    #d3d8e2;
+
+  /* ---------- Accents (industrial, sparing) ---------- */
+  --accent-amber:       #c98a14;  /* warning, regulatory */
+  --accent-green:       #2f7d4f;  /* success, in-spec */
+  --accent-red:         #b3261e;  /* error, out-of-spec */
+  --accent-cyan:        #1f7a8c;  /* info, telemetry */
+
+  /* ---------- Semantic foregrounds ---------- */
+  --fg-1:               var(--ink-1);
+  --fg-2:               var(--ink-2);
+  --fg-3:               var(--ink-3);
+  --fg-4:               var(--ink-4);
+  --fg-on-navy:         #ffffff;
+  --fg-on-navy-dim:     rgba(255,255,255,0.72);
+  --fg-link:            var(--numaco-navy);
+  --fg-link-hover:      var(--numaco-navy-700);
+
+  /* ---------- Semantic backgrounds ---------- */
+  --bg-page:            var(--paper);
+  --bg-surface:         var(--paper);
+  --bg-surface-2:       var(--numaco-navy-50);
+  --bg-elevated:        #ffffff;
+  --bg-inverse:         var(--numaco-navy);
+  --bg-tint:            var(--numaco-navy-100);
+
+  /* ---------- Borders ---------- */
+  --border-subtle:      var(--hairline);
+  --border:             var(--hairline-strong);
+  --border-strong:      var(--ink-5);
+  --border-brand:       var(--numaco-navy);
+
+  /* ---------- Radii (small, industrial) ---------- */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ---------- Elevation ---------- */
+  --shadow-1: 0 1px 2px rgba(13, 20, 38, 0.04), 0 1px 1px rgba(13, 20, 38, 0.03);
+  --shadow-2: 0 2px 8px rgba(13, 20, 38, 0.06), 0 1px 2px rgba(13, 20, 38, 0.04);
+  --shadow-3: 0 10px 24px rgba(13, 20, 38, 0.08), 0 2px 6px rgba(13, 20, 38, 0.05);
+  --shadow-focus: 0 0 0 3px rgba(24, 48, 96, 0.18);
+
+  /* ---------- Spacing (4px base) ---------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10:40px;
+  --space-12:48px;
+  --space-16:64px;
+  --space-20:80px;
+  --space-24:96px;
+
+  /* ---------- Type families ---------- */
+  --font-sans:  "Manrope", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono:  ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-sans);
+
+  /* ---------- Type scale (1.250 Major Third) ---------- */
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+  --fs-36: 36px;
+  --fs-44: 44px;
+  --fs-56: 56px;
+  --fs-72: 72px;
+
+  /* ---------- Line-heights ---------- */
+  --lh-tight: 1.08;
+  --lh-snug:  1.22;
+  --lh-base:  1.5;
+  --lh-loose: 1.65;
+
+  /* ---------- Letter-spacing ---------- */
+  --tracking-tight:  -0.02em;
+  --tracking-snug:   -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-eyebrow: 0.14em; /* small caps eyebrows */
+}
+
+/* ============================================================
+   Base + Semantic helpers
+   ============================================================ */
+html, body {
+  background: var(--bg-page);
+  color: var(--fg-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-16);
+  line-height: var(--lh-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.h-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(44px, 6vw, 72px);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+.h1 {
+  font-weight: 800;
+  font-size: var(--fs-44);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+.h2 {
+  font-weight: 700;
+  font-size: var(--fs-30);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-1);
+}
+.h3 {
+  font-weight: 700;
+  font-size: var(--fs-20);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+.h4 {
+  font-weight: 600;
+  font-size: var(--fs-16);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+.body-lg {
+  font-weight: 400;
+  font-size: var(--fs-18);
+  line-height: var(--lh-loose);
+  color: var(--fg-2);
+}
+.body {
+  font-weight: 400;
+  font-size: var(--fs-16);
+  line-height: var(--lh-base);
+  color: var(--fg-2);
+}
+.body-sm {
+  font-weight: 400;
+  font-size: var(--fs-14);
+  line-height: var(--lh-base);
+  color: var(--fg-3);
+}
+.caption {
+  font-weight: 500;
+  font-size: var(--fs-12);
+  line-height: var(--lh-base);
+  color: var(--fg-4);
+}
+.eyebrow {
+  font-weight: 600;
+  font-size: var(--fs-12);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--numaco-navy);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-13);
+  color: var(--fg-2);
+}
+

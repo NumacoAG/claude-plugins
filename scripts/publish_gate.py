@@ -74,17 +74,20 @@ def load_terms():
 
 def load_baseline(root):
     allow = set()
-    path = os.path.join(root, BASELINE_NAME)
-    if not os.path.exists(path):
-        return allow
-    with open(path, errors="ignore") as fh:
-        for line in fh:
-            line = line.split("#", 1)[0].strip()
-            if not line:
-                continue
-            rel, _, tok = line.partition(":")
-            if tok:
-                allow.add((rel.strip(), tok.strip()))
+    # Generated packages mirror only exact, already-reviewed source tokens.
+    # build_codex.py --check verifies this projection; no directory is exempt.
+    for relative in (BASELINE_NAME, "plugins/" + BASELINE_NAME):
+        path = os.path.join(root, relative)
+        if not os.path.exists(path):
+            continue
+        with open(path, errors="ignore") as fh:
+            for line in fh:
+                line = line.split("#", 1)[0].strip()
+                if not line:
+                    continue
+                rel, _, tok = line.partition(":")
+                if tok:
+                    allow.add((rel.strip(), tok.strip()))
     return allow
 
 
@@ -127,7 +130,8 @@ def scan(root, site_pats):
     rules = GENERIC_RULES + [("site-specific-term", p) for p in site_pats]
     hits = []
     for rel in publishable_files(root):
-        parts = rel.split(os.sep)
+        # Git emits forward slashes even on Windows.
+        parts = rel.replace("\\", "/").split("/")
         if any(p in SKIP_DIRS for p in parts[:-1]):
             continue
         fn = parts[-1]

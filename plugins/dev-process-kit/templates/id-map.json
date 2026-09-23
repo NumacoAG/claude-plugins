@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "adopted": "<YYYY-MM-DD>",
+  "note": "Authoritative identifier registry. Every live identifier appears here. Entries whose key equals their target were born in this project.",
+  "components": {},
+  "sources": [],
+  "requirements": {},
+  "journeys": {},
+  "withdrawn": {},
+  "locks": {}
+}

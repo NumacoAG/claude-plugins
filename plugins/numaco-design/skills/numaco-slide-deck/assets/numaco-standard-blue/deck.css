@@ -1,0 +1,29 @@
+/* ============================================================
+   Print + QA layer for the reference runtime.
+   The screen viewer (deck-stage > .deck-canvas > section, scaled,
+   one .is-active at a time) is defined in patterns.css. This file
+   only adds PDF pagination and the overflow flag.
+   ============================================================ */
+
+@page { size: 1920px 1080px; margin: 0; }
+
+@media print {
+  html, body { background: #fff !important; margin: 0 !important; }
+  deck-stage { position: static !important; display: block !important; background: #fff !important; overflow: visible !important; }
+  .deck-canvas { position: static !important; width: auto !important; height: auto !important; transform: none !important; }
+  .deck-canvas > section { position: relative !important; inset: auto !important; width: 1920px !important; height: 1080px !important; overflow: hidden !important; visibility: visible !important; opacity: 1 !important; break-after: page; page-break-after: always; break-inside: avoid; }
+  .deck-canvas > section:last-child { break-after: auto; page-break-after: auto; }
+  .deck-nav { display: none !important; }
+  section[data-overflow]::after { content: none !important; }
+  section[data-overflow] { outline: none !important; }
+}
+
+/* Overflow flag, screen preview only (the checker sets data-overflow). */
+@media screen {
+  .deck-canvas > section[data-overflow="1"] { outline: 6px solid var(--accent-red); outline-offset: -6px; }
+  .deck-canvas > section[data-overflow="1"]::after {
+    content: "CONTENT OVERFLOW"; position: absolute; top: 0; left: 0; right: 0; z-index: 999;
+    background: var(--accent-red); color: #fff; font-family: var(--font-mono);
+    font-size: 20px; font-weight: 700; letter-spacing: 0.1em; text-align: center; padding: 8px;
+  }
+}

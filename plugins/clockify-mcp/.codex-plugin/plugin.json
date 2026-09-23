@@ -1,0 +1,37 @@
+{
+  "name": "clockify-mcp",
+  "version": "0.12.0+codex.bc2b211e775bb2ea",
+  "description": "Local Clockify time tracking for Claude Code and Codex: tools run on this computer, contact Clockify only when used, and keep each user's API key in their OS credential store.",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Clockify",
+    "shortDescription": "Use Clockify in Codex.",
+    "longDescription": "Local Clockify time tracking for Claude Code and Codex: tools run on this computer, contact Clockify only when used, and keep each user's API key in their OS credential store.",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "Help me use Clockify."
+    ]
+  },
+  "mcpServers": {
+    "clockify": {
+      "command": "uv",
+      "args": [
+        "run",
+        "clockify-mcp"
+      ],
+      "cwd": ".",
+      "startup_timeout_sec": 120
+    }
+  }
+}

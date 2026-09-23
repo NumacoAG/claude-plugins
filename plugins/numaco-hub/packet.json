@@ -1,0 +1,10 @@
+{
+  "plugins": [
+    "numaco-design",
+    "review-kit",
+    "mcp-mail",
+    "clockify-mcp",
+    "dev-process-kit",
+    "numaco-hub"
+  ]
+}

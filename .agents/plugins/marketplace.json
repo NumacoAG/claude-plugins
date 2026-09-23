@@ -1,0 +1,80 @@
+{
+  "name": "numaco",
+  "interface": {
+    "displayName": "Numaco"
+  },
+  "plugins": [
+    {
+      "name": "numaco-design",
+      "source": {
+        "source": "local",
+        "path": "./plugins/numaco-design"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "review-kit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/review-kit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "mcp-mail",
+      "source": {
+        "source": "local",
+        "path": "./mcp-mail"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "dev-process-kit",
+      "source": {
+        "source": "local",
+        "path": "./plugins/dev-process-kit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "numaco-hub",
+      "source": {
+        "source": "local",
+        "path": "./plugins/numaco-hub"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "clockify-mcp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/clockify-mcp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

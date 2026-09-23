@@ -1,0 +1,6 @@
+# Generated packages are deterministic across Windows, macOS, and Linux.
+/plugins/** text=auto eol=lf linguist-generated=true
+/codex/** text=auto eol=lf
+/.agents/** text=auto eol=lf
+/codex/generated-files.json linguist-generated=true
+/.agents/plugins/marketplace.json linguist-generated=true

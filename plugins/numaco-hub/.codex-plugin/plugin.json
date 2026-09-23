@@ -1,0 +1,23 @@
+{
+  "name": "numaco-hub",
+  "version": "0.2.1+codex.e9f73221acf6af25",
+  "description": "Front door for the Numaco Claude plugins: guided setup, an update command, and safe Obsidian vault opening",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Numaco Hub",
+    "shortDescription": "Use Numaco Hub in Codex.",
+    "longDescription": "Front door for the Numaco Claude plugins: guided setup, an update command, and safe Obsidian vault opening",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "Help me use Numaco Hub."
+    ]
+  }
+}

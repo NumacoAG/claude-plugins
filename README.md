@@ -1,4 +1,11 @@
-# Numaco Claude plugins
+# Numaco plugins for Claude Code and Codex
+
+Both apps use this repository and the same shared workflows, scripts, and assets.
+Claude installation and behavior are unchanged. Codex gets a generated native
+catalogue with all **26 skills**, including the eight legacy commands.
+
+**Codex:** see [installation, updates, and shared-source maintenance](codex/README.md).
+The instructions below describe the existing **Claude Code** installation.
 
 Numaco AG's public Claude Code plugins, packaged as one marketplace named
 `numaco`. Install the ones you want, configure them against your own accounts,

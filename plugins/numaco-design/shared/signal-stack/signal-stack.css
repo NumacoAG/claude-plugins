@@ -1,0 +1,624 @@
+/* Signal Stack
+   Shared document presentation layer. The Signature core remains the
+   structural and brand foundation used by every Numaco document family. */
+
+@page {
+  margin: 22mm 18mm 21mm 18mm;
+  background-size: 100mm auto, 174mm .25mm;
+  background-position: right -5mm top -5.5mm, 18mm 281.5mm;
+}
+
+@page:first {
+  margin: 0;
+  background: none;
+}
+
+body {
+  color: #273247;
+  font-size: 11.2pt;
+  line-height: 1.53;
+}
+
+p {
+  text-align: left;
+  orphans: 3;
+  widows: 3;
+}
+
+.sec-body > p {
+  max-width: none;
+}
+
+.sec-body > p + p {
+  margin-top: 2.8mm;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  color: var(--navy);
+  background: #f3f6fb;
+  border-radius: .7mm;
+  padding: .15mm 1mm;
+  overflow-wrap: anywhere;
+}
+
+.cover {
+  background:
+    linear-gradient(135deg, rgba(15,31,61,.1), rgba(15,31,61,.8)),
+    #183060;
+}
+
+.cv-glow {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 61%,
+      rgba(201,138,20,.13) 61% 62%,
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 70% at 92% 12%,
+      rgba(31,122,140,.34),
+      transparent 60%
+    );
+}
+
+.cv-wordmark {
+  width: 43mm;
+  left: 18mm;
+  top: 21mm;
+}
+
+.cv-rule {
+  left: 18mm;
+  right: 18mm;
+  top: 39mm;
+}
+
+.cv-tag {
+  right: 18mm;
+  top: 21mm;
+}
+
+.cv-lockup {
+  left: 18mm;
+  right: 18mm;
+  top: 88mm;
+}
+
+.cv-title {
+  font-size: 44pt;
+  max-width: 155mm;
+}
+
+.cv-sub {
+  font-size: 13pt;
+  max-width: 126mm;
+}
+
+.cv-n {
+  right: -24mm;
+  top: 126mm;
+  width: 183mm;
+  height: 183mm;
+  opacity: .075;
+}
+
+.cv-meta {
+  left: 18mm;
+  right: 18mm;
+  bottom: 36mm;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6mm;
+}
+
+.cv-foot {
+  left: 18mm;
+  right: 18mm;
+}
+
+.note {
+  margin: 5mm 0 7mm;
+  padding: 4mm 5mm;
+  border-left: 1mm solid #c98a14;
+  background: #101f3c;
+  color: rgba(255,255,255,.80);
+  font-size: 9.5pt;
+  line-height: 1.48;
+  break-inside: avoid;
+}
+
+.note .nk {
+  color: #e0ad4d;
+}
+
+/* Background aside (":::aside [title] ... :::"): a passage the reader may skip,
+   set as a visibly separate, quieter box.
+
+   It is deliberately the soft counterpart of .note directly above. The note is a
+   dark navy bar with an amber edge and it shouts, which is right for one line
+   the reader must not miss and wrong for three paragraphs of background. The
+   aside is a light blue field with a soft blue hairline and no accent edge, a
+   step down in type from the 11.2pt body, and a title in the brand's second face
+   rather than a coloured label. Read side by side the three registers separate
+   at a glance: navy block = must read, light blue box = optional background,
+   unboxed grey fine print (.small) = a qualification on what was just said.
+
+   The palette is brand values restated as literal hex, the convention this
+   stylesheet already follows for the item cards and the semantic accents,
+   because the Signature render path does not inline brand-core/theme.css and a
+   var() naming a brand-core token would silently resolve to nothing:
+   #e4eaf3 is brand core --numaco-navy-100, #c5d1e5 is --numaco-navy-200,
+   #6c8bc6 is --numaco-navy-400, and #4a5876 is --ink-3, the brand's secondary
+   text. Navy and the mono font come from the Signature core, which IS in scope,
+   so those stay as var().
+
+   THE BOX MAY SPLIT ACROSS PAGES, and that is the point of it carrying no
+   break-inside: avoid, unlike every other boxed block here (.note, figures, a
+   listing, a table row). Those are all short or atomic by nature. A background
+   passage is neither: an unbreakable one longer than the text block could not be
+   paginated at all, and one merely longer than the space left would push most of
+   a page of white space ahead of itself. A split aside keeps its light field on
+   both fragments, which is what tells the reader the digression is still
+   running; the title is kept with the text it introduces so it can never be
+   stranded alone at a page foot. */
+.aside {
+  margin: 5mm 0 6mm;
+  padding: 4mm 5mm;
+  border: .25mm solid #c5d1e5;
+  border-radius: .8mm;
+  background: #e4eaf3;
+  color: #4a5876;
+  font-size: 9.4pt;
+  line-height: 1.5;
+}
+
+/* The two edges a split creates are opened up, so the box reads as one field
+   continued rather than as two boxes that happen to touch the page edges.
+   Paged.js fragments an element into one real element per page and stamps the
+   pieces data-split-to (continues overleaf) and data-split-from (continued from
+   the page before), which is the only hook there is: box-decoration-break has
+   nothing to slice, because the fragments are separate elements. */
+.aside[data-split-to] {
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.aside[data-split-from] {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  /* The polyfill resets padding-top on every continued fragment, from a rule
+     carrying its own five class selector chain, so this is the one place the
+     stylesheet has to shout to be heard. Without it the continued text sits hard
+     against the top edge of the field: a paragraph broken mid sentence starts at
+     the edge exactly, since the polyfill zeroes that paragraph's own margin too.
+     The bottom of the outgoing fragment is deliberately left flush, where the cut
+     itself is the signal that the passage runs on. */
+  padding-top: 3mm !important;
+}
+
+.aside .ak {
+  display: block;
+  margin-bottom: 2.4mm;
+  color: var(--navy);
+  font-family: var(--font-mono);
+  font-size: 7.8pt;
+  font-weight: 600;
+  letter-spacing: .01em;
+  break-after: avoid;
+}
+
+.aside p + p,
+.aside ul + p {
+  margin-top: 2.6mm;
+}
+
+/* Bullets inside an aside are not ul.spec: that list is a stack of pale cards
+   with an amber dot, which reads as content in its own right and would fight the
+   field it sits on. A quiet dash in the margin is enough inside a box that has
+   already announced itself. */
+.aside ul {
+  margin: 2.4mm 0 0;
+  list-style: none;
+}
+
+.aside li {
+  position: relative;
+  margin-top: 1.6mm;
+  padding-left: 4.6mm;
+  break-inside: avoid;
+}
+
+.aside li:first-child {
+  margin-top: 0;
+}
+
+.aside li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2.1mm;
+  width: 2.4mm;
+  height: .3mm;
+  background: #6c8bc6;
+}
+
+.aside b {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.aside code {
+  background: #f3f6fb;
+}
+
+.sec {
+  margin-top: 10mm;
+}
+
+.sec.first {
+  margin-top: 0;
+}
+
+.sec-head {
+  display: block;
+  box-sizing: border-box;
+  min-height: 18mm;
+  padding: 4.5mm 5mm;
+  border: 0;
+  background: #183060;
+  color: #fff;
+}
+
+.sec-no {
+  left: 5mm;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #e0ad4d;
+  font-size: 12pt;
+  font-weight: 600;
+}
+
+.sec-htext {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 9mm;
+  width: 100%;
+  padding-left: 0;
+  text-align: center;
+}
+
+.sec-h {
+  color: #fff;
+  font-size: 18pt;
+  line-height: 1.08;
+  text-align: center;
+}
+
+.sec-tag {
+  color: rgba(255,255,255,.66);
+  text-align: center;
+}
+
+.sec-body {
+  margin-top: 5mm;
+  padding-left: 0;
+}
+
+.lead {
+  font-size: 11.65pt;
+  line-height: 1.5;
+}
+
+h3.sub {
+  margin-top: 7.5mm;
+  padding-bottom: 1.8mm;
+  border-bottom: .55mm solid #183060;
+  color: #183060;
+  font-size: 10.5pt;
+}
+
+h4.subsub {
+  margin-top: 6mm;
+  color: #5f6c81;
+  font-size: 9pt;
+  letter-spacing: .07em;
+}
+
+.sec.first .items {
+  margin: 4mm 0 5mm;
+}
+
+.sec.first .item {
+  grid-template-columns: 14mm 1fr;
+  margin-top: 2.5mm;
+  padding: 3.7mm 4mm;
+  border: .25mm solid #dfe5ed;
+  border-left: 1.4mm solid #1f7a8c;
+  background: #f7f9fc;
+}
+
+.sec.first .item:nth-child(2) {
+  border-left-color: #c98a14;
+}
+
+.sec.first .item:nth-child(3) {
+  border-left-color: #b3261e;
+}
+
+.sec.first .item .code {
+  font-size: 12pt;
+}
+
+.sec.first .item .isum {
+  font-size: 10.15pt;
+  line-height: 1.45;
+}
+
+ul.spec li {
+  margin-top: 1.8mm;
+  padding: 2.6mm 3mm 2.6mm 8mm;
+  border-bottom: .25mm solid #e2e7ef;
+  background: #f7f9fc;
+  font-size: 10.1pt;
+  line-height: 1.48;
+}
+
+ul.spec li::before {
+  left: 2.8mm;
+  top: 4.4mm;
+  width: 2.2mm;
+  height: 2.2mm;
+  border-radius: 50%;
+  background: #c98a14;
+}
+
+table.data {
+  border: .25mm solid #d9e0e9;
+  break-inside: auto;
+}
+
+table.data thead {
+  display: table-header-group;
+}
+
+table.data tr {
+  break-inside: avoid;
+}
+
+/* A long identifier must wrap inside its cell instead of widening the table off
+   the paper. This says "anywhere", not "break-word", and the difference is the
+   whole fix: only the soft wrap opportunities introduced by "anywhere" count
+   toward a cell's min-content size, and min-content is exactly what auto table
+   layout uses to size a column. Under "break-word", which stood here before, a
+   44 character sample name still claimed its full width in the column and only
+   broke once the column had already been made wide enough to hold it, so the
+   table grew past the 174mm text column and, from about 62 characters, past the
+   210mm trim edge with the last column entirely off the sheet, and the build
+   still exited 0. Measured on a five column reconciliation table: 44 characters
+   173.4mm, 56 characters 184.1mm, 62 characters and beyond clipped at the trim.
+   With "anywhere" every one of those renders at 173.4mm.
+
+   Both th and td, deliberately. Scoping this to td alone left the same table at
+   179.0mm, 5.2mm past the text column, whenever the long token sat in a header
+   cell.
+
+   "word-break: break-word" renders identically (it is defined as this same pair)
+   but is deprecated and non-standard, so it is not used. "word-break: break-all"
+   also fixes the geometry and is worse: it breaks at a character even where the
+   text offers a real break point, turning "STO-HL-CLEANROOM-01" into
+   "STO-HL-CLEANR / OOM-01" and the header "DECLARED ROUTING" into
+   "DECLARED ROU / TING". "anywhere" keeps the normal line breaking rules first
+   and only breaks mid character when the run genuinely has no break point of its
+   own, so a hyphenated or dotted name still breaks at its hyphen or its dot; an
+   underscored or slashed one has no such point and breaks mid character, which
+   is the best any stylesheet can do, since CSS cannot be told to prefer an
+   underscore.
+
+   The cost, measured: in a table whose columns are already competing for width,
+   a column can now be allocated less than its longest word and an ordinary prose
+   word can break mid word. A table that fits its content is untouched. Numeric
+   columns are untouched in every case, because table.data td.num carries
+   white-space: nowrap in the Signature core and a cell that may not wrap has no
+   wrap opportunities for this property to add. */
+table.data th,
+table.data td {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+/* Only the first column of a data table may break mid word. That is where the
+   long machine identifiers live (template names, method names), and letting it
+   collapse its min-content is what stops a wide table pushing its last column
+   off the sheet. Every other column keeps break-word, so an ordinary word such
+   as a verdict stays whole and stays searchable in the PDF text layer. */
+table.data th:first-child,
+table.data td:first-child {
+  overflow-wrap: anywhere;
+}
+
+table.data th {
+  padding: 2.4mm 2.2mm;
+  border-bottom: 0;
+  background: #183060;
+  color: #fff;
+  font-size: 7.2pt;
+  vertical-align: middle;
+}
+
+table.data td {
+  padding: 2.4mm 2.2mm;
+  font-size: 9.2pt;
+  line-height: 1.4;
+}
+
+/* Centred column (":---:" in the Markdown alignment row). The companion of the
+   Signature core's "table.data td.num, table.data th.num" right alignment, and
+   written the same way, header cell and body cells together: a centred column
+   under a left hugging heading reads as two columns, not one. Left stays the
+   default and needs no class. The heading needs the explicit rule because the
+   core sets "text-align:left" on every th. */
+table.data th.ctr,
+table.data td.ctr {
+  text-align: center;
+}
+
+table.data tbody tr:nth-child(even) td {
+  background: #f4f7fb;
+}
+
+/* Five columns: content-driven auto layout, exactly like three and four.
+
+   A fixed geometry used to live here (6mm / 20mm / 28mm / 44mm, pinned on any
+   table with exactly five columns) and it was removed because it was tuned for a
+   table that does not exist. It was described as the geometry of the SOW effort
+   table, but that table has FOUR columns (Ref / Workstream / Days / Amount) and
+   carries its own geometry in the Signature core as table.sow-effort, so the
+   five-column block never applied to it. What it did reach were the two
+   five-column shapes the packet really produces, and it damaged both: a
+   five-column Markdown table in a report had its first column pinned to 6mm and
+   set one character per line vertically, and the timesheet entries table (Date /
+   By / Description / Hours / Amount, the shape a sheet takes when it carries
+   both a By column and an Amount column) had its prose column pinned to 28mm.
+   Column geometry that is genuinely wanted is declared per table type on an
+   explicit class in the Signature core, never inferred from a column count. */
+
+/* Six columns or more: let the content decide the widths, and buy the room
+   back with tighter padding and a step down in type. */
+table.data:has(th:nth-child(6)) {
+  table-layout: auto;
+}
+
+table.data:has(th:nth-child(6)) th,
+table.data:has(th:nth-child(6)) td {
+  padding: 1.9mm 1.7mm;
+}
+
+table.data:has(th:nth-child(6)) td {
+  font-size: 8.2pt;
+  line-height: 1.35;
+}
+
+table.data:has(th:nth-child(6)) th {
+  font-size: 6.6pt;
+}
+
+/* Verbatim listing (``` fenced block): monospace, whitespace preserved. Long
+   data lines wrap rather than run off the page. */
+pre.code-block {
+  margin: 3mm 0 4.5mm;
+  padding: 3mm 3.4mm;
+  background: #f4f7fb;
+  border-left: .9mm solid #183060;
+  border-radius: .6mm;
+  font-family: var(--font-mono);
+  font-size: 7.4pt;
+  line-height: 1.55;
+  color: #273247;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  break-inside: avoid;
+  /* keep a listing with the sentence that introduces it */
+  break-before: avoid;
+}
+
+pre.code-block code {
+  font: inherit;
+  color: inherit;
+}
+
+/* Figure (![Caption](image.png){width=60%}): a block level image, embedded as a
+   data URI by the engine, centred in the text column and never wider than it.
+   The author's optional width arrives as the --fig-width custom property, the
+   one piece of per-figure data; every visual rule lives here.
+
+   The width sizes the IMAGE, not the figure. The figure always spans the text
+   column, so the caption keeps a readable measure: {width=25mm} used to shrink
+   the whole block and broke a one-sentence caption into a 25 mm ribbon over half
+   a dozen ragged lines.
+
+   break-inside: avoid keeps the image and its caption together on one page, and
+   the max-height on the figure is what makes that promise keepable twice over.
+   An unbreakable box taller than the text block could not be paginated at all,
+   and one taller than the text block MINUS a section band stranded that band
+   alone at the top of an otherwise blank page whenever a figure opened a
+   section: the pair could never share a page, so break-after: avoid on the band
+   had nothing to move it to. The budget below is the text block (254mm) less a
+   two-line section band and the gap under it, so a figure and the band that
+   introduces it always fit together.
+
+   The figure is a flex column so the image, not the caption, absorbs that cap:
+   min-height 0 lets the image shrink inside it and object-fit keeps the shrink
+   proportional. With no frame around the figure the spare width is simply
+   paper. */
+figure.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-height: 213mm;
+  margin: 4mm auto 5.5mm;
+  text-align: center;
+  break-inside: avoid;
+}
+
+figure.figure img {
+  display: block;
+  flex: 0 1 auto;
+  width: var(--fig-width, 100%);
+  max-width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 200mm;
+  object-fit: contain;
+  object-position: center;
+  margin: 0 auto;
+}
+
+/* Caption: same quiet register as .small and the .footnote fine print, centred
+   under the image and across the full text column. */
+figure.figure figcaption {
+  flex: 0 0 auto;
+  width: 100%;
+  margin-top: 2mm;
+  color: var(--grey);
+  font-size: 8.4pt;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Semantic colour ({green:...}, {amber:...}, {red:...}): a status or a verdict,
+   inline, wherever text runs. A table cell is the main home, but the same span
+   works in a bullet and in a paragraph, because all three pass through the
+   engine's single inline() pass.
+
+   The colours are the brand accent palette, not invented ones. They are named
+   here as tokens because the Signature core carries its own token set and does
+   not inline the brand core theme, so --accent-green and --accent-red have to be
+   restated to be in scope at all; the values are verbatim from
+   shared/brand-core/theme.css, exactly as this stylesheet already restates
+   #1f7a8c, #c98a14 and #b3261e for the opening item cards above. Amber needs no
+   value: the Signature core's --amber is that same brand accent.
+
+   The semibold weight is what makes a one word verdict hold its own at 9.2 pt
+   table size; amber in particular reads thin against white at the body weight.
+
+   Colour is applied to the live text, never to an image, so the words stay
+   selectable, searchable and copyable in the PDF text layer. Colour also never
+   carries the meaning on its own: the word itself says "Pass" or "Blocked",
+   which is what survives a monochrome print and a colour blind reader. */
+:root {
+  --accent-green: #2f7d4f;       /* brand core: success, in-spec */
+  --accent-red:   #b3261e;       /* brand core: error, out-of-spec */
+  --accent-amber: var(--amber);  /* brand core #c98a14, already in the core */
+}
+
+.sem-green { color: var(--accent-green); font-weight: 600; }
+.sem-amber { color: var(--accent-amber); font-weight: 600; }
+.sem-red   { color: var(--accent-red);   font-weight: 600; }

@@ -1,0 +1,46 @@
+{
+  "document_type": "quotation",
+  "document_number": "QU260001",
+  "language": "de",
+  "currency": "CHF",
+  "issue_date": "30.07.2026",
+  "valid_until": "13.08.2026",
+  "payment_terms_days": 30,
+  "customer": {
+    "name": "Example Manufacturing AG",
+    "address": ["Einkauf", "Industriestrasse 12", "CH 8000 Zürich"],
+    "references": ["Referenz: Ersatz Etikettendrucker", "Lieferfrist: 7 Arbeitstage, zuzüglich Fracht"]
+  },
+  "lines": [
+    {
+      "position": "10",
+      "item": "LABEL PRINTER 300",
+      "description": "Option A, ein industrieller Etikettendrucker mit 300 dpi, USB, LAN, WLAN und serieller Schnittstelle.",
+      "quantity": 1,
+      "list_price": 3346.67,
+      "discount_percent": 20,
+      "unit_price": 2677.34,
+      "total_price": 2677.34
+    },
+    {
+      "position": "20",
+      "item": "LABEL PRINTER 300",
+      "description": "Option B, zwei Etikettendrucker mit identischer Spezifikation.",
+      "quantity": 2,
+      "list_price": 3346.67,
+      "discount_percent": 20,
+      "unit_price": 2677.34,
+      "total_price": 5354.68
+    },
+    {
+      "position": "30",
+      "item": "LABEL PRINTER 300",
+      "description": "Option C, drei Etikettendrucker mit identischer Spezifikation. Dieser Einzelpreis gilt ab drei Geräten.",
+      "quantity": 3,
+      "list_price": 3346.67,
+      "discount_percent": 25,
+      "unit_price": 2510.00,
+      "total_price": 7530.00
+    }
+  ]
+}

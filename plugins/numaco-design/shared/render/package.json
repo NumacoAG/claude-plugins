@@ -1,0 +1,9 @@
+{
+  "name": "numaco-design-render",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paged.js render helper for numaco-design (drives system Chrome via puppeteer-core).",
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "dev-process-kit",
+  "version": "0.2.0+codex.4cd63215c785c3d5",
+  "description": "The development process as a reusable kit: the shared docs tree, the Tier 1 product contract with its identifier registry and fail-closed gate, and the living project plan",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Dev Process Kit",
+    "shortDescription": "Use Dev Process Kit in Codex.",
+    "longDescription": "The development process as a reusable kit: the shared docs tree, the Tier 1 product contract with its identifier registry and fail-closed gate, and the living project plan",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "Help me use Dev Process Kit."
+    ]
+  }
+}

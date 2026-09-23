@@ -1,0 +1,23 @@
+{
+  "name": "review-kit",
+  "version": "0.3.0+codex.41aea81172d4623a",
+  "description": "The markdown review trio plus a folded-in dual-vault-sync engine. obsidian-versioned-review uses green additions, orange deletion proposals, purple questions, and red answers. qa-audit supports release QA, while dual-vault-sync reconciles a small tier 1 set between laptop and mobile iCloud Obsidian. Mobile pruning remains a dry run unless explicitly applied.",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Review Kit",
+    "shortDescription": "Use Review Kit in Codex.",
+    "longDescription": "The markdown review trio plus a folded-in dual-vault-sync engine. obsidian-versioned-review uses green additions, orange deletion proposals, purple questions, and red answers. qa-audit supports release QA, while dual-vault-sync reconciles a small tier 1 set between laptop and mobile iCloud Obsidian. Mobile pruning remains a dry run unless explicitly applied.",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "Help me use Review Kit."
+    ]
+  }
+}
