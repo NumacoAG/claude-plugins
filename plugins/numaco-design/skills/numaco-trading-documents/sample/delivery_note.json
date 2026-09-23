@@ -1,0 +1,34 @@
+{
+  "document_type": "delivery_note",
+  "document_number": "DN260003",
+  "language": "en",
+  "currency": "CHF",
+  "issue_date": "30.07.2026",
+  "customer_po": "PO 450000002",
+  "carrier": "Electronic delivery",
+  "tracking": "Activation EXT260003",
+  "customer": {
+    "name": "Example Manufacturing AG",
+    "address": ["Industriestrasse 12", "CH 8000 Zurich"],
+    "references": []
+  },
+  "ship_to": {
+    "name": "Example Manufacturing AG",
+    "address": ["IT Operations", "Industriestrasse 12", "CH 8000 Zurich"],
+    "references": ["Your reference: Software Operations"]
+  },
+  "lines": [
+    {
+      "position": "10",
+      "item": "SERVER LICENSE",
+      "description": "Server licence subscription renewal with one year of maintenance and support. Activation reference EXT260003.",
+      "quantity": 1
+    },
+    {
+      "position": "20",
+      "item": "PRINTER ADD ON",
+      "description": "Printer connection add on subscription renewal with one year of maintenance and support. Activation reference EXT260003.",
+      "quantity": 130
+    }
+  ]
+}

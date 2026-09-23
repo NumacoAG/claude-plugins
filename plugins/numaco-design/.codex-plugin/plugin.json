@@ -1,0 +1,23 @@
+{
+  "name": "numaco-design",
+  "version": "0.8.7+codex.80dd509652060cf4",
+  "description": "Numaco branded output engine. Renders slide decks, statements of work, reports, timesheets, quotations, order confirmations, delivery notes, and invoices from markdown or JSON to branded HTML to PDF on one shared renderer and one brand core. Verifies every PDF through CoreGraphics (macOS Preview's engine).",
+  "author": {
+    "name": "Numaco AG",
+    "url": "https://numaco.ch"
+  },
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Numaco Design",
+    "shortDescription": "Use Numaco Design in Codex.",
+    "longDescription": "Numaco branded output engine. Renders slide decks, statements of work, reports, timesheets, quotations, order confirmations, delivery notes, and invoices from markdown or JSON to branded HTML to PDF on one shared renderer and one brand core. Verifies every PDF through CoreGraphics (macOS Preview's engine).",
+    "developerName": "Numaco AG",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://numaco.ch",
+    "defaultPrompt": [
+      "Help me use Numaco Design."
+    ]
+  }
+}

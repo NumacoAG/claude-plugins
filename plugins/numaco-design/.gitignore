@@ -1,0 +1,19 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+design-exploration/
+
+# generated sample artifacts (run the sample builders to recreate them)
+skills/numaco-timesheet/sample/sample_timesheet.pdf
+skills/numaco-timesheet/sample/sample_timesheet.html
+skills/numaco-sow/sample/sample_sow.pdf
+skills/numaco-sow/sample/sample_sow.html
+skills/numaco-sow/sample/sample_sow_scope.pdf
+skills/numaco-sow/sample/sample_sow_scope.html
+skills/numaco-report/sample/sample_report.pdf
+skills/numaco-report/sample/sample_report.html
+skills/numaco-slide-deck/sample/relocation-smoke.pdf
+skills/numaco-slide-deck/sample/relocation-smoke.html
+shared/signature/_demo.pdf
+shared/signature/_demo.html

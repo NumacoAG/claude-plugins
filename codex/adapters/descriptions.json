@@ -1,0 +1,9 @@
+{
+  "dev-process-kit/docs-vault": "Create or maintain the project's shared documentation tree: active drafts, closed versions, and final Tier 1 contracts. Use when setting up project docs or organizing the docs vault. Follow the canonical lifecycle and identifier rules; review rounds belong to review-kit.",
+  "dev-process-kit/project-plan": "Create or update the living project plan tied to the Tier 1 contract, requirements, journeys, gates, evidence, and acceptance status. Use when planning implementation, updating progress, or assessing what remains before delivery.",
+  "dev-process-kit/tier-1-contract": "Create or review the Tier 1 product specification and Definition of Done. Use for normative requirements, component boundaries, operator journeys, frozen identifier registries, clause splitting, or the fail-closed contract gate.",
+  "review-kit/dual-vault-sync": "Synchronize tracked Markdown documents between the user's configured laptop and mobile Obsidian vaults. Use for mobile review, vault reconciliation, conflicts, recovery, or sync setup. Synchronization is opt-in and must preserve both sides of divergent edits.",
+  "numaco-design/numaco-slide-deck": "Create or edit a Numaco branded 1920x1080 slide deck and its print-ready PDF using the shared templates, renderer, and brand assets. Use for presentations, training, proposals, and customer decks; preserve the requested language and verify the final PDF.",
+  "clockify-mcp/log-session": "Prepare and, after approval, log time spent on this conversation to the user's Clockify project. Use when asked to log this session or file a time entry for the work just done.",
+  "numaco-hub/numaco-setup": "Set up the Numaco plugins in Codex, verify the six-plugin packet, and guide the user through their own optional account configuration. Use for Numaco setup, onboarding, or missing Numaco skills."
+}

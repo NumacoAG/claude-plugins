@@ -1,0 +1,31 @@
+{
+  "document_type": "invoice",
+  "document_number": "IN260004",
+  "language": "en",
+  "currency": "CHF",
+  "issue_date": "30.07.2026",
+  "due_date": "29.08.2026",
+  "payment_terms_days": 30,
+  "customer": {
+    "name": "Example Manufacturing AG",
+    "address": ["Accounts Payable", "Industriestrasse 12", "CH 8000 Zurich"],
+    "references": ["Reference: OC260004, DN260004, post parcel"]
+  },
+  "lines": [
+    {
+      "position": "10",
+      "item": "DIRECT THERMAL 102",
+      "description": "Direct thermal labels, size 102 x 76 mm, 930 labels per roll and 12 rolls per box.",
+      "quantity": 2,
+      "unit_price": 340.00,
+      "total_price": 680.00
+    }
+  ],
+  "totals": {
+    "net": 680.00,
+    "vat_rate_percent": 8.1,
+    "vat_amount": 55.08,
+    "rounding": 0,
+    "grand_total": 735.08
+  }
+}

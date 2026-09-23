@@ -121,6 +121,10 @@ jobs:
         run: python3 -m unittest numaco-design/skills/numaco-trading-documents/tests/test_template_contract.py
       - name: Contract gate stays fail closed
         run: python3 -m unittest dev-process-kit/tests/test_contract_gate.py
+      - name: Codex packages match their shared sources and adapters
+        run: python3 scripts/build_codex.py --check
+      - name: Codex packaging and update regression tests
+        run: python3 -m unittest discover -s codex/tests
 
   smoke-install:
     runs-on: ubuntu-latest
@@ -155,3 +159,25 @@ jobs:
             exit 1
           fi
           echo "one command installed $got plugins, all enabled"
+
+  codex-smoke-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm install -g @openai/codex@0.156.1
+      - name: Clean install exposes every skill without migration aliases
+        env:
+          CODEX_HOME: ${{ runner.temp }}/numaco-codex-smoke
+        run: |
+          set -euo pipefail
+          mkdir -p "$CODEX_HOME"
+          codex --version
+          codex plugin marketplace add "$PWD" --json
+          python3 plugins/numaco-hub/scripts/codex_packet.py
+          python3 scripts/smoke_codex.py

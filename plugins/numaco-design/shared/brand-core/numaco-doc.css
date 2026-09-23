@@ -1,0 +1,126 @@
+/* numaco-doc.css — shared branded paged-document stylesheet.
+   Used by numaco-sow, numaco-report, and future invoice/quotation/PO/timesheet docs.
+   Consumes the brand core (Manrope font + type scale via theme.css). Document colour
+   identity (#0E2841 navy, #156082 teal) is preserved from the established SOW/report look.
+   The per-page watermark is injected as an @page background by the renderer (needs the
+   data URI), so it lives in the document's inline <style>, not here.
+   PDFKit-safe: definite sizes, no transform-based centering, no mask-image. */
+
+:root {
+  --doc-navy: #0E2841;
+  --doc-teal: #156082;
+  --doc-ink: #12181f;
+  --doc-body: #1b2431;
+  --doc-muted: #5A6B7D;
+  --doc-hairline: #E0E0E0;
+  --doc-zebra: #F2F2F2;
+  --doc-addon-sep: #E8EDF3;
+  --doc-pagenum: #8a93a8;
+}
+
+/* ---------- page geometry + running boxes ---------- */
+@page {
+  size: A4;
+  margin: 20mm 18mm 22mm 18mm;
+  @bottom-left { content: element(footerLeft); vertical-align: top; }
+  @bottom-right {
+    content: "Page " counter(page) " of " counter(pages);
+    font: 400 8pt/1.3 "Manrope", Arial, sans-serif; color: #8a93a8; vertical-align: top;
+  }
+}
+@page cover {
+  margin: 0;
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans, "Manrope", Arial, sans-serif);
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: var(--doc-body);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* running footer element (moved into @bottom-left of every content page by Paged.js) */
+.doc-footer {
+  position: running(footerLeft);
+  font: 400 8pt/1.35 "Manrope", Arial, sans-serif; color: #8a93a8;
+}
+.doc-footer strong { color: var(--doc-navy); font-weight: 700; }
+
+/* ---------- cover ---------- */
+.doc-cover {
+  page: cover;
+  break-after: page;
+  box-sizing: border-box;
+  height: 297mm;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 44mm 30mm 40mm;
+}
+.doc-cover .wordmark { width: 68mm; height: auto; margin-bottom: 24mm; }
+.doc-cover .doc-title { font-size: 30pt; font-weight: 800; color: var(--doc-navy); letter-spacing: -0.02em; margin: 0; line-height: 1.1; }
+.doc-cover .doc-number { font-size: 17pt; font-weight: 700; color: var(--doc-teal); margin: 5mm 0 0; letter-spacing: 0.01em; }
+.doc-cover .doc-subtitle { font-size: 14pt; font-style: italic; color: var(--doc-navy); margin: 12mm 0 0; }
+.doc-cover .doc-meta { font-size: 11pt; color: var(--doc-body); margin: 16mm 0 0; line-height: 1.7; }
+.doc-cover .doc-meta .k { color: var(--doc-muted); }
+
+/* ---------- headings + body ---------- */
+h1 { font-size: 15pt; font-weight: 800; color: var(--doc-navy); border-bottom: 2px solid var(--doc-navy);
+     padding-bottom: 2mm; margin: 9mm 0 4mm; break-after: avoid; }
+h1:first-of-type { margin-top: 0; }
+h2 { font-size: 12pt; font-weight: 700; color: var(--doc-teal); margin: 6mm 0 2mm; break-after: avoid; }
+h3 { font-size: 10.5pt; font-weight: 700; color: var(--doc-navy); margin: 4mm 0 1.5mm; break-after: avoid; }
+p { margin: 0 0 2.6mm; text-align: justify; }
+p.lead { color: var(--doc-ink); }
+.small { font-size: 8pt; color: var(--doc-muted); }
+.footnote { font-size: 7.5pt; color: var(--doc-muted); font-style: italic; margin-top: 1.5mm; }
+strong { font-weight: 700; }
+em { font-style: italic; }
+
+/* ---------- lists ---------- */
+ul.doc { list-style: none; padding: 0; margin: 0 0 3mm; }
+ul.doc > li { padding-left: 6mm; text-indent: -6mm; margin-bottom: 1.8mm; }
+ul.doc > li::before { content: "\2014"; color: var(--doc-teal); padding-right: 2.5mm; }
+
+/* labelled scope items: S1/N1/A1/O1 with hanging indent (labels supplied in markup) */
+.scope-item { padding-left: 12mm; text-indent: -12mm; margin-bottom: 2.2mm; }
+.scope-item .lbl { font-weight: 700; color: var(--doc-navy); padding-right: 1.6mm; }
+.scope-item .sum { font-weight: 700; }
+.addon-block { break-inside: avoid; margin-bottom: 3mm; }
+.addon-block h3 { color: var(--doc-navy); }
+
+/* ---------- tables ---------- */
+table.doc { width: 100%; border-collapse: collapse; margin: 3mm 0; font-size: 9.5pt; }
+table.doc thead { display: table-header-group; }        /* repeat header on every page */
+table.doc th { background: var(--doc-teal); color: #fff; font-weight: 700; text-align: left; padding: 2mm 3mm; }
+table.doc td { border-bottom: 1px solid var(--doc-hairline); padding: 1.8mm 3mm; vertical-align: top; }
+table.doc tr { break-inside: avoid; }
+table.doc tr.zebra td { background: var(--doc-zebra); }
+table.doc td.num, table.doc th.num { text-align: right; white-space: nowrap; }
+table.doc tr.addon-sep td { background: var(--doc-addon-sep); font-style: italic; color: var(--doc-muted); }
+table.doc tr.addon td { color: var(--doc-muted); font-style: italic; }
+table.doc tr.total td { background: var(--doc-navy); color: #fff; font-weight: 800; }
+
+/* parties table (SOW) */
+table.parties { width: 100%; border-collapse: collapse; margin: 4mm 0; table-layout: fixed; }
+table.parties th { background: var(--doc-teal); color: #fff; padding: 2.5mm 3mm; text-align: left; width: 50%; font-weight: 700; }
+table.parties td { border: 1px solid var(--doc-hairline); padding: 3mm; vertical-align: top; font-size: 9.5pt; line-height: 1.45; }
+table.parties td .role { color: var(--doc-muted); }
+
+/* line-items table (invoices/quotations/POs — future) */
+table.items td.qty, table.items td.price, table.items td.amount,
+table.items th.qty, table.items th.price, table.items th.amount { text-align: right; white-space: nowrap; }
+table.items tr.subtotal td, table.items tr.tax td { border-top: 1px solid var(--doc-hairline); }
+table.items tr.grand-total td { background: var(--doc-navy); color: #fff; font-weight: 800; }
+
+/* ---------- appendix / fine print (T&Cs) ---------- */
+.appendix { break-before: page; }
+.appendix h1 { font-size: 13pt; }
+.appendix h2 { font-size: 9pt; color: var(--doc-navy); }
+.appendix, .appendix p, .appendix li { font-size: 8pt; line-height: 1.42; }
+
+/* keep-together helper */
+.keep { break-inside: avoid; }
