@@ -1,6 +1,6 @@
 {
   "name": "numaco-hub",
-  "version": "0.2.1+codex.e9f73221acf6af25",
+  "version": "0.2.1+codex.923f3bf24d6288ee",
   "description": "Front door for the Numaco Claude plugins: guided setup, an update command, and safe Obsidian vault opening",
   "author": {
     "name": "Numaco AG",
