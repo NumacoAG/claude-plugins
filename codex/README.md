@@ -58,11 +58,28 @@ not automatically install its dependencies. To install everything from a shell,
 run `codex plugin add <name>@numaco` for `numaco-design`, `review-kit`, `mcp-mail`,
 `dev-process-kit`, and `clockify-mcp` too.
 
-To update, ask **update the Numaco plugins**. The helper refreshes a clean Git
-marketplace and installs changed, missing, or disabled packages. It refuses to
-discard local edits and leaves unchanged enabled packages untouched. If an older
-hub has no update skill, run `codex plugin marketplace upgrade numaco`, then
-`codex plugin add numaco-hub@numaco` and start a new task first.
+To update, ask **update the Numaco plugins**. The helper fetches the configured
+Git ref and fast-forwards the clean marketplace checkout, then installs changed,
+missing, or disabled packages. It checks source versions before installing and
+verifies the installed versions afterward. Unchanged enabled caches are never
+replaced, so running MCP servers and same-version local fixes stay untouched.
+Local commits, dirty checkouts, missing Codex source metadata, and source/remote
+mismatches stop the refresh without a reset. The Codex-owned installation marker
+is read to honor the configured ref, not rewritten; the Git commit is the source
+revision. This path does not change the configured marketplace or pinned ref.
+
+Do not use `codex plugin marketplace upgrade numaco` as a substitute: that CLI
+command refreshes installed caches too, including unchanged versions, and may
+fail on Windows file locks or overwrite local cache edits. If a genuinely changed
+plugin cannot install because its cache is locked, close the affected tool and
+retry; do not force-delete caches. Local cache fixes must still be reviewed and
+ported before adopting a different version of that plugin.
+
+For an older hub, bootstrap the new helper from a separate clean clone of this
+repository: `python plugins/numaco-hub/scripts/codex_packet.py --update`. Run it
+with the same Codex configuration. It refreshes the configured marketplace,
+selectively installs the updated hub, and leaves unchanged enabled plugins alone.
+Then start a new task. Do not copy files into installed caches by hand.
 
 An existing local-path marketplace must be explicitly switched back to the GitHub
 source after preserving local edits. Nothing here silently changes that setting.
