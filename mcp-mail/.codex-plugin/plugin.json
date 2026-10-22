@@ -1,6 +1,6 @@
 {
   "name": "mcp-mail",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "description": "Self-hosted MCP server giving Codex access to your own mail, calendar, and files across Microsoft 365, Google Workspace, IMAP, and local synced folders.",
   "author": {
     "name": "Numaco AG",

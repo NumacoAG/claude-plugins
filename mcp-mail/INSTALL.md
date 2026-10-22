@@ -584,6 +584,15 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
   clients use a form inside the tool. Each mechanism fails **closed** when its
   expected confirmation is unavailable. The Claude Code hook needs `python3` on
   your `PATH`, which §1 already requires.
+  One opt in exception exists, in Claude Code only: an account block with
+  `unattended_self_send = true` lets `mail_send` go out without the box when its
+  single `to` entry is that account's own `address` (bare address, any case) and
+  `cc` and `bcc` are empty. Such sends are capped per account per local day,
+  50 by default or `unattended_self_send_daily_cap`. Past the cap, or for any
+  other recipient, the box returns. `mail_reply` is never exempt. The hook reads
+  `accounts.toml` for this, which needs Python 3.11 or newer as `python3`; with
+  an older one the exception is simply off. The count lives in
+  `~/.local/state/mcp-mail/sendgate/selfsend-ledger.json`.
   `mail_delete` does **not** — be deliberate before allowlisting it.
 - File and calendar writes have their own guard. Unless an account sets
   `auto_write = true`, every write, move, delete and share is refused server side

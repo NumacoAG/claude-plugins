@@ -327,7 +327,7 @@ def test_codex_manifest_pairs_prompt_policy_with_server_gate() -> None:
     plugin = json.loads((plugin_root / ".codex-plugin" / "plugin.json").read_text())
     mcp = json.loads((plugin_root / ".mcp.json").read_text())
 
-    assert plugin["version"] == "0.5.9"
+    assert plugin["version"] == "0.5.10"
     assert plugin["mcpServers"] == "./.mcp.json"
     mail = mcp["mcpServers"]["mail"]
     assert mail["env"]["MCP_MAIL_CLIENT_APPROVAL_GATE"] == "codex"

@@ -118,6 +118,11 @@ mcp-mail/
   inside the tool: send, save as draft, or cancel. Every path fails **closed**
   when its expected confirmation is missing. `mail_delete` is **not** gated, so
   think before allowlisting it.
+- One opt in exception, Claude Code only and off by default: an account that
+  sets `unattended_self_send = true` may `mail_send` to its own configured
+  address without the box, when that address is the only recipient and there is
+  no cc or bcc, up to `unattended_self_send_daily_cap` such sends per day
+  (default 50). `mail_reply` always asks. See `accounts.toml.example`.
 - File and calendar writes have a second guard: unless an account sets
   `auto_write = true`, every write, move, delete and share is refused server side
   until you confirm the intent. Sharing a file, and any calendar event that
