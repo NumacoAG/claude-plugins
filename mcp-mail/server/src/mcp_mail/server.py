@@ -699,8 +699,11 @@ async def list_tools() -> list[Tool]:
                 "and attachments for the user. Clients supporting MCP form elicitation receive a "
                 "final 'Send email' / 'Save as draft' / 'Do not send' choice inside this tool. "
                 "Claude Code instead requires its canonical AskUserQuestion box immediately "
-                "before the call, enforced by the plugin's fail closed PreToolUse hook. Never "
-                "allowlist or bypass either confirmation mechanism."
+                "before the call, enforced by the plugin's fail closed PreToolUse hook. The one "
+                "exception, Claude Code only: if the user set `unattended_self_send = true` on "
+                "the account, a send whose `to` is exactly that account's own address (and no "
+                "cc or bcc) passes the hook without the box, up to a daily cap; anything else "
+                "still needs the box. Never allowlist or bypass either confirmation mechanism."
             ),
             inputSchema={
                 "type": "object",

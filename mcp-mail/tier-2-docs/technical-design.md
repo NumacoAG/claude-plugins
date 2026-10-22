@@ -70,6 +70,19 @@ fails closed. Direct handler calls outside an MCP request retain the legacy path
 for unit tests. Delete remains allowlistable because it is not gated. This is per
 tier 1 §4.
 
+Unattended self-send (Claude Code hook only, opt in per account): before the
+transcript layers run, `hooks/mail_send_gate.py` allows a `mail_send` (never
+`mail_reply`) when the account in `tool_input` sets `unattended_self_send = true`
+in the same `accounts.toml` the server reads (`~/.config/mcp-mail/accounts.toml`,
+no override), `to` is exactly one bare ASCII entry equal to that account's
+`address` after strip and casefold, `cc` and `bcc` are absent or empty, the account is not
+a delegate (`mailbox` unset), and a per account, per local day counter in the
+gate's state dir (`selfsend-ledger.json`, under an exclusive `flock`) is below
+`unattended_self_send_daily_cap` (default 50). The counter only moves on an
+allowed send. Any failed condition or any error (no `tomllib`, unreadable or
+malformed TOML, a corrupt ledger, a lock timeout) means the exception does not
+apply and the normal gate decides. The server path is unchanged.
+
 ## 3. Authentication setup
 
 | Provider | Mechanism | Keychain entry |

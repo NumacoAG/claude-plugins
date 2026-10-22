@@ -212,6 +212,30 @@ auto_write = false
 #   signature_inline_images = ["~/.config/mcp-mail/logo.png"]
 #   signature_on_reply = true
 
+# --- Optional unattended self-send (Claude Code only, default off) -----------
+# Lets Claude send mail to YOURSELF without the per-message "Send email" box,
+# for example a reminder or a scheduled job mailing you a report. Add it to the
+# account block it should apply to:
+#
+#   unattended_self_send = true
+#   unattended_self_send_daily_cap = 50    # optional; 50 when absent or invalid
+#
+# A send skips the box only when ALL of these hold; anything else gets the
+# normal confirmation box, exactly as without the setting:
+#   - the tool is mail_send (mail_reply always asks);
+#   - `to` holds exactly one entry, the bare address configured in this
+#     account's `address` (case and surrounding spaces do not matter;
+#     "Your Name <you@example.com>" does not qualify, and the address must be
+#     plain ASCII);
+#   - `cc` and `bcc` are absent or empty;
+#   - fewer than the daily cap of such sends happened for this account today
+#     (local calendar day). The cap must be a positive whole number; any other
+#     value means 50.
+# It is never applied to a delegate mailbox (an account with `mailbox` set).
+# It is enforced by the Claude Code send hook, which needs Python 3.11 or newer
+# as `python3` to read this file; with an older python3 the box is always shown.
+# Other clients (Codex, generic MCP clients) keep their own confirmation.
+
 # --- Optional per-account overrides (rarely needed) ---------------------------
 # All accounts default to Keychain (service="mcp-mail", account=<id>). Set
 # auto_send = true to skip the per-message send confirmation for an account,

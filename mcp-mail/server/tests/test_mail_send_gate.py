@@ -57,6 +57,16 @@ def _load_gate():
 gate = _load_gate()
 
 
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point HOME at an empty temp dir for every in-process test, so the
+    self-send exception never reads the developer's real accounts.toml."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
 # ---- transcript fixture builders --------------------------------------------
 
 
@@ -493,10 +503,15 @@ def test_decide_denies_missing_transcript_path() -> None:
 # ---- end-to-end via subprocess: exact output contract -----------------------
 
 
-def _run_gate(obj: dict, state_dir: Path) -> subprocess.CompletedProcess:
+def _run_gate(
+    obj: dict, state_dir: Path, home: Path | None = None
+) -> subprocess.CompletedProcess:
+    # HOME is always pinned so the gate never reads the developer's real
+    # ~/.config/mcp-mail/accounts.toml (the self-send exception reads it).
     env = {
         "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
         "MCP_MAIL_SENDGATE_DIR": str(state_dir),
+        "HOME": str(home if home is not None else state_dir.parent / "home"),
     }
     return subprocess.run(
         [sys.executable, str(GATE_PY)],
@@ -718,3 +733,433 @@ def test_hooks_json_matcher_leaves_draft_tools_ungated_under_search_and_fullmatc
 
     # The prefix hazard the anchoring closes is real.
     assert REPLY_DRAFT_NAME.startswith(REPLY_NAME)
+
+
+# ---- unattended self-send exception ------------------------------------------
+#
+# mail_send (never mail_reply) is allowed with no confirmation box when the
+# account opts in with ``unattended_self_send = true`` and the message goes to
+# exactly the account's own address, with no cc/bcc, under a per-day cap. Any
+# failed condition or error falls through to the normal gate, which denies
+# without a "Send email" answer.
+
+SELF_ADDR = "you@example.com"
+SELF_REASON_PREFIX = "Unattended self-send to the account's own address"
+
+
+def _write_accounts(home: Path, body: str) -> Path:
+    cfg = home / ".config" / "mcp-mail"
+    cfg.mkdir(parents=True, exist_ok=True)
+    p = cfg / "accounts.toml"
+    p.write_text(body)
+    return p
+
+
+def _account_block(
+    flag: str | None = "true",
+    cap: str | None = None,
+    account_id: str = "me-gmail",
+    address: str = SELF_ADDR,
+    provider: str = "gmail",
+    extra: str = "",
+) -> str:
+    lines = [
+        "[[account]]",
+        f'id = "{account_id}"',
+        f'provider = "{provider}"',
+        f'address = "{address}"',
+    ]
+    if flag is not None:
+        lines.append(f"unattended_self_send = {flag}")
+    if cap is not None:
+        lines.append(f"unattended_self_send_daily_cap = {cap}")
+    if extra:
+        lines.append(extra)
+    return "\n".join(lines) + "\n"
+
+
+def _self_send_obj(
+    tmp_path: Path,
+    to: Any = None,
+    tool_name: str = SEND_NAME,
+    account: Any = "me-gmail",
+    **extra: Any,
+) -> dict:
+    """A PreToolUse payload whose transcript holds NO confirmation box, so the
+    normal gate would deny it."""
+    tp = _write_transcript(tmp_path, [_other_assistant()], name="selfsend.jsonl")
+    tool_input: dict[str, Any] = {
+        "account": account,
+        "to": [SELF_ADDR] if to is None else to,
+        "subject": "Note to self",
+        "body_text": "hello",
+    }
+    tool_input.update(extra)
+    return {
+        "session_id": "sess-self",
+        "transcript_path": tp,
+        "tool_name": tool_name,
+        "tool_input": tool_input,
+    }
+
+
+@pytest.fixture
+def ledger_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    d = tmp_path / "ledger"
+    monkeypatch.setenv("MCP_MAIL_SENDGATE_DIR", str(d))
+    return d
+
+
+def test_hook_reads_the_same_accounts_toml_as_the_server(_isolated_home: Path) -> None:
+    # The hook and the server must always agree on which accounts.toml is read.
+    # The server fixes its path at import time, so resolve it in a fresh
+    # interpreter under the same HOME instead of reloading the module here.
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from mcp_mail.config import DEFAULT_CONFIG_PATH; print(DEFAULT_CONFIG_PATH)",
+        ],
+        capture_output=True,
+        text=True,
+        env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "HOME": str(_isolated_home)},
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert gate._accounts_path() == proc.stdout.strip()
+    assert gate._accounts_path() == str(
+        _isolated_home / ".config" / "mcp-mail" / "accounts.toml"
+    )
+
+
+def test_self_send_allows_exact_own_address(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, reason = gate.decide(_self_send_obj(tmp_path))
+    assert d == "allow"
+    assert reason == f"{SELF_REASON_PREFIX} (1 of 50 today)"
+
+
+def test_self_send_is_case_insensitive_and_strips(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block(address="You@Example.com"))
+    d, reason = gate.decide(_self_send_obj(tmp_path, to=["  YOU@example.COM "]))
+    assert d == "allow"
+    assert reason is not None and reason.startswith(SELF_REASON_PREFIX)
+
+
+def test_self_send_accepts_null_or_empty_cc_bcc(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, _ = gate.decide(_self_send_obj(tmp_path, cc=[], bcc=None))
+    assert d == "allow"
+
+
+@pytest.mark.parametrize("flag", [None, "false", '"true"', "1"])
+def test_self_send_denied_without_boolean_opt_in(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path, flag: str | None
+) -> None:
+    _write_accounts(_isolated_home, _account_block(flag=flag))
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+def test_self_send_denied_for_unknown_account(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, _ = gate.decide(_self_send_obj(tmp_path, account="someone-else"))
+    assert d == "deny"
+
+
+def test_self_send_denied_for_duplicate_account_id(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(
+        _isolated_home,
+        _account_block() + _account_block(address="other@example.com"),
+    )
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+@pytest.mark.parametrize(
+    "to",
+    [
+        [SELF_ADDR, SELF_ADDR],
+        [SELF_ADDR, "other@example.com"],
+        ["other@example.com"],
+        [f"Your Name <{SELF_ADDR}>"],
+        [f"<{SELF_ADDR}>"],
+        [],
+        SELF_ADDR,  # a bare string, not a list
+        [None],
+    ],
+)
+def test_self_send_denied_for_wrong_recipient_shape(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path, to: Any
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, _ = gate.decide(_self_send_obj(tmp_path, to=to))
+    assert d == "deny"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"cc": ["other@example.com"]},
+        {"bcc": ["other@example.com"]},
+        {"cc": [SELF_ADDR]},
+        {"bcc": [SELF_ADDR]},
+        {"cc": ""},
+        {"bcc": {}},
+    ],
+)
+def test_self_send_denied_with_cc_or_bcc(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path, extra: dict
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, _ = gate.decide(_self_send_obj(tmp_path, **extra))
+    assert d == "deny"
+
+
+def test_self_send_never_applies_to_reply(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    d, _ = gate.decide(_self_send_obj(tmp_path, tool_name=REPLY_NAME))
+    assert d == "deny"
+
+
+def test_self_send_denied_for_delegate_mailbox_or_non_mail_provider(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(
+        _isolated_home, _account_block(provider="m365", extra=f'mailbox = "{SELF_ADDR}"')
+    )
+    assert gate.decide(_self_send_obj(tmp_path))[0] == "deny"
+    _write_accounts(_isolated_home, _account_block(provider="localfs"))
+    assert gate.decide(_self_send_obj(tmp_path))[0] == "deny"
+
+
+def test_self_send_denied_when_accounts_toml_missing(
+    tmp_path: Path, ledger_dir: Path
+) -> None:
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "this is = = not toml [[[",
+        "account = 5\n",
+        'account = ["x"]\n',
+        "[[account]]\nid = 7\n",
+    ],
+)
+def test_self_send_denied_when_accounts_toml_malformed(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path, body: str
+) -> None:
+    _write_accounts(_isolated_home, body)
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+def test_self_send_denied_when_tomllib_unavailable(
+    tmp_path: Path,
+    _isolated_home: Path,
+    ledger_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    monkeypatch.setattr(gate, "tomllib", None)
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+def test_self_send_denied_when_tool_input_is_malformed(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    obj = _self_send_obj(tmp_path)
+    obj["tool_input"] = "not a dict"
+    assert gate.decide(obj)[0] == "deny"
+    obj = _self_send_obj(tmp_path, account=["me-gmail"])
+    assert gate.decide(obj)[0] == "deny"
+
+
+def test_self_send_denied_when_ledger_corrupt(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    ledger_dir.mkdir(parents=True)
+    (ledger_dir / gate.SELF_SEND_LEDGER).write_text("{ not json")
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+def test_self_send_denied_when_state_dir_unusable(
+    tmp_path: Path, _isolated_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    blocker = tmp_path / "blocker"
+    blocker.write_text("a file, not a directory")
+    monkeypatch.setenv("MCP_MAIL_SENDGATE_DIR", str(blocker / "ledger"))
+    d, _ = gate.decide(_self_send_obj(tmp_path))
+    assert d == "deny"
+
+
+def test_self_send_default_cap_is_50(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block())
+    obj = _self_send_obj(tmp_path)
+    for n in range(1, 51):
+        d, reason = gate.decide(obj)
+        assert d == "allow", n
+        assert reason == f"{SELF_REASON_PREFIX} ({n} of 50 today)"
+    # The 51st falls through to the normal gate, which denies without a box.
+    d, _ = gate.decide(obj)
+    assert d == "deny"
+
+
+def test_self_send_custom_cap_honoured(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block(cap="3"))
+    obj = _self_send_obj(tmp_path)
+    reasons = [gate.decide(obj)[1] for _ in range(3)]
+    assert reasons == [f"{SELF_REASON_PREFIX} ({n} of 3 today)" for n in (1, 2, 3)]
+    assert gate.decide(obj)[0] == "deny"
+
+
+@pytest.mark.parametrize("cap", ["0", "-5", '"10"', "true", "2.5"])
+def test_self_send_invalid_cap_uses_default(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path, cap: str
+) -> None:
+    _write_accounts(_isolated_home, _account_block(cap=cap))
+    d, reason = gate.decide(_self_send_obj(tmp_path))
+    assert d == "allow"
+    assert reason == f"{SELF_REASON_PREFIX} (1 of 50 today)"
+
+
+def test_self_send_cap_is_per_account(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(
+        _isolated_home,
+        _account_block(cap="1")
+        + _account_block(
+            cap="1", account_id="work-m365", provider="m365", address="you@yourcompany.com"
+        ),
+    )
+    assert gate.decide(_self_send_obj(tmp_path))[0] == "allow"
+    assert gate.decide(_self_send_obj(tmp_path))[0] == "deny"
+    other = _self_send_obj(tmp_path, account="work-m365", to=["you@yourcompany.com"])
+    assert gate.decide(other)[0] == "allow"
+
+
+def test_self_send_counter_resets_on_a_new_day(
+    tmp_path: Path,
+    _isolated_home: Path,
+    ledger_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_accounts(_isolated_home, _account_block(cap="2"))
+    obj = _self_send_obj(tmp_path)
+    monkeypatch.setattr(gate, "_today", lambda: "2026-01-01")
+    assert gate.decide(obj)[0] == "allow"
+    assert gate.decide(obj)[0] == "allow"
+    assert gate.decide(obj)[0] == "deny"
+    monkeypatch.setattr(gate, "_today", lambda: "2026-01-02")
+    d, reason = gate.decide(obj)
+    assert d == "allow"
+    assert reason == f"{SELF_REASON_PREFIX} (1 of 2 today)"
+
+
+def test_self_send_counts_only_allowed_sends(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    # Denied (non-qualifying) attempts must not consume the daily quota.
+    _write_accounts(_isolated_home, _account_block(cap="1"))
+    assert gate.decide(_self_send_obj(tmp_path, to=["other@example.com"]))[0] == "deny"
+    assert gate.decide(_self_send_obj(tmp_path, cc=["other@example.com"]))[0] == "deny"
+    assert not (ledger_dir / gate.SELF_SEND_LEDGER).exists()
+    assert gate.decide(_self_send_obj(tmp_path))[0] == "allow"
+
+
+def test_self_send_dry_run_does_not_record(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    _write_accounts(_isolated_home, _account_block(cap="1"))
+    obj = _self_send_obj(tmp_path)
+    assert gate.decide(obj, consume=False)[0] == "allow"
+    assert gate.decide(obj, consume=False)[0] == "allow"
+    assert gate.decide(obj)[0] == "allow"
+    assert gate.decide(obj)[0] == "deny"
+
+
+def test_confirmation_box_path_unchanged_with_self_send_configured(
+    tmp_path: Path, _isolated_home: Path, ledger_dir: Path
+) -> None:
+    # An opted-in account sending to someone else still needs the box: without
+    # it the send is denied, with it the normal (None -> ALLOW_REASON) reason.
+    _write_accounts(_isolated_home, _account_block())
+    obj = _self_send_obj(tmp_path, to=["other@example.com"])
+    assert gate.decide(obj)[0] == "deny"
+
+    obj["transcript_path"] = _write_transcript(
+        tmp_path, [_ask_box("box1"), _answer("box1", "Send email")], name="box.jsonl"
+    )
+    d, reason = gate.decide(obj)
+    assert d == "allow"
+    assert reason is None
+
+
+def test_script_self_send_allow_output_shape(tmp_path: Path) -> None:
+    home = tmp_path / "subhome"
+    _write_accounts(home, _account_block(cap="1"))
+    obj = _self_send_obj(tmp_path)
+    proc = _run_gate(obj, tmp_path / "ledger", home=home)
+    assert proc.returncode == 0, proc.stderr
+    hso = json.loads(proc.stdout)["hookSpecificOutput"]
+    assert hso["hookEventName"] == "PreToolUse"
+    assert hso["permissionDecision"] == "allow"
+    assert hso["permissionDecisionReason"] == f"{SELF_REASON_PREFIX} (1 of 1 today)"
+    # Over the cap, the real script falls back to the normal gate and denies.
+    again = _run_gate(obj, tmp_path / "ledger", home=home)
+    assert again.returncode == 2
+    assert "Blocked: outbound mail is gated" in again.stderr
+
+
+def test_script_self_send_reply_still_denied(tmp_path: Path) -> None:
+    home = tmp_path / "subhome"
+    _write_accounts(home, _account_block())
+    proc = _run_gate(
+        _self_send_obj(tmp_path, tool_name=REPLY_NAME), tmp_path / "ledger", home=home
+    )
+    assert proc.returncode == 2
+
+
+def test_wrapper_self_send_allow_passes_through(tmp_path: Path) -> None:
+    # The real gate through the fail-closed shell wrapper.
+    home = tmp_path / "subhome"
+    _write_accounts(home, _account_block())
+    env = {
+        "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+        "HOME": str(home),
+        "MCP_MAIL_SENDGATE_DIR": str(tmp_path / "ledger"),
+        "MAIL_SEND_GATE_PYTHON": sys.executable,
+    }
+    proc = subprocess.run(
+        ["bash", str(GATE_SH)],
+        input=json.dumps(_self_send_obj(tmp_path)),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert SELF_REASON_PREFIX in proc.stdout

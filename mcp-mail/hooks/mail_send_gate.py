@@ -38,7 +38,18 @@ BOTH pass):
   an exclusive OS lock, so a single "Send email" click cannot authorize two
   parallel sends batched into one assistant message.
 
-Stdlib only; no third-party imports.
+One narrow, opt-in exception (UNATTENDED SELF-SEND): ``mail_send`` (never
+``mail_reply``) is allowed without the box when the account in ``tool_input``
+sets ``unattended_self_send = true`` in accounts.toml, the message goes to
+exactly one recipient equal to that account's own configured ``address``
+(case-insensitive, bare address only), ``cc`` and ``bcc`` are absent or empty,
+and the account's per local calendar day cap (default 50, overridable with
+``unattended_self_send_daily_cap``) is not yet reached. Any failed condition or
+any error while evaluating it means the exception does not apply and the gate
+above runs unchanged; it can never turn an error into an allow.
+
+Stdlib only; no third-party imports (``tomllib`` is stdlib on Python 3.11+; on
+an older interpreter the self-send exception is simply unavailable).
 """
 
 from __future__ import annotations
@@ -49,6 +60,11 @@ import os
 import re
 import sys
 import time
+
+try:  # stdlib on Python 3.11+; without it the self-send exception never applies
+    import tomllib
+except Exception:  # pragma: no cover - depends on the running interpreter
+    tomllib = None  # type: ignore[assignment]
 
 # ---- fully-qualified send tool names (must match the hooks.json matcher) -----
 
@@ -82,18 +98,29 @@ DENY_REASON = (
 
 _SESSION_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
+# ---- unattended self-send exception (opt in, mail_send only) -----------------
+
+SELF_SEND_TOOL_NAME = "mcp__plugin_mcp-mail_mail__mail_send"
+SELF_SEND_FLAG = "unattended_self_send"
+SELF_SEND_CAP_KEY = "unattended_self_send_daily_cap"
+SELF_SEND_DEFAULT_CAP = 50
+SELF_SEND_LEDGER = "selfsend-ledger.json"
+SELF_SEND_LOCK = "selfsend.lock"
+# Providers that can actually send mail. localfs has no mailbox.
+SELF_SEND_PROVIDERS = frozenset({"m365", "gmail", "imap"})
+
 
 # ---- output helpers ---------------------------------------------------------
 
 
-def _allow() -> None:
+def _allow(reason: str = ALLOW_REASON) -> None:
     sys.stdout.write(
         json.dumps(
             {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "allow",
-                    "permissionDecisionReason": ALLOW_REASON,
+                    "permissionDecisionReason": reason,
                 }
             }
         )
@@ -363,15 +390,223 @@ def _consume_box(box_id: str, session_id: str) -> bool:
         os.close(lock_fd)
 
 
+# ---- unattended self-send exception -----------------------------------------
+
+
+def _accounts_path() -> str:
+    """The accounts.toml the server reads.
+
+    Mirrors ``mcp_mail.config.DEFAULT_CONFIG_PATH`` exactly
+    (``Path.home() / ".config" / "mcp-mail" / "accounts.toml"``). The server has
+    no environment override for this path, so neither does the hook: the two
+    must always read the same file. ``Path.home()`` and ``expanduser("~")``
+    resolve identically (``$HOME``, else the password database).
+    """
+    return os.path.join(os.path.expanduser("~"), ".config", "mcp-mail", "accounts.toml")
+
+
+def _today() -> str:
+    """The local calendar day the daily cap is counted against (ISO date)."""
+    return time.strftime("%Y-%m-%d", time.localtime())
+
+
+def _self_send_account(account_id: str) -> dict | None:
+    """Return the single accounts.toml entry whose ``id`` is ``account_id``.
+
+    None when tomllib is unavailable, or the id is absent or ambiguous
+    (duplicated). A missing, unreadable or malformed file raises; the caller
+    treats any exception as "the exception does not apply".
+    """
+    if tomllib is None:
+        return None
+    with open(_accounts_path(), "rb") as f:
+        data = tomllib.load(f)
+    if not isinstance(data, dict):
+        return None
+    entries = data.get("account")
+    if not isinstance(entries, list):
+        return None
+    matches = [e for e in entries if isinstance(e, dict) and e.get("id") == account_id]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def _self_send_cap(entry: dict) -> int:
+    """The account's daily cap: a positive integer override, else the default."""
+    raw = entry.get(SELF_SEND_CAP_KEY)
+    # bool is an int subclass; ``true`` must not read as a cap of 1.
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+        return raw
+    return SELF_SEND_DEFAULT_CAP
+
+
+def _empty_recipients(value: object) -> bool:
+    """True only for an absent / null / empty-list ``cc`` or ``bcc``."""
+    return value is None or (isinstance(value, list) and len(value) == 0)
+
+
+def _self_send_candidate(obj: dict) -> tuple[str, int] | None:
+    """Check every static condition of the self-send exception.
+
+    Return (account_id, daily_cap) when the call is an eligible self-send, or
+    None. May raise on a broken accounts.toml; the caller guards it.
+    """
+    if obj.get("tool_name") != SELF_SEND_TOOL_NAME:
+        return None
+    tool_input = obj.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return None
+
+    account_id = tool_input.get("account")
+    if not isinstance(account_id, str) or not account_id:
+        return None
+
+    to = tool_input.get("to")
+    if not isinstance(to, list) or len(to) != 1 or not isinstance(to[0], str):
+        return None
+    if not _empty_recipients(tool_input.get("cc")):
+        return None
+    if not _empty_recipients(tool_input.get("bcc")):
+        return None
+
+    entry = _self_send_account(account_id)
+    if entry is None:
+        return None
+    # Opt in must be the literal boolean true; a string or number does not count.
+    if entry.get(SELF_SEND_FLAG) is not True:
+        return None
+    if entry.get("provider") not in SELF_SEND_PROVIDERS:
+        return None
+    # A delegate view of someone else's mailbox is never "self".
+    if entry.get("mailbox"):
+        return None
+
+    address = entry.get("address")
+    if not isinstance(address, str):
+        return None
+    own = address.strip().casefold()
+    recipient = to[0].strip().casefold()
+    # Bare ASCII addresses only: this rules out the display-name form and any
+    # Unicode casefold collision with a different address.
+    if not own or "@" not in own or not own.isascii() or not recipient.isascii():
+        return None
+    if recipient != own:
+        return None
+
+    return account_id, _self_send_cap(entry)
+
+
+def _count_self_send(account_id: str, cap: int, *, record: bool) -> int | None:
+    """Count one self-send against today's cap under an exclusive lock.
+
+    Returns the new count (1-based) when the send fits under ``cap``, else None
+    (cap reached, or the ledger cannot be safely read or written). With
+    ``record`` False the cap is checked but nothing is written.
+    """
+    state_dir = _state_dir()
+    try:
+        os.makedirs(state_dir, exist_ok=True)
+    except OSError:
+        return None
+    lock_path = os.path.join(state_dir, SELF_SEND_LOCK)
+    ledger_path = os.path.join(state_dir, SELF_SEND_LEDGER)
+
+    try:
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    except OSError:
+        return None
+    try:
+        acquired = False
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except OSError:
+                time.sleep(0.05)
+        if not acquired:
+            return None
+        try:
+            today = _today()
+            counts: dict = {}
+            try:
+                with open(ledger_path, encoding="utf-8") as f:
+                    ledger = json.load(f)
+            except FileNotFoundError:
+                ledger = None
+            # A corrupt ledger (bad JSON, bad shape) cannot vouch for the cap:
+            # the exception stays off until the file is fixed or removed.
+            if ledger is not None:
+                if not isinstance(ledger, dict):
+                    return None
+                stored = ledger.get("counts")
+                if not isinstance(stored, dict):
+                    return None
+                if ledger.get("date") == today:
+                    counts = stored
+            used = counts.get(account_id, 0)
+            if not isinstance(used, int) or isinstance(used, bool) or used < 0:
+                return None
+            if used >= cap:
+                return None
+            new_count = used + 1
+            if not record:
+                return new_count
+            updated = dict(counts)
+            updated[account_id] = new_count
+            tmp_path = ledger_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump({"date": today, "counts": updated}, f, sort_keys=True)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, ledger_path)
+            return new_count
+        finally:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    finally:
+        os.close(lock_fd)
+
+
+def _self_send_exemption(obj: dict, *, record: bool = True) -> str | None:
+    """Return the allow reason when the unattended self-send exception applies.
+
+    None means "does not apply" and the normal gate decides. Every error is
+    swallowed into None, so this path can only ever add an allow for a fully
+    qualifying send, never turn a failure into one.
+    """
+    try:
+        candidate = _self_send_candidate(obj)
+        if candidate is None:
+            return None
+        account_id, cap = candidate
+        count = _count_self_send(account_id, cap, record=record)
+        if count is None:
+            return None
+        return (
+            "Unattended self-send to the account's own address "
+            f"({count} of {cap} today)"
+        )
+    except Exception:
+        return None
+
+
 # ---- orchestration ----------------------------------------------------------
 
 
 def decide(obj: dict, *, consume: bool = True) -> tuple[str, str | None]:
-    """Return ("allow", None) or ("deny", detail) for a parsed stdin object.
+    """Return ("allow", reason) or ("deny", detail) for a parsed stdin object.
 
-    ``consume`` gates the single-use ledger write; tests set it False to check
-    Layer 1 in isolation.
+    ``reason`` is None for the normal confirmation-box allow (the caller then
+    uses ALLOW_REASON), and the self-send reason when that exception applied.
+    ``consume`` gates the ledger writes (box consumption and the self-send
+    counter); tests set it False to check the decision without side effects.
     """
+    self_send_reason = _self_send_exemption(obj, record=consume)
+    if self_send_reason is not None:
+        return "allow", self_send_reason
+
     transcript_path = obj.get("transcript_path")
     session_id = obj.get("session_id")
     if not isinstance(transcript_path, str) or not transcript_path:
@@ -405,9 +640,9 @@ def main() -> None:
         _deny("stdin is not a JSON object")
         return
 
-    decision, _detail = decide(obj)
+    decision, detail = decide(obj)
     if decision == "allow":
-        _allow()
+        _allow(detail or ALLOW_REASON)
     else:
         _deny()
 
