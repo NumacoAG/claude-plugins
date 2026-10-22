@@ -133,6 +133,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: npm install -g @anthropic-ai/claude-code
       - name: Marketplace validates
         run: claude plugin validate "$PWD"
@@ -144,21 +147,52 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$CLAUDE_CONFIG_DIR"
-          claude plugin marketplace list | grep -q "No marketplaces configured" \
-            || { echo "config dir is not clean"; exit 1; }
+          claude --version
+          # "Clean" means no numaco marketplace is registered yet; otherwise the
+          # install below would prove nothing. Other marketplaces (a CLI may
+          # pre-register a default one) are irrelevant. Read the JSON listing
+          # rather than the human wording, which changes between CLI releases.
+          # A listing that is not valid JSON fails the step loudly.
+          before=$(claude plugin marketplace list --json < /dev/null)
+          echo "marketplaces before install: $before"
+          has_numaco=$(printf '%s' "$before" | python3 -c 'import json, sys
+          print(any(isinstance(m, dict) and m.get("name") == "numaco" for m in json.load(sys.stdin)))')
+          if [ "$has_numaco" != "False" ]; then
+            echo "config dir is not clean: a numaco marketplace is already registered"
+            exit 1
+          fi
           # A bare "." is rejected ("Invalid marketplace source format"); the
           # source must be owner/repo, a URL, or an explicit path.
           claude plugin marketplace add "$PWD" < /dev/null
           claude plugin install numaco-hub@numaco < /dev/null
-          claude plugin list > /tmp/plugins.txt
-          cat /tmp/plugins.txt
-          expected=6
-          got=$(grep -c '✔ enabled' /tmp/plugins.txt || true)
-          if [ "$got" -ne "$expected" ]; then
-            echo "expected $expected enabled plugins, got $got"
-            exit 1
-          fi
-          echo "one command installed $got plugins, all enabled"
+          claude plugin list < /dev/null
+          claude plugin list --json < /dev/null > "$RUNNER_TEMP/plugins.json"
+          # Every plugin this checkout's marketplace declares must now be
+          # installed AND enabled from the numaco marketplace, and nothing else
+          # from it. Plugins of any other marketplace are ignored.
+          python3 - "$RUNNER_TEMP/plugins.json" <<'PY'
+          import json, sys
+          mp = json.load(open(".claude-plugin/marketplace.json"))
+          expected = {f"{p['name']}@{mp['name']}" for p in mp["plugins"]}
+          installed = [p for p in json.load(open(sys.argv[1])) if isinstance(p, dict)]
+          ours = {p.get("id") for p in installed
+                  if isinstance(p.get("id"), str) and p["id"].endswith("@numaco")}
+          enabled = {p["id"] for p in installed
+                     if p.get("id") in ours and p.get("enabled") is True}
+          bad = []
+          if mp["name"] != "numaco" or len(expected) != 6:
+              bad.append(f"expected the six-plugin numaco packet, manifest declares "
+                         f"{len(expected)} under {mp['name']!r}")
+          if expected - ours:
+              bad.append(f"not installed: {sorted(expected - ours)}")
+          if (expected & ours) - enabled:
+              bad.append(f"installed but not enabled: {sorted((expected & ours) - enabled)}")
+          if ours - expected:
+              bad.append(f"unexpected numaco plugins: {sorted(ours - expected)}")
+          print("\n".join(bad) if bad else
+                f"one command installed all {len(enabled)} numaco plugins, all enabled")
+          sys.exit(1 if bad else 0)
+          PY
 
   codex-smoke-install:
     runs-on: ubuntu-latest
