@@ -28,6 +28,8 @@ from typing import Any
 
 import pytest
 
+pytest.importorskip("fcntl", reason="The Claude shell send gate requires POSIX file locking")
+
 HOOKS_DIR = Path(__file__).resolve().parents[2] / "hooks"
 GATE_PY = HOOKS_DIR / "mail_send_gate.py"
 GATE_SH = HOOKS_DIR / "mail_send_gate.sh"

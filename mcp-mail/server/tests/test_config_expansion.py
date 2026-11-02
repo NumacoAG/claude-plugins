@@ -42,7 +42,7 @@ def config_file(tmp_path: Path) -> Path:
     root_a.mkdir()
     root_b.mkdir()
     p = tmp_path / "accounts.toml"
-    p.write_text(_CONFIG.format(root_a=root_a, root_b=root_b))
+    p.write_text(_CONFIG.format(root_a=root_a.as_posix(), root_b=root_b.as_posix()), encoding="utf-8")
     return p
 
 

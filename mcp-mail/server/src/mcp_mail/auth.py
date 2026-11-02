@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import keyring
 from msal import PublicClientApplication, SerializableTokenCache
 
 from .config import M365Account
+from .credential_store import get_secret, set_secret
 
 GRAPH_SCOPES = [
     "https://graph.microsoft.com/Mail.ReadWrite",
@@ -57,7 +57,7 @@ GRAPH_REAUTH_SCOPES = (
 
 def _load_app(acct: M365Account) -> tuple[PublicClientApplication, SerializableTokenCache]:
     cache = SerializableTokenCache()
-    blob = keyring.get_password(acct.keychain_service, acct.keychain_user)
+    blob = get_secret(acct.keychain_service, acct.keychain_user)
     if blob:
         cache.deserialize(blob)
     app = PublicClientApplication(
@@ -70,7 +70,7 @@ def _load_app(acct: M365Account) -> tuple[PublicClientApplication, SerializableT
 
 def _save_cache(acct: M365Account, cache: SerializableTokenCache) -> None:
     if cache.has_state_changed:
-        keyring.set_password(acct.keychain_service, acct.keychain_user, cache.serialize())
+        set_secret(acct.keychain_service, acct.keychain_user, cache.serialize())
 
 
 def acquire_token(acct: M365Account) -> str:

@@ -129,6 +129,12 @@ mcp-mail splits **identity (non-secret)** from **secrets**:
   the Google OAuth client secret, IMAP app-specific passwords, and the OAuth
   refresh tokens the server caches after you sign in.
 
+On Windows, large Microsoft token caches are split across protected credential
+entries because one Windows credential blob cannot hold a full OAuth cache.
+Version 0.5.11 reads both the earlier v1 chunk format and the current format.
+A refresh writes a new generation before publishing its manifest, preserving
+the previous cache if the write fails. Tokens are never moved to a file.
+
 What you must store **by hand**, per provider:
 
 | Provider | Store by hand? | What |
@@ -548,6 +554,7 @@ model-invoked, not a slash command; see `skills/contacts/SKILL.md`, and set its
 | `m365 account '<id>': missing client_id` (or `tenant_id`) | Neither that account's block nor `~/.config/mcp-mail/defaults.toml` supplies it. Put it in one of them (§5A). |
 | `uv: command not found` / not recognized | Install `uv` (§1); on Windows open a **new** terminal so PATH updates. |
 | M365 sign-in fails / "redirect URI mismatch" | Azure redirect URI must be **exactly** `http://localhost:8765` (no path), platform **Mobile and desktop applications**; enable **Allow public client flows** (§5A.6). |
+| Microsoft tools fail with `Expecting value: line 1 column 1 (char 0)` after an upgrade on Windows | Upgrade to mcp-mail 0.5.11 or later and start a new session. Earlier local installations may have a chunked Microsoft token cache that 0.5.10 incorrectly reads as JSON. The new reader preserves those credentials; do not delete the cache or request wider consent to fix this error. |
 | M365 "need admin approval" or `access_denied` at the consent screen | Your tenant forbids user self-consent for these Graph scopes. **First ask whether your organisation already has an mcp-mail app registration**, and if it does, switch to Path A in §5A: the consent is already granted there and you need nothing else. Registering a second app does not get you past this screen. Only if there is genuinely no shared registration does an admin need to grant consent on yours (§5A Path B, step 5). |
 | Google "Access blocked: app not verified" | Publish the consent screen to Production, or add yourself as a Test user; then **Advanced → Go to … (unsafe)**. |
 | Gmail dies after ~a week | Consent screen still in **Testing** (7-day token expiry). Set to **Production** (§5B.3) and re-authorize once. |
