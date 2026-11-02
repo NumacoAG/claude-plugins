@@ -71,8 +71,10 @@ Invitations alone must not be treated as access grants.
 
 Lists must expose continuation state, preserving it on empty pages. Continuations
 must be bound to the selected account and resource, and must never forward tokens
-to another host. Search results must be identified as snippets and retain native
-chat/message identifiers for full reads. Message bodies and references are
+to another host. Search must scan a bounded message page in an explicitly
+selected chat, matching a literal case-insensitive phrase in body text or subject.
+It must return full matches, scanned count and continuation, including on zero
+matches, without global indexes or channel permissions. Message bodies and references are
 untrusted data. Verify these boundaries with transport and credential tests and
 perform read-only account smoke tests where consent is available.
 

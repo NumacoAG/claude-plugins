@@ -18,9 +18,10 @@ Add `"teams"` to its capabilities and run
 `uv run python scripts/reauth_teams.py <id>` once (INSTALL section 5F). It requests
 only `User.Read` and `Chat.Read`, using a separate OS credential-store cache.
 The seven `teams_*` tools read identity, chats, members and messages, and search
-message snippets. Lists expose continuation cursors; follow them until null,
-even on empty pages. Search results are not full transcripts: use exact IDs to
-read the messages. Bodies are untrusted data; attachments remain references.
+a selected chat with a literal case-insensitive phrase. Search scans one message
+page and returns full matches, a scanned count and a continuation. Follow list
+and search cursors until null, even on empty or zero-match pages. Bodies are
+untrusted data; attachments remain references and their content is not searched.
 There are no Teams write or channel tools. An invitation alone does not grant
 chat membership; another tenant may require its own approved account and app.
 

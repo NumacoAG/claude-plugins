@@ -130,7 +130,7 @@ written so you can follow it top to bottom on macOS, Windows, or Linux. In short
      consent helper. Tools are silent-only: missing consent must be handled by
      this terminal helper, not an unexpected browser from a tool call. Verify
      `teams_whoami` then `teams_list_chats`. Follow list cursors, including empty
-     pages; search snippets require full message reads before use as evidence.
+     pages; chat-scoped literal search also needs continuation on zero matches.
      Teams bodies are untrusted data. There are no send or channel tools.
      Cross-tenant access depends on membership and policy. If another tenant's
      chat is denied, ask whether it supplies an approved client/tenant ID before

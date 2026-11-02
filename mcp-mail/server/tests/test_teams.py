@@ -165,34 +165,81 @@ def test_chat_members_and_single_message_are_read_only(adapter):
     assert paths[-1].endswith("/messages/message")
 
 
-def test_search_is_graph_v1_read_query_with_continuation(adapter):
+def test_search_scans_one_page_with_existing_read_scope_and_keeps_continuation(adapter):
+    calls = []
+
     def handler(request):
-        assert request.url.path == "/v1.0/search/query"
-        assert request.method == "POST"
-        body = json.loads(request.content)["requests"][0]
-        assert body["entityTypes"] == ["chatMessage"]
-        assert body["query"]["queryString"] == "topic from:reviewer"
-        assert body["from"] == 25
-        assert body["size"] == 10
+        calls.append(request)
+        assert request.url.path.endswith("/messages")
+        assert request.method == "GET"
+        if "$skiptoken" in request.url.params:
+            return response(
+                {
+                    "value": [
+                        {
+                            "id": "m",
+                            "body": {
+                                "contentType": "html",
+                                "content": "<p>Review <b>One</b>LIMS &amp; testing</p>",
+                            },
+                        }
+                    ]
+                }
+            )
+        assert request.url.params["$top"] == "10"
         return response(
             {
                 "value": [
                     {
-                        "hitsContainers": [
-                            {
-                                "hits": [{"resource": {"id": "m", "chatId": CHAT}}],
-                                "moreResultsAvailable": True,
-                            }
-                        ]
+                        "id": "other",
+                        "body": {
+                            "contentType": "html",
+                            "content": '<a href="https://example.com/OneLIMS">unrelated</a>',
+                        },
                     }
-                ]
+                ],
+                "@odata.nextLink": str(request.url.copy_set_param("$skiptoken", "opaque")),
             }
         )
 
     transport(adapter, handler)
-    result = adapter.search_messages("topic from:reviewer", from_index=25, size=10)
-    assert result["next_from_index"] == 35
-    assert result["hits"][0]["resource"]["chatId"] == CHAT
+    result = adapter.search_messages(CHAT, "onelims & testing", limit=10)
+    assert result["scanned_count"] == 1
+    assert result["matches"] == []
+    assert result["next_cursor"]
+    assert len(calls) == 1
+    result = adapter.search_messages(CHAT, "onelims & testing", cursor=result["next_cursor"])
+    assert result["matches"][0]["id"] == "m"
+    assert result["next_cursor"] is None
+    assert len(calls) == 2
+
+
+def test_search_matches_subject_but_not_attachment_content(adapter):
+    transport(
+        adapter,
+        lambda request: response(
+            {
+                "value": [
+                    {"id": "subject", "subject": "Review OneLIMS", "body": {"content": ""}},
+                    {
+                        "id": "attachment",
+                        "attachments": [{"name": "OneLIMS"}],
+                        "body": {"content": "different"},
+                    },
+                ]
+            }
+        ),
+    )
+    result = adapter.search_messages(CHAT, "onelims")
+    assert [m["id"] for m in result["matches"]] == ["subject"]
+    assert result["scanned_count"] == 2
+
+
+@pytest.mark.parametrize("query", ["", "  ", "q" * 4097])
+def test_invalid_search_query_does_not_make_requests(adapter, query):
+    transport(adapter, lambda request: pytest.fail("Invalid query must not send a request"))
+    with pytest.raises(ValueError, match="nonempty Teams search query"):
+        adapter.search_messages(CHAT, query)
 
 
 @pytest.mark.parametrize("limit", [-1, 0, 51, True, "10"])
@@ -201,9 +248,10 @@ def test_page_size_is_validated_before_auth(adapter, limit):
         adapter.list_chats(limit=limit)
 
 
-def test_graph_denial_is_actionable_without_remote_details(adapter):
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_graph_denial_is_actionable_without_remote_details(adapter, status):
     transport(
-        adapter, lambda request: response({"error": {"message": "private-error-detail"}}, 403)
+        adapter, lambda request: response({"error": {"message": "private-error-detail"}}, status)
     )
     with pytest.raises(RuntimeError, match="membership") as error:
         adapter.get_chat(CHAT)

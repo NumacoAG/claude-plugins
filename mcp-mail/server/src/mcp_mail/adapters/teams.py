@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from urllib.parse import quote, unquote, urlsplit
 
 import httpx
@@ -13,6 +14,23 @@ from mcp_mail.auth import acquire_teams_token
 from mcp_mail.config import M365Account
 
 GRAPH = "https://graph.microsoft.com/v1.0"
+
+
+class _BodyText(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"p", "div", "br", "li", "tr", "td"}:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        if tag in {"p", "div", "li", "tr", "td"}:
+            self.parts.append(" ")
 
 
 def _id(value: str) -> str:
@@ -47,9 +65,9 @@ class GraphTeamsAdapter:
             headers={"Authorization": f"Bearer {acquire_teams_token(self.account)}"},
             **kwargs,
         )
-        if response.status_code in {401, 403}:
+        if response.status_code in {401, 403, 404}:
             raise RuntimeError(
-                "Teams access denied for this account. Verify Teams consent, tenant policy and chat membership. "
+                "Teams resource unavailable or access denied for this account. Verify the ID, Teams consent, tenant policy and chat membership. "
                 "A different organization's meeting may require an authorized account in that organization."
             )
         response.raise_for_status()
@@ -135,29 +153,30 @@ class GraphTeamsAdapter:
     def get_message(self, chat_id: str, message_id: str) -> dict:
         return self._request("GET", f"/chats/{_id(chat_id)}/messages/{_id(message_id)}")
 
-    def search_messages(self, query: str, from_index: int = 0, size: int = 25) -> dict:
-        _limit(size)
+    def search_messages(
+        self, chat_id: str, query: str, limit: int = 25, cursor: str | None = None
+    ) -> dict:
         if not isinstance(query, str) or not query.strip() or len(query) > 4096:
             raise ValueError("Provide a nonempty Teams search query up to 4096 characters.")
-        if type(from_index) is not int or not 0 <= from_index <= 10000:
-            raise ValueError("from_index must be between 0 and 10000.")
-        request = {
-            "entityTypes": ["chatMessage"],
-            "query": {"queryString": query},
-            "from": from_index,
-            "size": size,
-            "enableTopResults": True,
-        }
-        data = self._request("POST", "/search/query", json={"requests": [request]})
-        containers = [
-            container
-            for page in data.get("value", [])
-            for container in page.get("hitsContainers", [])
-        ]
-        hits = [hit for container in containers for hit in container.get("hits", [])]
-        more = any(c.get("moreResultsAvailable", False) for c in containers)
+        # Graph's global chatMessage search can require channel-wide scopes.
+        # Scan exactly one chat page instead, retaining the existing Chat.Read
+        # grant and an explicit cursor so callers control history coverage.
+        page = self.list_messages(chat_id, limit=limit, cursor=cursor)
+        matches = []
+        for message in page["value"]:
+            body = message.get("body") or {}
+            content = body.get("content") or ""
+            if (body.get("contentType") or "").casefold() == "html":
+                parser = _BodyText()
+                parser.feed(content)
+                parser.close()
+                content = "".join(parser.parts)
+            text = (message.get("subject") or "") + "\n" + content
+            if query.casefold() in text.casefold():
+                matches.append(message)
         return {
-            "hits": hits,
-            "next_from_index": from_index + size if more else None,
-            "more_results_available": more,
+            "matches": matches,
+            "scanned_count": len(page["value"]),
+            "next_cursor": page["next_cursor"],
+            "search_mode": "literal_case_insensitive_body_and_subject",
         }

@@ -40,8 +40,9 @@ provider's API from your machine.
   skill).
 - Read and write your calendar: list calendars and events, create, update and
   delete. Events with attendees are treated as outward facing and gated.
-- Read one-to-one, group and meeting chats in Microsoft Teams; search message
-  snippets and fetch complete messages by ID. Follow list cursors for coverage.
+- Read one-to-one, group and meeting chats in Microsoft Teams; search a selected
+  chat's messages by literal phrase and fetch complete messages by ID. Follow
+  cursors, including zero-match pages, for history coverage.
   Tenant policy and membership govern access, including cross-tenant meetings.
 - Browse, search, read, create, update, move, copy, delete and share files on
   OneDrive, SharePoint document libraries, Google Drive, or a plain local
