@@ -11,11 +11,16 @@ that sweeps your mail into a contact directory, and a Google Docs workflow that
 places native comments on exact text selections through an authenticated
 browser. The skills are model invoked; just ask for them by name.
 
-55 tools over six surfaces: mail (16), Drive files (16), Google Docs (10),
-calendar (5), Sheets (5), Slides (3). Mail works on its own. Calendar and files
+62 tools over seven surfaces: mail (16), Drive files (16), Google Docs (10),
+calendar (5), Sheets (5), Slides (3), and read-only Microsoft Teams chats (7).
+Mail works on its own. Calendar, files, and Teams
 are **opt-in per account**, so nothing widens by surprise: an account serves only
 the surfaces it lists in `capabilities`, and on M365 and Google you re-consent
 once so the cached token carries the wider OAuth scopes.
+
+Teams uses a separate `teams` capability, read-only `User.Read` + `Chat.Read`
+consent, and an isolated OS credential-store cache. It supports work/school chat
+listing, members, full messages and message search. See [INSTALL section 5F](INSTALL.md#5f-read-only-microsoft-teams-chats).
 
 Everything runs locally on your machine (macOS, Windows, or Linux). Credentials
 live in your OS credential store — never in plaintext on disk. There is no
@@ -35,6 +40,9 @@ provider's API from your machine.
   skill).
 - Read and write your calendar: list calendars and events, create, update and
   delete. Events with attendees are treated as outward facing and gated.
+- Read one-to-one, group and meeting chats in Microsoft Teams; search message
+  snippets and fetch complete messages by ID. Follow list cursors for coverage.
+  Tenant policy and membership govern access, including cross-tenant meetings.
 - Browse, search, read, create, update, move, copy, delete and share files on
   OneDrive, SharePoint document libraries, Google Drive, or a plain local
   folder that iCloud Drive or OneDrive already syncs.
@@ -58,12 +66,12 @@ You can run with any subset — a single account is a valid setup.
 
 **Which surfaces each provider serves**
 
-| Provider | Mail | Calendar | Files |
-|---|---|---|---|
-| Microsoft 365 | yes | yes | OneDrive and SharePoint |
-| Gmail / Workspace | yes | yes | Drive, Docs, Sheets, Slides |
-| IMAP | yes | no | no |
-| Local folder | no | no | yes, no permissions needed |
+| Provider | Mail | Calendar | Files | Teams chats |
+|---|---|---|---|---|
+| Microsoft 365 | yes | yes | OneDrive and SharePoint | read-only, work/school own account |
+| Gmail / Workspace | yes | yes | Drive, Docs, Sheets, Slides | no |
+| IMAP | yes | no | no | no |
+| Local folder | no | no | yes, no permissions needed | no |
 
 The local folder backend is the fallback worth knowing about: if your tenant
 admin will not grant the SharePoint permission, it gives you a working file

@@ -46,9 +46,11 @@ repository.
   and never restates.
 - **mcp-mail** (your own mail, calendar, and files). A self-hosted MCP server
   that gives Claude read and write control across Microsoft 365, Gmail or Google
-  Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and others). 55
-  tools over six surfaces: mail (16), Drive and SharePoint or OneDrive files
-  (16), Google Docs (10), calendar (5), Sheets (5), and Slides (3). Search and
+  Workspace, and any IMAP provider (iCloud, Yahoo, Fastmail, and others). 62
+  tools over seven surfaces: mail (16), Drive and SharePoint or OneDrive files
+  (16), Google Docs (10), calendar (5), Sheets (5), Slides (3), and read-only
+  Microsoft Teams chats (7). Teams has a separate opt-in capability and consent
+  cache for work/school accounts, including accessible meeting chats. Search and
   read, send and reply behind a per-message confirmation, drafts, file and
   label, one-click unsubscribe, plus a contacts skill that builds a contact
   directory from your mail history. A single account is a valid setup, and

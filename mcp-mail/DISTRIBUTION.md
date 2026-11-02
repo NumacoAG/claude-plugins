@@ -9,8 +9,10 @@ OneDrive, Gmail / Google Workspace including Drive, Docs, Sheets and Slides, any
 IMAP provider such as iCloud, Yahoo, or Fastmail, and a local iCloud Drive or
 OneDrive folder).
 
-It registers 55 tools across six surfaces: mail (16), Drive files (16), Google
-Docs (10), calendar (5), Sheets (5), and Slides (3). Mail works on its own.
+It registers 62 tools across seven surfaces: mail (16), Drive files (16), Google
+Docs (10), calendar (5), Sheets (5), Slides (3), and read-only Teams chats (7).
+Mail works on its own. Teams is an opt-in M365 work/school capability with
+isolated consent and credentials (INSTALL.md section 5F).
 Calendar and files are opt-in per account and need a `capabilities` line plus,
 on M365 and Google, a one-off re-consent. INSTALL.md section 5D is the step
 people miss.
