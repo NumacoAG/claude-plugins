@@ -1,11 +1,13 @@
-"""MSAL auth + macOS Keychain persistence for Microsoft accounts."""
+"""MSAL auth and OS credential-store persistence for Microsoft accounts."""
 
 from __future__ import annotations
 
-import keyring
+from dataclasses import replace
+
 from msal import PublicClientApplication, SerializableTokenCache
 
 from .config import M365Account
+from .credential_store import get_secret, set_secret
 
 GRAPH_SCOPES = [
     "https://graph.microsoft.com/Mail.ReadWrite",
@@ -50,14 +52,14 @@ GRAPH_SHARED_SCOPES = ["https://graph.microsoft.com/Mail.ReadWrite.Shared"]
 # The full set requested at interactive re-consent time. MSAL returns one
 # refresh token covering the union, so a single browser consent lights up
 # mail, files, calendar, and delegated shared-mailbox mail.
-GRAPH_REAUTH_SCOPES = (
-    GRAPH_SCOPES + GRAPH_FILE_SCOPES + GRAPH_CALENDAR_SCOPES + GRAPH_SHARED_SCOPES
-)
+GRAPH_REAUTH_SCOPES = GRAPH_SCOPES + GRAPH_FILE_SCOPES + GRAPH_CALENDAR_SCOPES + GRAPH_SHARED_SCOPES
 
 
-def _load_app(acct: M365Account) -> tuple[PublicClientApplication, SerializableTokenCache]:
+def _load_app(
+    acct: M365Account, *, bootstrap_cache: str | None = None
+) -> tuple[PublicClientApplication, SerializableTokenCache]:
     cache = SerializableTokenCache()
-    blob = keyring.get_password(acct.keychain_service, acct.keychain_user)
+    blob = get_secret(acct.keychain_service, acct.keychain_user) or bootstrap_cache
     if blob:
         cache.deserialize(blob)
     app = PublicClientApplication(
@@ -68,9 +70,82 @@ def _load_app(acct: M365Account) -> tuple[PublicClientApplication, SerializableT
     return app, cache
 
 
+# Teams is opt-in and uses a separate cache, preserving mail's scopes and login.
+GRAPH_TEAMS_SCOPES = [
+    "https://graph.microsoft.com/User.Read",
+    "https://graph.microsoft.com/Chat.Read",
+]
+
+
+def _teams_app(acct: M365Account):
+    if "teams" not in acct.capabilities or acct.mailbox:
+        raise ValueError("Teams requires the teams capability on an M365 user's own account.")
+    isolated = replace(acct, keychain_user=acct.keychain_user + ".teams")
+    # Bootstrap silently from an existing login in memory only. Saving Teams
+    # credentials never overwrites the mail cache, including on failed consent.
+    bootstrap = (
+        None
+        if get_secret(isolated.keychain_service, isolated.keychain_user)
+        else get_secret(acct.keychain_service, acct.keychain_user)
+    )
+    app, cache = _load_app(isolated, bootstrap_cache=bootstrap)
+    return isolated, app, cache
+
+
+def _matching_teams_account(app, acct: M365Account):
+    return next(
+        (
+            a
+            for a in app.get_accounts()
+            if (a.get("username") or "").casefold() == acct.address.casefold()
+        ),
+        None,
+    )
+
+
+def acquire_teams_token(acct: M365Account) -> str:
+    """Read-only Teams scopes; silent-only, never opens a browser from a tool."""
+    isolated, app, cache = _teams_app(acct)
+    identity = _matching_teams_account(app, acct)
+    result = app.acquire_token_silent(GRAPH_TEAMS_SCOPES, account=identity) if identity else None
+    if result and "access_token" in result:
+        _save_cache(isolated, cache)
+        return result["access_token"]
+    raise RuntimeError(
+        f"Teams consent is required for {acct.id}. Enable the teams capability, then run "
+        f"uv run python scripts/reauth_teams.py {acct.id} from the plugin server directory. "
+        "This requests User.Read and Chat.Read only; a tenant administrator may need to approve."
+    )
+
+
+def reauth_teams_interactive(acct: M365Account) -> dict:
+    isolated, app, cache = _teams_app(acct)
+    result = app.acquire_token_interactive(
+        scopes=GRAPH_TEAMS_SCOPES, port=8765, login_hint=acct.address
+    )
+    if "access_token" not in result:
+        # Error codes are useful; raw provider descriptions may contain identity
+        # data or auth details and are deliberately not written to tool output.
+        raise RuntimeError(
+            f"Teams consent failed ({result.get('error', 'unknown')}). Check tenant policy and the app registration."
+        )
+    claims = result.get("id_token_claims") or {}
+    signed_in = claims.get("preferred_username") or claims.get("upn") or claims.get("email")
+    if (
+        not isinstance(signed_in, str)
+        or signed_in.casefold() != acct.address.casefold()
+        or _matching_teams_account(app, acct) is None
+    ):
+        raise RuntimeError(
+            "The signed-in Teams identity does not match the configured address; credentials were not saved."
+        )
+    _save_cache(isolated, cache)
+    return {"ok": True, "account": acct.id, "scopes": result.get("scope", "")}
+
+
 def _save_cache(acct: M365Account, cache: SerializableTokenCache) -> None:
     if cache.has_state_changed:
-        keyring.set_password(acct.keychain_service, acct.keychain_user, cache.serialize())
+        set_secret(acct.keychain_service, acct.keychain_user, cache.serialize())
 
 
 def acquire_token(acct: M365Account) -> str:
@@ -91,8 +166,7 @@ def acquire_token(acct: M365Account) -> str:
     _save_cache(acct, cache)
     if "access_token" not in result:
         raise RuntimeError(
-            f"Authentication failed for {acct.id}: "
-            f"{result.get('error_description') or result}"
+            f"Authentication failed for {acct.id}: {result.get('error_description') or result}"
         )
     return result["access_token"]
 
@@ -186,8 +260,7 @@ def reauth_interactive(acct: M365Account) -> dict:
     _save_cache(acct, cache)
     if "access_token" not in result:
         raise RuntimeError(
-            f"Re-consent failed for {acct.id}: "
-            f"{result.get('error_description') or result}"
+            f"Re-consent failed for {acct.id}: {result.get('error_description') or result}"
         )
     return {
         "ok": True,

@@ -20,7 +20,8 @@ DEFAULTS_PATH = Path.home() / ".config" / "mcp-mail" / "defaults.toml"
 
 # Capability tokens an account may declare. "mail" is the original surface;
 # "drive" and "calendar" are added by the Drive/Calendar/SharePoint expansion.
-KNOWN_CAPABILITIES = frozenset({"mail", "drive", "calendar"})
+# "teams" enables read-only chats on M365 work/school users' own accounts.
+KNOWN_CAPABILITIES = frozenset({"mail", "drive", "calendar", "teams"})
 
 
 def _parse_capabilities(entry: dict, default: list[str]) -> tuple[str, ...]:
@@ -32,14 +33,16 @@ def _parse_capabilities(entry: dict, default: list[str]) -> tuple[str, ...]:
     """
     raw = entry.get("capabilities", default)
     if not isinstance(raw, list) or not all(isinstance(c, str) for c in raw):
-        raise ValueError(
-            f"account {entry.get('id')!r}: `capabilities` must be a list of strings"
-        )
+        raise ValueError(f"account {entry.get('id')!r}: `capabilities` must be a list of strings")
     unknown = [c for c in raw if c not in KNOWN_CAPABILITIES]
     if unknown:
         raise ValueError(
             f"account {entry.get('id')!r}: unknown capabilities {unknown!r}; "
             f"allowed: {sorted(KNOWN_CAPABILITIES)}"
+        )
+    if "teams" in raw and (entry.get("provider") != "m365" or entry.get("mailbox")):
+        raise ValueError(
+            "The teams capability requires an M365 user's own account, not a delegate mailbox."
         )
     return tuple(raw)
 
@@ -58,7 +61,7 @@ class Signature:
     on_reply: bool = True
 
 
-def _parse_signature(entry: dict) -> "Signature | None":
+def _parse_signature(entry: dict) -> Signature | None:
     """Read an account's optional outgoing signature.
 
     Enabled only when `signature_html` (a path to an HTML snippet) is set. The
@@ -161,9 +164,7 @@ Account = M365Account | GmailAccount | IMAPAccount | LocalFSAccount
 def _parse_roots(entry: dict) -> tuple[Path, ...]:
     raw = entry.get("roots")
     if not isinstance(raw, list) or not raw:
-        raise ValueError(
-            f"localfs account {entry.get('id')!r} requires a non-empty `roots` list"
-        )
+        raise ValueError(f"localfs account {entry.get('id')!r} requires a non-empty `roots` list")
     roots: list[Path] = []
     for r in raw:
         if not isinstance(r, str):
@@ -199,9 +200,7 @@ def _shared_m365(defaults: dict) -> dict:
     return table if isinstance(table, dict) else {}
 
 
-def load_accounts(
-    path: Path | None = None, defaults_path: Path | None = None
-) -> list[Account]:
+def load_accounts(path: Path | None = None, defaults_path: Path | None = None) -> list[Account]:
     config_path = path or DEFAULT_CONFIG_PATH
     shared_defaults_path = defaults_path or DEFAULTS_PATH
     if not config_path.exists():

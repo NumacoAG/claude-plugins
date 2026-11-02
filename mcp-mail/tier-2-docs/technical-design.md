@@ -1,5 +1,5 @@
 # mcp-mail — technical design (tier-2)
-**v2.0**
+**v2.1**
 
 > Reference for Claude (and any developer working on the repo). Tier-1 is
 > `../requirements.md` and is the source of truth for *what* and *why*; this
@@ -36,8 +36,8 @@
 ## 2. Tool surface (MCP tools)
 
 The table below is the original mail surface. The calendar, Drive, Docs, Sheets
-and Slides surfaces added later bring the registry to **55 tools**; their design
-is section 11, and the authoritative list is always `list_tools()` in
+and Slides surfaces added later, plus read-only Teams chats, bring the registry
+to **62 tools**; their designs are sections 11 and 12. The authoritative list is `list_tools()` in
 `server/src/mcp_mail/server.py`.
 
 | Tool | Purpose | Confirmation-gated? |
@@ -450,3 +450,51 @@ mailbox owner granting Exchange Full Access.
   `core.guard` designates `drive_share` and attendee-bearing calendar writes as
   outward facing, and extending the hook matcher to cover them would put the
   per-call prompt in front of those too.
+
+## 12. Read-only Teams chats
+
+`teams_tools.py` registers seven read-only tools and routes explicit account IDs
+to `adapters/teams.py`. Configuration rejects `teams` on non-M365 providers and
+delegate mailboxes. The dispatcher repeats the check before constructing an
+adapter. Defaults and existing mail/calendar/file write guards are unchanged.
+
+| Tool | Graph v1.0 operation |
+|---|---|
+| `teams_whoami` | GET `/me`, selected identity fields |
+| `teams_list_chats` | GET `/me/chats`, last-message preview, latest activity first |
+| `teams_get_chat` | GET `/chats/{chat_id}` |
+| `teams_list_members` | GET `/chats/{chat_id}/members`, paginated |
+| `teams_list_messages` | GET `/chats/{chat_id}/messages`, created descending, optional exclusive zoned `before` |
+| `teams_get_message` | GET `/chats/{chat_id}/messages/{message_id}` |
+| `teams_search_messages` | GET one `/chats/{chat_id}/messages` page, local literal body/subject match |
+
+List pages return `value` and `next_cursor`; an empty page can still have a
+continuation. Opaque cursors encode the account ID, expected resource path and
+provider nextLink. They are validated against the same resource on HTTPS
+`graph.microsoft.com/v1.0`, with redirects disabled, before forwarding a token.
+Raw IDs are length checked and URL encoded. Message and chat pages default to
+25 entries and cap at 50. A new `before` filter cannot accompany a cursor.
+Search requires a chat ID and scans one message page with the same cursor
+mechanism. It decodes HTML text, matches a case-insensitive literal phrase in
+body or subject and returns complete `matches`, `scanned_count`, `next_cursor`
+and an explicit search mode. Limits bound messages scanned, not matches. A page
+with no matches can still have a continuation. KQL and attachment-content search
+are unsupported. Global Graph search was excluded because live testing required
+channel permissions in addition to `Chat.Read`; all seven tools use only GET.
+
+Auth uses only delegated `User.Read` and `Chat.Read`, separate from mail and the
+existing union re-consent. `_teams_app()` uses `<keychain_user>.teams`; when absent,
+the original mail cache can seed it in memory. Only the isolated cache is saved.
+Silent acquisition selects the exact configured address. Tool calls never open a
+browser. `scripts/reauth_teams.py` handles interactive consent explicitly, with
+the expected login hint, and checks both returned ID-token claims and the cached
+identity before persisting. Credential storage uses the same chunk-safe OS helper
+as mail. Denied access explains consent, tenant policy and membership without
+printing raw provider error details.
+
+No send, channel, read-state change, attachment download, recording or transcript
+API is exposed. HTML bodies, mentions, references and matching messages remain
+untrusted data. Other tenants require their own authorized identities or federation;
+the implementation does not translate invitations into permissions. Transport
+tests cover continuation boundaries, redirects, method/parameter selection,
+pagination, capability checks and authentication/cache isolation.

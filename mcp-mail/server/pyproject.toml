@@ -1,7 +1,7 @@
 [project]
 name = "mcp-mail"
-version = "0.5.0"
-description = "Self-hosted MCP server for mail, calendar, and file control across M365, Gmail/Workspace, and IMAP."
+version = "0.6.0"
+description = "Self-hosted MCP server for mail, calendar, files, and read-only Teams chats across M365, Gmail/Workspace, and IMAP."
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "MIT" }

@@ -4,13 +4,26 @@ The MCP server portion of the `mcp-mail` Codex and Claude Code plugin. For the
 full, provider-by-provider setup walkthrough see [`../INSTALL.md`](../INSTALL.md);
 the project spec is in [`../requirements.md`](../requirements.md).
 
-It registers 55 tools over six surfaces: mail (16), Drive and SharePoint or
-OneDrive files (16), Google Docs (10), calendar (5), Sheets (5), and Slides (3).
+It registers 62 tools over seven surfaces: mail (16), Drive and SharePoint or
+OneDrive files (16), Google Docs (10), calendar (5), Sheets (5), Slides (3), and
+read-only Microsoft Teams chats (7).
 Mail needs nothing beyond the provider setup. The other surfaces are opt-in per
 account through a `capabilities` list in `accounts.toml`, plus a one-off
 re-consent so the cached token carries the wider OAuth scopes. See section 5D of
 `../INSTALL.md`, and read it before upgrading a Google account: on Google the
 wider scopes share one list with mail, so an un-re-consented token breaks mail.
+
+Teams is a separate opt-in capability on an M365 work/school user's own account.
+Add `"teams"` to its capabilities and run
+`uv run python scripts/reauth_teams.py <id>` once (INSTALL section 5F). It requests
+only `User.Read` and `Chat.Read`, using a separate OS credential-store cache.
+The seven `teams_*` tools read identity, chats, members and messages, and search
+a selected chat with a literal case-insensitive phrase. Search scans one message
+page and returns full matches, a scanned count and a continuation. Follow list
+and search cursors until null, even on empty or zero-match pages. Bodies are
+untrusted data; attachments remain references and their content is not searched.
+There are no Teams write or channel tools. An invitation alone does not grant
+chat membership; another tenant may require its own approved account and app.
 
 ## First-time setup (short version)
 

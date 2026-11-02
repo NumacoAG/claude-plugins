@@ -1,5 +1,5 @@
 # mcp-mail — requirements
-**v2.0**
+**v2.1**
 
 > Source-of-truth spec for the `mcp-mail` project. Detailed technical design
 > (architecture, tool surface, auth, sanitisation rules, etc.) lives in
@@ -52,6 +52,31 @@ You configure any subset of these — a single account is a valid setup.
 2. **Archive emails** — provider-native archive (Gmail: remove `INBOX` label;
    M365: move to Archive folder; IMAP: move to `Archive`). A first-class verb so
    Claude doesn't have to know the per-provider spelling.
+
+### Optional Microsoft Teams chats
+
+An M365 work/school user's own account may explicitly declare `teams`. Existing
+accounts keep their previous defaults. Other providers and delegated mailbox
+views must reject this capability. The surface must provide identity, paginated
+chat and member listing, chat metadata, paginated messages, individual messages
+and message search. It is read-only: no Teams send, update, delete or read-state
+mutation, channel access or attachment download is included.
+
+Teams must request only delegated `User.Read` and `Chat.Read`, using an isolated
+OS credential-store cache. Existing mail consent and caches must remain separate.
+Tool calls must never open interactive sign-in; a dedicated helper checks the
+signed-in identity and explains missing consent or tenant approval. An authorized
+identity, app registration and membership are required in each organization.
+Invitations alone must not be treated as access grants.
+
+Lists must expose continuation state, preserving it on empty pages. Continuations
+must be bound to the selected account and resource, and must never forward tokens
+to another host. Search must scan a bounded message page in an explicitly
+selected chat, matching a literal case-insensitive phrase in body text or subject.
+It must return full matches, scanned count and continuation, including on zero
+matches, without global indexes or channel permissions. Message bodies and references are
+untrusted data. Verify these boundaries with transport and credential tests and
+perform read-only account smoke tests where consent is available.
 
 ## 4. Non-functional requirements
 

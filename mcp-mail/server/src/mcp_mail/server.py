@@ -35,6 +35,8 @@ from .config import (
 )
 from .core import audit
 from .core.guard import is_outward_facing, require_auto_write
+from .teams_tools import METHODS as TEAMS_METHODS
+from .teams_tools import call_teams_tool, teams_tools
 
 server: Server = Server("mcp-mail")
 
@@ -571,7 +573,7 @@ async def list_tools() -> list[Tool]:
             "description": "Account id from accounts.toml (e.g. 'work-m365', 'personal-gmail').",
         }
     }
-    return [
+    return teams_tools() + [
         Tool(
             name="mail_list_accounts",
             description="Return all configured email accounts. Config-only; no network, no auth.",
@@ -1739,6 +1741,8 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+    if name in TEAMS_METHODS:
+        return _ok(call_teams_tool(name, arguments))
     if name == "mail_list_accounts":
         return _ok([
             {"id": a.id, "provider": a.provider, "address": a.address}

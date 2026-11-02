@@ -19,6 +19,8 @@
 #   capabilities = ["mail", "drive"]     mail plus the drive_*, doc_*, sheet_*
 #                                        and slides_* tools
 #   capabilities = ["drive"]             files only (the localfs default)
+#   capabilities = ["mail", "teams"]     mail and read-only M365 chats
+#   capabilities = ["teams"]             M365 chats only (own work/school user)
 #
 # Omitting the key keeps the historical behaviour: mail providers default to
 # ["mail"], localfs defaults to ["drive"]. Declaring a capability is what turns
@@ -45,12 +47,18 @@
 # defaults.toml.example) and omit client_id and tenant_id here. Whatever you do
 # write in an account block wins over the shared file, per key.
 #
-# Mail works with the mail scopes alone. To use any capability beyond "mail"
+# Mail works with the mail scopes alone. To use calendar or drive
 # you must run the one-off re-consent once, from mcp-mail/server:
 #     uv run python scripts/reauth_m365.py work-m365
 # It requests the file, calendar and shared-mailbox scopes on top of the mail
 # ones and refreshes the SAME Keychain token. Until you run it, mail keeps
 # working normally and only the drive_* and cal_* calls report a clear error.
+# Teams is separate: add "teams" to capabilities, leave mailbox unset, then run:
+#     uv run python scripts/reauth_teams.py work-m365
+# This requests only User.Read + Chat.Read and uses an isolated OS credential
+# cache named <keychain_user>.teams. Mail credentials remain separate. Managed
+# tenants may require approval. Another tenant requires an authorized identity
+# and approved app there; invitations alone do not grant chat membership.
 [[account]]
 id = "work-m365"
 provider = "m365"
